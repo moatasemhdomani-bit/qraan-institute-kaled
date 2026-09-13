@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  DIRECTOR
+  ADMIN
+  TEACHER
+  EXAMINER
+  GUARDIAN
+}
+
+model User {
+  id           String  @id @default(cuid())
+  name         String
+  username     String  @unique
+  passwordHash String
+  role         Role
+
+  fatherName    String?
+  motherName    String?
+  familyName    String? // النسبة: الكنية أو اسم العائلة
+  phone         String?
+  birthDate     String?
+  nationalId    String?
+  address       String?
+  currentJob    String?
+  photoUrl      String?
+  maritalStatus String?
+  education     String?
+  quranLevel    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teachableCohorts CohortTeacher[]
+  halaqatTaught    Halqa[]
+  auditLogs        AuditLog[]
+}
+
+// الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
+model Cohort {
+  id         String  @id
+  name       String  @unique
+  isRotating Boolean @default(false) // false = ثابت, true = قلّاب
+  time1      String?
+  time2      String? // قلّاب فقط
+  cycle      String? // "أسبوعي" | "نصف شهري" — قلّاب فقط
+
+  teachers CohortTeacher[]
+  halaqat  Halqa[]
+}
+
+model CohortTeacher {
+  cohortId String
+  userId   String
+  cohort   Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([cohortId, userId])
+}
+
+model Halqa {
+  id        String @id @default(cuid())
+  name      String
+  teacherId String
+  teacher   User   @relation(fields: [teacherId], references: [id])
+  cohortId  String
+  cohort    Cohort @relation(fields: [cohortId], references: [id])
+
+  students  Student[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Student {
+  id            String   @id @default(cuid())
+  studentNo     Int      @unique
+  name          String
+  fatherName    String?
+  motherName    String?
+  birthDate     String?
+  address       String?
+  fatherJob     String?
+  photoUrl      String?
+  studentPhone  String?
+  guardianPhone String?
+  registeredAt  DateTime @default(now())
+
+  halqaId String?
+  halqa   Halqa?  @relation(fields: [halqaId], references: [id])
+
+  updatedAt DateTime @updatedAt
+}
+
+// صف وحيد (id ثابت = 1) يحمل أيام الدوام الرسمية.
+model WorkingDays {
+  id   Int    @id @default(1)
+  days String // JSON array, e.g. ["السبت","الأحد","الاثنين"]
+}
+
+model Holiday {
+  id   String @id @default(cuid())
+  name String
+  date String
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+  action    String
+  createdAt DateTime @default(now())
+}
