@@ -311,7 +311,8 @@ function StaffForm({
   const [role, setRole] = useState<RoleId>(initial?.role ?? "TEACHER");
   const [cohortIds, setCohortIds] = useState<string[]>(initial?.cohortIds ?? []);
   const [deleteState, deleteAction, deletePending] = useActionState(
-    async (_prev: FormState, _f: FormData) => (initial ? deleteStaff(initial.id) : { error: "" }),
+    async (_prev: FormState, _f: FormData): Promise<FormState> =>
+      initial ? deleteStaff(initial.id) : { error: "" },
     initialState
   );
 
