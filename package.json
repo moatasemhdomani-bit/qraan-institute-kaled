@@ -5,18 +5,20 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "prisma migrate deploy && node prisma/seed.mjs && next start",
+    "start:plain": "next start",
     "lint": "eslint",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "node prisma/seed.mjs"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "node prisma/seed.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6",
     "bcryptjs": "^2.4.3",
     "jose": "^5",
     "next": "16.3.5",
+    "prisma": "^6",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -27,7 +29,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
-    "prisma": "^6",
     "tsx": "^4",
     "typescript": "^5"
   }

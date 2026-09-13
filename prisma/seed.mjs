@@ -11,13 +11,10 @@ const COHORTS = [
   { id: "qallab-2", name: "قلّاب 2", isRotating: true },
 ];
 
+// Idempotent: safe to run on every deploy.
 async function main() {
   for (const c of COHORTS) {
-    await prisma.cohort.upsert({
-      where: { id: c.id },
-      update: {},
-      create: c,
-    });
+    await prisma.cohort.upsert({ where: { id: c.id }, update: {}, create: c });
   }
 
   await prisma.workingDays.upsert({
@@ -31,17 +28,12 @@ async function main() {
   if (!existing) {
     const passwordHash = await bcrypt.hash("Khaled@2026", 10);
     await prisma.user.create({
-      data: {
-        name: "مدير المعهد",
-        username: directorUsername,
-        passwordHash,
-        role: "DIRECTOR",
-      },
+      data: { name: "مدير المعهد", username: directorUsername, passwordHash, role: "DIRECTOR" },
     });
-    console.log(`\nحساب مدير المعهد الأولي:\n  اسم المستخدم: ${directorUsername}\n  كلمة المرور: Khaled@2026\n(غيّروها بعد أول دخول عبر قاعدة البيانات مباشرة — شاشة تغيير كلمة المرور ليست ضمن المرحلة 1)\n`);
+    console.log("تمت تهيئة حساب مدير المعهد الأول (director).");
   }
 
-  console.log("تمت التهيئة: 5 أفواج، إعداد أيام الدوام، وحساب مدير المعهد (إن لم يكن موجودًا).");
+  console.log("التهيئة مكتملة: الأفواج الخمسة، إعداد أيام الدوام، وحساب مدير المعهد.");
 }
 
 main()
