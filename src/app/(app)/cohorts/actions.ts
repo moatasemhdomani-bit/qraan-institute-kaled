@@ -23,9 +23,8 @@ export async function updateCohortTiming(_prev: FormState, formData: FormData): 
   const id = String(formData.get("id") || "");
   const time1 = String(formData.get("time1") || "") || null;
   const time2 = String(formData.get("time2") || "") || null;
-  const cycle = String(formData.get("cycle") || "") || null;
 
-  const cohort = await prisma.cohort.update({ where: { id }, data: { time1, time2, cycle } });
+  const cohort = await prisma.cohort.update({ where: { id }, data: { time1, time2 } });
   await logAction(session.userId, `عدّل توقيت الفوج «${cohort.name}»`);
   revalidatePath("/cohorts");
   return { ok: true };

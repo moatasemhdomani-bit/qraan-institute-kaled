@@ -50,7 +50,6 @@ model Cohort {
   isRotating Boolean @default(false) // false = ثابت, true = قلّاب
   time1      String?
   time2      String? // قلّاب فقط
-  cycle      String? // "أسبوعي" | "نصف شهري" — قلّاب فقط
 
   teachers CohortTeacher[]
   halaqat  Halqa[]

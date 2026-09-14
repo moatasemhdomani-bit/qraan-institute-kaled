@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useActionState, useTransition } from "react";
 import { updateCohortTiming, addTeacherToCohort, removeTeacherFromCohort, type FormState } from "./actions";
-import { chipStyle, inputStyle, cardStyle } from "@/lib/ui";
+import { inputStyle, cardStyle } from "@/lib/ui";
 
 type Cohort = {
   id: string;
@@ -10,7 +10,6 @@ type Cohort = {
   isRotating: boolean;
   time1: string;
   time2: string;
-  cycle: string;
   teachers: { id: string; name: string }[];
 };
 
@@ -31,7 +30,6 @@ export default function CohortsClient({ cohorts, allTeachers }: { cohorts: Cohor
 
 function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id: string; name: string }[] }) {
   const [state, formAction, pending] = useActionState(updateCohortTiming, initialState);
-  const [cycle, setCycle] = useState(cohort.cycle);
   const [pickTeacher, setPickTeacher] = useState("");
   const [, startTransition] = useTransition();
   const [savedFlash, setSavedFlash] = useState(false);
@@ -57,10 +55,9 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
 
       <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <input type="hidden" name="id" value={cohort.id} />
-        <input type="hidden" name="cycle" value={cohort.isRotating ? cycle : ""} />
         <div>
           <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 5 }}>
-            {cohort.isRotating ? "وقتان يتبادلان دوريًا" : "وقت واحد يُحدَّد ولا يتغيّر"}
+            {cohort.isRotating ? "وقتان يتبادلان أسبوعًا بأسبوع" : "وقت واحد يُحدَّد ولا يتغيّر"}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <input name="time1" defaultValue={cohort.time1} placeholder="مثال 08:30" style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center" }} />
@@ -69,16 +66,6 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
             )}
           </div>
         </div>
-
-        {cohort.isRotating && (
-          <div style={{ display: "flex", gap: 6 }}>
-            {["أسبوعي", "نصف شهري"].map((cy) => (
-              <button key={cy} type="button" onClick={() => setCycle(cy)} style={chipStyle(cycle === cy)}>
-                {cy}
-              </button>
-            ))}
-          </div>
-        )}
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
