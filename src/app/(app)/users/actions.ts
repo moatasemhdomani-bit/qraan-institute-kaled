@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { normalizePhone } from "@/lib/phone";
 
 export type FormState = { error?: string; ok?: boolean };
 
@@ -45,7 +46,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     fatherName: String(formData.get("father") || "") || null,
     motherName: String(formData.get("mother") || "") || null,
     familyName: String(formData.get("family") || "") || null,
-    phone: String(formData.get("phone") || "") || null,
+    phone: normalizePhone(String(formData.get("phone") || "")),
     birthDate: String(formData.get("birth") || "") || null,
     nationalId: String(formData.get("nid") || "") || null,
     address: String(formData.get("address") || "") || null,
