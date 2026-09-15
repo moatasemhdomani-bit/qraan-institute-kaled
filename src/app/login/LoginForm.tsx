@@ -82,7 +82,7 @@ export default function LoginForm() {
         style={{
           position: "relative",
           overflow: "hidden",
-          backgroundImage: "url(/login-bg.jpg)",
+          backgroundImage: "url(/login-bg-kufi.webp)",
           backgroundSize: "cover",
           backgroundPosition: "center",
           borderInlineStart: "1px solid var(--line)",
