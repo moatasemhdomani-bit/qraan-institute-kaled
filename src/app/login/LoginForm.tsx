@@ -82,10 +82,19 @@ export default function LoginForm() {
         style={{
           position: "relative",
           overflow: "hidden",
-          background: "var(--hero-grad)",
+          backgroundImage: "url(/login-bg.jpg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
           borderInlineStart: "1px solid var(--line)",
         }}
       >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "var(--hero-grad)",
+          }}
+        />
         <div
           style={{
             position: "absolute",
