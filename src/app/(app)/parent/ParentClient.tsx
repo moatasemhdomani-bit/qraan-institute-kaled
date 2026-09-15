@@ -15,6 +15,7 @@ export default function ParentClient({
   recDateLabel,
   attHistory,
   recHistory,
+  examRows,
 }: {
   family: { id: string; label: string }[];
   activeId: string;
@@ -27,6 +28,7 @@ export default function ParentClient({
   recDateLabel: string;
   attHistory: { date: string; label: string; color: string }[];
   recHistory: { date: string; blank: boolean; newLine: string; pastLine: string }[];
+  examRows: { type: string; result: string; date: string; examinerName: string; notes: string | null }[];
 }) {
   const router = useRouter();
   const go = (child: string, f: string, t: string) => router.push(`/parent?child=${child}&from=${f}&to=${t}`);
@@ -161,17 +163,27 @@ export default function ParentClient({
         )}
       </div>
 
-      <div
-        style={{
-          borderRadius: 14,
-          border: "1px dashed var(--line)",
-          background: "var(--card-2-grad)",
-          padding: "26px 18px",
-          textAlign: "center",
-        }}
-      >
-        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 5 }}>جدول الاختبارات والشهادات</div>
-        <div style={{ fontSize: 13, color: "var(--ink-2)" }}>فارغ حتى المرحلة 3 — تظهر هنا نتائج السبر والشهادات.</div>
+      <div style={{ ...cardStyle, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line-2)", fontSize: 14, fontWeight: 700 }}>
+          جدول الاختبارات
+        </div>
+        {examRows.length === 0 ? (
+          <div style={{ padding: "26px 18px", textAlign: "center", fontSize: 13, color: "var(--ink-2)" }}>
+            لا توجد نتائج سبر بعد — تظهر هنا نتائج السبر والشهادات.
+          </div>
+        ) : (
+          examRows.map((e, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 5, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+                <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>{e.type}</span>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{e.result}</span>
+                <span style={{ marginInlineStart: "auto", fontSize: 12, color: "var(--ink-3)", direction: "ltr" }}>{e.date}</span>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>المختبِر: {e.examinerName}</div>
+              {e.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>ملاحظات: {e.notes}</div>}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

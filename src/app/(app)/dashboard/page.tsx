@@ -12,6 +12,9 @@ const QUICK_LINKS: Record<string, { href: string; label: string; note: string }>
   halaqat: { href: "/halaqat", label: "إدارة الحلقات", note: "إنشاء حلقة وإسناد مدرّسها" },
   schedule: { href: "/schedule", label: "الدوام والعطل", note: "أيام الدوام وقائمة العطل" },
   students: { href: "/students", label: "الطلاب", note: "قائمة الطلاب وفرزهم" },
+  "exam-monitor": { href: "/exam-monitor", label: "متابعة السبر", note: "سبورات كل الحلقات، وما لم يُسبَر بعد" },
+  "exams-local-view": { href: "/exams/local-view", label: "متابعة السبر المحلي", note: "نتائج السبر المحلي — عرض فقط" },
+  "exam-settings": { href: "/exam-settings", label: "طريقة التقييم", note: "شكل نتيجة تحديد المستوى وترشيح الأوقاف" },
 };
 
 const SOON_TEXT: Record<string, string> = {
@@ -31,9 +34,10 @@ export default async function DashboardPage() {
 
   const staffMode = session.role === "DIRECTOR" || session.role === "ADMIN";
 
-  // المدرّس وولي الأمر لهما شاشات فعلية الآن — يُوجَّهان إليها مباشرة
+  // المدرّس وولي الأمر ومختِبر لهم شاشات فعلية الآن — يُوجَّهون إليها مباشرة
   if (session.role === "TEACHER") redirect("/attendance");
   if (session.role === "GUARDIAN") redirect("/parent");
+  if (session.role === "EXAMINER") redirect("/exams/local");
 
   if (!staffMode) {
     return (

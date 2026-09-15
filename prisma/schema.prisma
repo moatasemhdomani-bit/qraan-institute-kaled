@@ -47,6 +47,8 @@ model User {
   guardianOf       Student[]        @relation("StudentGuardianAccount")
   attendanceTaken  Attendance[]     @relation("AttendanceRecorder")
   recitationsTaken Recitation[]     @relation("RecitationRecorder")
+  examsGiven       Exam[]           @relation("ExamsGiven")
+  questions        Question[]
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
@@ -110,6 +112,7 @@ model Student {
 
   attendance  Attendance[]
   recitations Recitation[]
+  exams       Exam[]
 
   updatedAt DateTime @updatedAt
 }
@@ -161,6 +164,85 @@ model Attendance {
 
   @@unique([studentId, date])
   @@index([halqaId, date])
+}
+
+// ==================== المرحلة ٣: السبر والأسئلة ====================
+
+enum ExamType {
+  LOCAL // سبر محلي
+  WAQF_NOMINATION // سبر ترشيح الأوقاف
+  PLACEMENT // تحديد مستوى
+}
+
+enum EvalMode {
+  MARK100 // علامة من 100
+  GRADE // تقدير
+  LEVEL // مستوى
+}
+
+// صف وحيد (id ثابت = 1) — شكل عرض نتيجة تحديد المستوى وترشيح الأوقاف، تضبطه الإدارة مرة واحدة.
+model EvaluationSettings {
+  id            Int      @id @default(1)
+  placementMode EvalMode @default(MARK100)
+  awqafMode     EvalMode @default(MARK100)
+}
+
+// بنك أسئلة — خاص بكل مختبِر على حدة، لا يُشارَك بين المختبِرين.
+model Question {
+  id         String   @id @default(cuid())
+  text       String
+  examinerId String
+  examiner   User     @relation(fields: [examinerId], references: [id])
+  createdAt  DateTime @default(now())
+
+  answers ExamAnswer[]
+}
+
+model Exam {
+  id   String   @id @default(cuid())
+  type ExamType
+  date String // YYYY-MM-DD
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  examinerId String
+  examiner   User   @relation("ExamsGiven", fields: [examinerId], references: [id])
+
+  // LOCAL: الجزء المختبَر فيه · PLACEMENT: الجزء الذي يبدأ منه الطالب (نتيجة الفرز)
+  juz Int?
+
+  // نتيجة PLACEMENT وWAQF_NOMINATION حسب الوضع المضبوط في EvaluationSettings وقت الحفظ
+  resultMark  Int?
+  resultGrade String?
+  resultLevel String?
+
+  // LOCAL فقط — محسوبة تلقائيًا: متوسط علامات الأسئلة × ١٠
+  localTotal Int?
+
+  // WAQF_NOMINATION فقط
+  nominationPresent Boolean? // true = حاضرًا, false = غيبًا
+  nominationParts   Int?
+
+  notes String?
+
+  answers ExamAnswer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([examinerId])
+}
+
+// سطر سؤال واحد ضمن سبر محلي
+model ExamAnswer {
+  id         String   @id @default(cuid())
+  examId     String
+  exam       Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  mark       Int // من ١٠
 }
 
 model Recitation {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { saveStudent, resetGuardianPassword, type FormState } from "./actions";
 import { copyToClipboard } from "@/lib/clipboard";
-import { inputStyle, primaryButtonStyle, cardStyle } from "@/lib/ui";
+import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import PhotoField from "@/components/PhotoField";
 
@@ -39,12 +39,18 @@ export default function StudentsClient({
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [onlyUnsorted, setOnlyUnsorted] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<StudentRow | null>(null);
 
+  const unsortedCount = useMemo(() => students.filter((s) => !s.halqaId).length, [students]);
+
   const filtered = useMemo(
-    () => students.filter((s) => !search.trim() || s.name.includes(search.trim()) || s.no.includes(search.trim())),
-    [students, search]
+    () =>
+      students
+        .filter((s) => !onlyUnsorted || !s.halqaId)
+        .filter((s) => !search.trim() || s.name.includes(search.trim()) || s.no.includes(search.trim())),
+    [students, search, onlyUnsorted]
   );
 
   function openNew() {
@@ -63,13 +69,27 @@ export default function StudentsClient({
       </div>
 
       <div style={{ ...cardStyle, overflow: "auto" }}>
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-2)" }}>
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-2)", display: "flex", flexDirection: "column", gap: 10 }}>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="بحث بالاسم أو رقم الطالب"
             style={inputStyle()}
           />
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button onClick={() => setOnlyUnsorted(false)} style={chipStyle(!onlyUnsorted)}>
+              كل الطلاب
+            </button>
+            <button onClick={() => setOnlyUnsorted(true)} style={chipStyle(onlyUnsorted)}>
+              غير مفروزين ({unsortedCount})
+            </button>
+          </div>
+          {onlyUnsorted && (
+            <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
+              هؤلاء أضافهم المختبِر عبر تحديد المستوى ولم يُفرزوا على حلقة وفوج بعد — الفرز هو ما يُنشئ حساب ولي
+              الأمر ويُلحق نتيجة السبر بملف الطالب.
+            </div>
+          )}
         </div>
 
         {filtered.length === 0 ? (
@@ -116,11 +136,12 @@ export default function StudentsClient({
                   alignItems: "center",
                   fontSize: 14,
                   minWidth: 620,
+                  background: s.halqaId ? undefined : "linear-gradient(90deg, rgba(224,138,138,0.10), transparent 60%)",
                 }}
               >
                 <div style={{ color: "var(--ink-3)", fontSize: 13, direction: "ltr", textAlign: "right" }}>{s.no}</div>
                 <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
-                <div style={{ color: "var(--ink-2)", fontSize: 13 }}>{s.halqaName}</div>
+                <div style={{ color: s.halqaId ? "var(--ink-2)" : "#E8A0A0", fontSize: 13 }}>{s.halqaId ? s.halqaName : "غير مفروز"}</div>
                 <div>
                   <span style={{ padding: "4px 10px", borderRadius: 999, background: "var(--chip)", border: "1px solid var(--line)", fontSize: 12 }}>
                     {s.cohortName}
@@ -143,14 +164,24 @@ export default function StudentsClient({
 
           <div className="list-cards">
             {filtered.map((s) => (
-              <div key={s.id} style={{ padding: "13px 14px", borderTop: "1px solid var(--line-2)", display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                key={s.id}
+                style={{
+                  padding: "13px 14px",
+                  borderTop: "1px solid var(--line-2)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: s.halqaId ? undefined : "linear-gradient(90deg, rgba(224,138,138,0.10), transparent 60%)",
+                }}
+              >
                 <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</span>
                     <span style={{ fontSize: 12, color: "var(--ink-3)", direction: "ltr" }}>#{s.no}</span>
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 12, color: "var(--ink-2)" }}>{s.halqaName}</span>
+                    <span style={{ fontSize: 12, color: s.halqaId ? "var(--ink-2)" : "#E8A0A0" }}>{s.halqaId ? s.halqaName : "غير مفروز"}</span>
                     <span style={{ padding: "4px 10px", borderRadius: 999, background: "var(--chip)", border: "1px solid var(--line)", fontSize: 12 }}>
                       {s.cohortName}
                     </span>

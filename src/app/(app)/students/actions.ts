@@ -49,8 +49,18 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
 
   let studentId = id;
   if (id) {
+    const before = await prisma.student.findUnique({ where: { id } });
     await prisma.student.update({ where: { id }, data });
-    await logAction(session.userId, `عدّل بيانات الطالب «${name}»`);
+
+    // فرز طالب أضافه مختبِر عبر تحديد المستوى (بلا حلقة ولا حساب ولي أمر) — يُنشأ حساب ولي الأمر الآن فقط.
+    if (before && !before.guardianUserId && halqaId) {
+      const { user: guardian } = await createGuardianAccount(before.studentNo, name);
+      await prisma.student.update({ where: { id }, data: { guardianUserId: guardian.id } });
+      const halqa = await prisma.halqa.findUnique({ where: { id: halqaId } });
+      await logAction(session.userId, `فرز الطالب «${name}» إلى حلقة ${halqa?.name ?? ""}`);
+    } else {
+      await logAction(session.userId, `عدّل بيانات الطالب «${name}»`);
+    }
   } else {
     const last = await prisma.student.findFirst({ orderBy: { studentNo: "desc" } });
     const nextNo = (last?.studentNo ?? 1000) + 1;
