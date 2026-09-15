@@ -10,6 +10,7 @@ type Cohort = {
   isRotating: boolean;
   time1: string;
   time2: string;
+  rotationStart: string;
   teachers: { id: string; name: string }[];
 };
 
@@ -66,6 +67,20 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
             )}
           </div>
         </div>
+
+        {cohort.isRotating && (
+          <div>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 5 }}>
+              تاريخ بداية التناوب — منه يعرف النظام أي وقت دوام هذا الأسبوع
+            </div>
+            <input
+              type="date"
+              name="rotationStart"
+              defaultValue={cohort.rotationStart}
+              style={{ ...inputStyle(), textAlign: "center", direction: "ltr" }}
+            />
+          </div>
+        )}
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button

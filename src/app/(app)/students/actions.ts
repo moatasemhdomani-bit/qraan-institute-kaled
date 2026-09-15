@@ -8,8 +8,10 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { normalizePhone } from "@/lib/phone";
+import { createGuardianAccount, regenerateGuardianPassword } from "@/lib/guardian";
 
 export type FormState = { error?: string; ok?: boolean };
+export type ResetState = { error?: string; ok?: boolean; password?: string };
 
 async function savePhoto(file: File): Promise<string> {
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -54,6 +56,10 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     const nextNo = (last?.studentNo ?? 1000) + 1;
     const created = await prisma.student.create({ data: { ...data, studentNo: nextNo } });
     studentId = created.id;
+
+    // حساب ولي الأمر يُنشأ تلقائيًا: اسم المستخدم = رقم الطالب
+    const { user: guardian } = await createGuardianAccount(nextNo, name);
+    await prisma.student.update({ where: { id: created.id }, data: { guardianUserId: guardian.id } });
     const halqa = halqaId ? await prisma.halqa.findUnique({ where: { id: halqaId } }) : null;
     await logAction(
       session.userId,
@@ -70,4 +76,19 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
   revalidatePath("/students");
   revalidatePath("/dashboard");
   return { ok: true };
+}
+
+/** يولّد كلمة مرور جديدة لحساب ولي أمر الطالب — عند فقدان السابقة. */
+export async function resetGuardianPassword(studentId: string): Promise<ResetState> {
+  const session = await getSession();
+  if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) {
+    return { error: "غير مصرَّح لك بهذا الإجراء." };
+  }
+  const student = await prisma.student.findUnique({ where: { id: studentId } });
+  if (!student?.guardianUserId) return { error: "لا يوجد حساب ولي أمر لهذا الطالب." };
+
+  const password = await regenerateGuardianPassword(student.guardianUserId);
+  await logAction(session.userId, `ولّد كلمة مرور جديدة لولي أمر الطالب «${student.name}»`);
+  revalidatePath("/students");
+  return { ok: true, password };
 }

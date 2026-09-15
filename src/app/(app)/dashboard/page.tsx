@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 const QUICK_LINKS: Record<string, { href: string; label: string; note: string }> = {
   users: { href: "/users", label: "إدارة المستخدمين", note: "قائمة العاملين وتسجيل عامل جديد" },
   audit: { href: "/audit", label: "سجل التدقيق", note: "من عدّل ماذا ومتى" },
+  monitor: { href: "/monitor", label: "متابعة الحضور", note: "حضور كل الحلقات اليوم" },
   cohorts: { href: "/cohorts", label: "إدارة الأفواج", note: "توقيت الأفواج الخمسة" },
   halaqat: { href: "/halaqat", label: "إدارة الحلقات", note: "إنشاء حلقة وإسناد مدرّسها" },
   schedule: { href: "/schedule", label: "الدوام والعطل", note: "أيام الدوام وقائمة العطل" },
@@ -29,6 +30,10 @@ export default async function DashboardPage() {
   if (!session) redirect("/login");
 
   const staffMode = session.role === "DIRECTOR" || session.role === "ADMIN";
+
+  // المدرّس وولي الأمر لهما شاشات فعلية الآن — يُوجَّهان إليها مباشرة
+  if (session.role === "TEACHER") redirect("/attendance");
+  if (session.role === "GUARDIAN") redirect("/parent");
 
   if (!staffMode) {
     return (

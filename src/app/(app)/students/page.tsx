@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import StudentsClient from "./StudentsClient";
+import { decryptPassword } from "@/lib/guardian";
 
 export default async function StudentsPage() {
   const session = await getSession();
@@ -10,7 +11,10 @@ export default async function StudentsPage() {
   if (session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
 
   const [studentsRaw, halaqatRaw] = await Promise.all([
-    prisma.student.findMany({ include: { halqa: { include: { cohort: true } } }, orderBy: { studentNo: "asc" } }),
+    prisma.student.findMany({
+      include: { halqa: { include: { cohort: true } }, guardianUser: true },
+      orderBy: { studentNo: "asc" },
+    }),
     prisma.halqa.findMany({ include: { cohort: true }, orderBy: { name: "asc" } }),
   ]);
 
@@ -30,6 +34,8 @@ export default async function StudentsPage() {
     halqaId: s.halqaId || "",
     halqaName: s.halqa?.name || "—",
     cohortName: s.halqa?.cohort.name || "—",
+    guardianUsername: s.guardianUser?.username || "",
+    guardianPassword: decryptPassword(s.guardianUser?.guardianPasswordEnc) || "",
   }));
 
   const halaqat = halaqatRaw.map((h) => ({ id: h.id, name: h.name, cohortName: h.cohort.name }));

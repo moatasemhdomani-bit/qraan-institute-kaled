@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { saveStudent, type FormState } from "./actions";
+import { saveStudent, resetGuardianPassword, type FormState } from "./actions";
 import { inputStyle, primaryButtonStyle, cardStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import PhotoField from "@/components/PhotoField";
@@ -23,6 +23,8 @@ type StudentRow = {
   halqaId: string;
   halqaName: string;
   cohortName: string;
+  guardianUsername: string;
+  guardianPassword: string;
 };
 
 const initialState: FormState = {};
@@ -223,6 +225,8 @@ function StudentForm({
 
         <PhotoField name="photo" label="صورة الطالب" existingUrl={initial?.photoUrl} />
 
+        {initial && initial.guardianUsername && <GuardianBox student={initial} />}
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
           <ReadOnly label="رقم الطالب" value={initial ? initial.no : "يُحدَّد تلقائيًا عند الحفظ"} />
           <ReadOnly label="تاريخ التسجيل" value={initial ? initial.registeredAt : todayLabel} />
@@ -271,6 +275,75 @@ function ReadOnly({ label, value }: { label: string; value: string }) {
     <div>
       <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>{label}</label>
       <input value={value} readOnly style={inputStyle(true)} />
+    </div>
+  );
+}
+
+/** بيانات دخول ولي الأمر — تظهر للإداريين فقط ليسلّموها له. */
+function GuardianBox({ student }: { student: StudentRow }) {
+  const [shown, setShown] = useState(false);
+  const [password, setPassword] = useState(student.guardianPassword);
+  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+
+  async function regenerate() {
+    setBusy(true);
+    const res = await resetGuardianPassword(student.id);
+    setBusy(false);
+    if (res.ok && res.password) {
+      setPassword(res.password);
+      setShown(true);
+      router.refresh();
+    }
+  }
+
+  return (
+    <div
+      style={{
+        padding: 14,
+        borderRadius: 12,
+        border: "1px solid var(--line)",
+        background: "var(--card-2-grad)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 600 }}>دخول ولي الأمر</div>
+      <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
+        حساب أُنشئ تلقائيًا مع الطالب. سلّم ولي الأمر هذه البيانات ليتابع حضور ابنه وتسميعه.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>
+        <div>
+          <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>اسم المستخدم</label>
+          <input readOnly value={student.guardianUsername} style={{ ...inputStyle(true), direction: "ltr", textAlign: "center" }} />
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>كلمة المرور</label>
+          <input
+            readOnly
+            value={shown ? password : "••••••••••"}
+            style={{ ...inputStyle(true), direction: "ltr", textAlign: "center", letterSpacing: shown ? "0.05em" : "0.2em" }}
+          />
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={() => setShown(!shown)}
+          style={{ padding: "7px 13px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}
+        >
+          {shown ? "إخفاء" : "إظهار"}
+        </button>
+        <button
+          type="button"
+          onClick={regenerate}
+          disabled={busy}
+          style={{ padding: "7px 13px", borderRadius: 9, border: "1px dashed var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 12, cursor: "pointer", opacity: busy ? 0.6 : 1 }}
+        >
+          {busy ? "جارٍ التوليد…" : "توليد كلمة مرور جديدة"}
+        </button>
+      </div>
     </div>
   );
 }

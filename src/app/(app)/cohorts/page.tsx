@@ -20,6 +20,7 @@ export default async function CohortsPage() {
     isRotating: c.isRotating,
     time1: c.time1 || "",
     time2: c.time2 || "",
+    rotationStart: c.rotationStart || "",
     teachers: c.teachers.map((t) => ({ id: t.userId, name: t.user.name })),
   }));
 

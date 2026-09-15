@@ -38,9 +38,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // دور ولي الأمر فقط: كلمة المرور مخزَّنة مشفَّرة (قابلة للاسترجاع) لتظهر للإداريين في ملف الطالب
+  guardianPasswordEnc String?
+
   teachableCohorts CohortTeacher[]
   halaqatTaught    Halqa[]
   auditLogs        AuditLog[]
+  guardianOf       Student[]        @relation("StudentGuardianAccount")
+  attendanceTaken  Attendance[]     @relation("AttendanceRecorder")
+  recitationsTaken Recitation[]     @relation("RecitationRecorder")
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
@@ -50,6 +56,8 @@ model Cohort {
   isRotating Boolean @default(false) // false = ثابت, true = قلّاب
   time1      String?
   time2      String? // قلّاب فقط
+  // القلّاب يتناوب أسبوعًا بأسبوع؛ هذا التاريخ يحدد أي أسبوع هو الأول
+  rotationStart String?
 
   teachers CohortTeacher[]
   halaqat  Halqa[]
@@ -72,9 +80,11 @@ model Halqa {
   cohortId  String
   cohort    Cohort @relation(fields: [cohortId], references: [id])
 
-  students  Student[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  students    Student[]
+  attendance  Attendance[]
+  recitations Recitation[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
 model Student {
@@ -93,6 +103,13 @@ model Student {
 
   halqaId String?
   halqa   Halqa?  @relation(fields: [halqaId], references: [id])
+
+  // حساب ولي الأمر: اسم المستخدم = رقم الطالب، يُنشأ تلقائيًا عند التسجيل
+  guardianUserId String? @unique
+  guardianUser   User?   @relation("StudentGuardianAccount", fields: [guardianUserId], references: [id])
+
+  attendance  Attendance[]
+  recitations Recitation[]
 
   updatedAt DateTime @updatedAt
 }
@@ -115,4 +132,64 @@ model AuditLog {
   actor     User     @relation(fields: [actorId], references: [id])
   action    String
   createdAt DateTime @default(now())
+}
+
+// ==================== المرحلة ٢: العمل اليومي ====================
+
+enum AttendanceStatus {
+  PRESENT // حاضر
+  LATE // متأخر
+  EXCUSED // إذن
+  ABSENT // غائب
+}
+
+model Attendance {
+  id      String           @id @default(cuid())
+  date    String // YYYY-MM-DD
+  status  AttendanceStatus
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  halqaId   String
+  halqa     Halqa   @relation(fields: [halqaId], references: [id])
+
+  recordedById String
+  recordedBy   User   @relation("AttendanceRecorder", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, date])
+  @@index([halqaId, date])
+}
+
+model Recitation {
+  id   String @id @default(cuid())
+  date String // YYYY-MM-DD
+
+  none   Boolean @default(false) // لم يسمّع اليوم إطلاقًا
+  noNew  Boolean @default(false) // لم يسمّع جديدًا
+  noPast Boolean @default(false) // لم يقرأ ماضيًا
+
+  newFrom  Int? // صفحات المصحف: ١–٦٠٤
+  newTo    Int?
+  pastFrom Int?
+  pastTo   Int?
+
+  gradeNew  String? // ممتاز | جيد جدًا | جيد | ضعيف | إعادة
+  gradePast String?
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  halqaId   String
+  halqa     Halqa   @relation(fields: [halqaId], references: [id])
+
+  recordedById String
+  recordedBy   User   @relation("RecitationRecorder", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, date])
+  @@index([halqaId, date])
 }
