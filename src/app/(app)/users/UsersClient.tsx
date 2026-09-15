@@ -10,6 +10,7 @@ import PasswordField from "@/components/PasswordField";
 type StaffRow = {
   id: string;
   name: string;
+  username: string;
   role: RoleId;
   phone: string;
   photoUrl: string | null;
@@ -65,7 +66,7 @@ export default function UsersClient({
     <>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button onClick={openNew} style={primaryButtonStyle}>
-          تسجيل عامل جديد
+          إضافة موظف جديد
         </button>
       </div>
 
@@ -96,7 +97,7 @@ export default function UsersClient({
               ابدأ بتسجيل المدرّسين — بقية الشاشات تُبنى على قائمتهم.
             </div>
             <button onClick={openNew} style={primaryButtonStyle}>
-              تسجيل عامل جديد
+              إضافة موظف جديد
             </button>
           </div>
         ) : (
@@ -280,7 +281,7 @@ export default function UsersClient({
 
       <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
         {isDirector
-          ? "بصفتك مدير المعهد: تسند أي دور، وتعدّل أي حساب، ويظهر زر «حذف الحساب» عند تعديل حساب إداري."
+          ? "بصفتك مدير المعهد: تسند أي دور، وتعدّل أي حساب، ويظهر زر «حذف الحساب» عند فتح أي حساب."
           : "بصفتك إداريًا: تسجّل عاملًا جديدًا وتسند له أي دور عدا «مدير المعهد»، ولا تعدّل حساب مدير المعهد ولا تنقل حسابًا إلى دوره."}
       </div>
 
@@ -324,13 +325,13 @@ function StaffForm({
     if (deleteState.ok) onClose();
   }, [deleteState.ok, onClose]);
 
-  const showDelete = isDirector && !!initial && initial.role === "ADMIN";
+  const showDelete = isDirector && !!initial;
 
   return (
     <Drawer
       open
       onClose={onClose}
-      title={initial ? "تعديل حساب عامل" : "تسجيل عامل جديد"}
+      title={initial ? "تعديل حساب عامل" : "إضافة موظف جديد"}
       subtitle="نموذج التسجيل — إدارة المستخدمين"
       footer={
         <>
@@ -416,12 +417,15 @@ function StaffForm({
           )}
         </div>
 
-        {!initial && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-            <Field label="اسم المستخدم" name="username" />
-            <PasswordField label="كلمة المرور" name="password" autoComplete="new-password" />
-          </div>
-        )}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+          <Field label="اسم المستخدم" name="username" defaultValue={initial?.username} />
+          <PasswordField
+            label={initial ? "كلمة مرور جديدة" : "كلمة المرور"}
+            name="password"
+            autoComplete="new-password"
+            placeholder={initial ? "اتركه فارغًا للإبقاء على كلمة المرور الحالية" : undefined}
+          />
+        </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
           <Field label="الاسم" name="name" defaultValue={initial?.name} />
@@ -429,7 +433,7 @@ function StaffForm({
           <Field label="اسم الأم" name="mother" defaultValue={initial?.mother} />
           <Field label="النسبة (الكنية/العائلة)" name="family" defaultValue={initial?.family} />
           <Field label="رقم التواصل" name="phone" defaultValue={initial?.phone} placeholder="09XX XXX XXX" />
-          <Field label="تاريخ الميلاد" name="birth" defaultValue={initial?.birth} placeholder="يوم/شهر/سنة" />
+          <Field label="تاريخ الميلاد" name="birth" type="date" defaultValue={initial?.birth} />
           <Field label="الرقم الوطني" name="nid" defaultValue={initial?.nid} />
           <Field label="عنوان السكن" name="address" defaultValue={initial?.address} />
           <Field label="العمل الحالي" name="job" defaultValue={initial?.job} />
@@ -477,10 +481,17 @@ function Field({
   placeholder?: string;
   type?: string;
 }) {
+  const isDate = type === "date";
   return (
     <div>
       <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>{label}</label>
-      <input name={name} type={type} defaultValue={defaultValue} placeholder={placeholder} style={inputStyle()} />
+      <input
+        name={name}
+        type={type}
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+        style={isDate ? { ...inputStyle(), textAlign: "center", direction: "ltr" } : inputStyle()}
+      />
     </div>
   );
 }

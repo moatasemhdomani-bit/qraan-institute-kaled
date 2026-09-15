@@ -21,6 +21,7 @@ export default async function UsersPage() {
   const staff = staffRaw.map((u) => ({
     id: u.id,
     name: u.name,
+    username: u.username,
     role: u.role,
     phone: u.phone || "",
     photoUrl: u.photoUrl,

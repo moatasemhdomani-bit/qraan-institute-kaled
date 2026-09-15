@@ -9,10 +9,12 @@ export default function PasswordField({
   label,
   name,
   autoComplete,
+  placeholder,
 }: {
   label?: string;
   name: string;
   autoComplete?: string;
+  placeholder?: string;
 }) {
   const [shown, setShown] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,6 +55,7 @@ export default function PasswordField({
           name={name}
           type={shown ? "text" : "password"}
           autoComplete={autoComplete}
+          placeholder={placeholder}
           style={{ ...inputStyle(), paddingInlineEnd: 116 }}
         />
         <div style={{ position: "absolute", insetInlineEnd: 6, top: "50%", transform: "translateY(-50%)", display: "flex", gap: 4 }}>

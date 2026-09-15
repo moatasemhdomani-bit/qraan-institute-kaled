@@ -64,7 +64,19 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     if (existing.role === "DIRECTOR" && session.role !== "DIRECTOR") {
       return { error: "تعديل حساب مدير المعهد من اختصاصه وحده." };
     }
-    await prisma.user.update({ where: { id }, data });
+
+    const updateData: typeof data & { username?: string; passwordHash?: string } = { ...data };
+
+    if (username && username !== existing.username) {
+      const clash = await prisma.user.findUnique({ where: { username } });
+      if (clash) return { error: "اسم المستخدم مستخدَم مسبقًا." };
+      updateData.username = username;
+    }
+    if (password) {
+      updateData.passwordHash = await hashPassword(password);
+    }
+
+    await prisma.user.update({ where: { id }, data: updateData });
     await logAction(session.userId, `عدّل بيانات العامل «${name}»`);
   } else {
     if (!username || !password) return { error: "اسم المستخدم وكلمة المرور مطلوبان لحساب جديد." };
@@ -103,10 +115,18 @@ export async function deleteStaff(id: string): Promise<FormState> {
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return { error: "الحساب غير موجود." };
-  if (target.role !== "ADMIN") return { error: "يمكن حذف حسابات الإداريين فقط من هذه الشاشة." };
+  if (target.id === session.userId) return { error: "لا يمكنك حذف حسابك الخاص." };
 
-  await prisma.user.delete({ where: { id } });
-  await logAction(session.userId, `حذف حساب الإداري «${target.name}»`);
+  try {
+    await prisma.user.delete({ where: { id } });
+  } catch {
+    return {
+      error:
+        "لا يمكن حذف هذا الحساب لارتباطه ببيانات أخرى (حلقة مُسندة إليه، أو سجلات حضور/تسميع سجّلها) — انقل هذه الارتباطات أولًا.",
+    };
+  }
+
+  await logAction(session.userId, `حذف حساب ${ROLE_LABELS[target.role]} «${target.name}»`);
   revalidatePath("/users");
   return { ok: true };
 }
