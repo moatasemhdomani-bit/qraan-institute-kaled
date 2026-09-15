@@ -5,6 +5,7 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[] }[]
   { id: "attendance", href: "/attendance", label: "الحضور اليومي", roles: ["TEACHER"] },
   { id: "recitation", href: "/recitation", label: "التسميع اليومي", roles: ["TEACHER"] },
   { id: "monitor", href: "/monitor", label: "متابعة الحضور", roles: ["DIRECTOR", "ADMIN"] },
+  { id: "recitation-monitor", href: "/recitation-monitor", label: "متابعة التسميع", roles: ["DIRECTOR", "ADMIN"] },
   { id: "parent", href: "/parent", label: "متابعة الابن", roles: ["GUARDIAN"] },
   { id: "users", href: "/users", label: "إدارة المستخدمين", roles: ["DIRECTOR", "ADMIN"] },
   { id: "audit", href: "/audit", label: "سجل التدقيق", roles: ["DIRECTOR"] },

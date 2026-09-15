@@ -18,8 +18,8 @@ const page = (v: FormDataEntryValue | null): number | null => {
 
 export async function uploadRecitation(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();
-  if (!session || session.role !== "TEACHER") {
-    return { error: "تسجيل التسميع من صلاحية المدرّس." };
+  if (!session || (session.role !== "TEACHER" && session.role !== "DIRECTOR")) {
+    return { error: "تسجيل التسميع من صلاحية المدرّس أو مدير المعهد." };
   }
 
   const halqaId = String(formData.get("halqaId") || "");
@@ -34,7 +34,9 @@ export async function uploadRecitation(_prev: FormState, formData: FormData): Pr
     include: { students: { select: { id: true, name: true } } },
   });
   if (!halqa) return { error: "الحلقة غير موجودة." };
-  if (halqa.teacherId !== session.userId) return { error: "هذه ليست حلقتك." };
+  if (session.role === "TEACHER" && halqa.teacherId !== session.userId) {
+    return { error: "هذه ليست حلقتك." };
+  }
 
   const entries: RecEntry[] = halqa.students.map((st) => ({
     studentId: st.id,

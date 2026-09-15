@@ -17,8 +17,9 @@ const VALID = new Set(ATT_STATES.map((a) => a.id));
  */
 export async function uploadAttendance(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();
-  if (!session || session.role !== "TEACHER") {
-    return { error: "تسجيل الحضور من صلاحية المدرّس." };
+  // مدير المعهد يتمتع بخواص كل الموظفين، فيسجّل لأي حلقة؛ والمدرّس لحلقته وحدها
+  if (!session || (session.role !== "TEACHER" && session.role !== "DIRECTOR")) {
+    return { error: "تسجيل الحضور من صلاحية المدرّس أو مدير المعهد." };
   }
 
   const halqaId = String(formData.get("halqaId") || "");
@@ -33,7 +34,9 @@ export async function uploadAttendance(_prev: FormState, formData: FormData): Pr
     include: { students: { select: { id: true } } },
   });
   if (!halqa) return { error: "الحلقة غير موجودة." };
-  if (halqa.teacherId !== session.userId) return { error: "هذه ليست حلقتك." };
+  if (session.role === "TEACHER" && halqa.teacherId !== session.userId) {
+    return { error: "هذه ليست حلقتك." };
+  }
 
   const entries = halqa.students.map((st) => ({
     studentId: st.id,

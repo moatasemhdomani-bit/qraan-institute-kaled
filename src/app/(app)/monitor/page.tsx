@@ -55,8 +55,20 @@ export default async function MonitorPage({
 
   return (
     <>
-      <PageHeader title="متابعة الحضور" subtitle={`حضور كل الحلقات ليوم ${formatDateAr(date)} — عرض فقط.`} />
-      <MonitorClient date={date} blocks={blocks} pendingCount={pending.length} totalCount={blocks.length} />
+      <PageHeader
+        title="متابعة الحضور"
+        subtitle={
+          `حضور كل الحلقات ليوم ${formatDateAr(date)}` +
+          (session.role === "DIRECTOR" ? " — يمكنك فتح أي حلقة وتسجيل حضورها." : " — عرض فقط.")
+        }
+      />
+      <MonitorClient
+        date={date}
+        blocks={blocks}
+        pendingCount={pending.length}
+        totalCount={blocks.length}
+        canRecord={session.role === "DIRECTOR"}
+      />
     </>
   );
 }

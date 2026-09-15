@@ -13,13 +13,14 @@ export default async function RecitationPage({
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "TEACHER") redirect("/dashboard");
+  const isDirector = session.role === "DIRECTOR";
+  if (session.role !== "TEACHER" && !isDirector) redirect("/dashboard");
 
   const sp = await searchParams;
   const date = sp.date && isValidDate(sp.date) ? sp.date : today();
 
   const halaqat = await prisma.halqa.findMany({
-    where: { teacherId: session.userId },
+    where: isDirector ? {} : { teacherId: session.userId },
     include: { cohort: true },
     orderBy: { name: "asc" },
   });
@@ -50,7 +51,14 @@ export default async function RecitationPage({
 
   return (
     <>
-      <PageHeader title="التسميع اليومي" subtitle={`ما سمّعه طلابك يوم ${formatDateAr(date)} — جديدًا وماضيًا.`} />
+      <PageHeader
+        title="التسميع اليومي"
+        subtitle={
+          (isDirector ? `ما سمّعه طلاب ${halqa?.name ?? "الحلقة"} يوم ` : "ما سمّعه طلابك يوم ") +
+          formatDateAr(date) +
+          " — جديدًا وماضيًا."
+        }
+      />
       <DailyShell
         basePath="/recitation"
         halaqat={halaqat.map((h) => ({ id: h.id, name: h.name }))}
@@ -88,7 +96,7 @@ export default async function RecitationPage({
       )}
       {!lock && !halqa && (
         <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>
-          لا توجد حلقة مُسندة إليك بعد — راجع الإدارة.
+          {isDirector ? "لا توجد حلقات بعد — أنشئ حلقة أولًا." : "لا توجد حلقة مُسندة إليك بعد — راجع الإدارة."}
         </div>
       )}
     </>
