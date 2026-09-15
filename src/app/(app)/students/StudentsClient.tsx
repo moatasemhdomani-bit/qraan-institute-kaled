@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { saveStudent, resetGuardianPassword, type FormState } from "./actions";
+import { copyToClipboard } from "@/lib/clipboard";
 import { inputStyle, primaryButtonStyle, cardStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import PhotoField from "@/components/PhotoField";
@@ -233,7 +234,7 @@ function StudentForm({
           <Field label="اسم الطالب" name="name" defaultValue={initial?.name} />
           <Field label="اسم الوالد" name="father" defaultValue={initial?.father} />
           <Field label="اسم الوالدة" name="mother" defaultValue={initial?.mother} />
-          <Field label="المواليد" name="birth" defaultValue={initial?.birth} placeholder="يوم/شهر/سنة" />
+          <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} />
           <Field label="عنوان السكن" name="address" defaultValue={initial?.address} />
           <Field label="عمل الوالد الحالي" name="job" defaultValue={initial?.job} />
           <Field label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} />
@@ -261,11 +262,30 @@ function StudentForm({
   );
 }
 
-function Field({ label, name, defaultValue, placeholder }: { label: string; name: string; defaultValue?: string; placeholder?: string }) {
+function Field({
+  label,
+  name,
+  defaultValue,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+  placeholder?: string;
+  type?: string;
+}) {
+  const isDate = type === "date";
   return (
     <div>
       <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>{label}</label>
-      <input name={name} defaultValue={defaultValue} placeholder={placeholder} style={inputStyle()} />
+      <input
+        name={name}
+        type={type}
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+        style={isDate ? { ...inputStyle(), textAlign: "center", direction: "ltr" } : inputStyle()}
+      />
     </div>
   );
 }
@@ -284,7 +304,16 @@ function GuardianBox({ student }: { student: StudentRow }) {
   const [shown, setShown] = useState(false);
   const [password, setPassword] = useState(student.guardianPassword);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState<"user" | "pass" | null>(null);
   const router = useRouter();
+
+  async function copy(text: string, which: "user" | "pass") {
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      setCopied(which);
+      setTimeout(() => setCopied(null), 1500);
+    }
+  }
 
   async function regenerate() {
     setBusy(true);
@@ -316,15 +345,33 @@ function GuardianBox({ student }: { student: StudentRow }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>
         <div>
           <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>اسم المستخدم</label>
-          <input readOnly value={student.guardianUsername} style={{ ...inputStyle(true), direction: "ltr", textAlign: "center" }} />
+          <div style={{ display: "flex", gap: 6 }}>
+            <input readOnly value={student.guardianUsername} style={{ ...inputStyle(true), direction: "ltr", textAlign: "center", flex: 1 }} />
+            <button
+              type="button"
+              onClick={() => copy(student.guardianUsername, "user")}
+              style={{ padding: "0 12px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}
+            >
+              {copied === "user" ? "نُسخ ✓" : "نسخ"}
+            </button>
+          </div>
         </div>
         <div>
           <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>كلمة المرور</label>
-          <input
-            readOnly
-            value={shown ? password : "••••••••••"}
-            style={{ ...inputStyle(true), direction: "ltr", textAlign: "center", letterSpacing: shown ? "0.05em" : "0.2em" }}
-          />
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              readOnly
+              value={shown ? password : "••••••••••"}
+              style={{ ...inputStyle(true), direction: "ltr", textAlign: "center", letterSpacing: shown ? "0.05em" : "0.2em", flex: 1 }}
+            />
+            <button
+              type="button"
+              onClick={() => copy(password, "pass")}
+              style={{ padding: "0 12px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}
+            >
+              {copied === "pass" ? "نُسخت ✓" : "نسخ"}
+            </button>
+          </div>
         </div>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

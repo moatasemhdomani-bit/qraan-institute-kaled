@@ -5,6 +5,7 @@ import { saveStaff, deleteStaff, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle, cardStyle, ROLE_LABELS, type RoleId } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import PhotoField from "@/components/PhotoField";
+import PasswordField from "@/components/PasswordField";
 
 type StaffRow = {
   id: string;
@@ -418,7 +419,7 @@ function StaffForm({
         {!initial && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
             <Field label="اسم المستخدم" name="username" />
-            <Field label="كلمة المرور" name="password" type="password" />
+            <PasswordField label="كلمة المرور" name="password" autoComplete="new-password" />
           </div>
         )}
 

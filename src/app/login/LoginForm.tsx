@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { login, type LoginState } from "./actions";
 import { inputStyle, primaryButtonStyle } from "@/lib/ui";
+import PasswordField from "@/components/PasswordField";
 
 const initialState: LoginState = {};
 
@@ -43,12 +44,9 @@ export default function LoginForm() {
           <label style={{ display: "block", fontSize: 13, color: "var(--ink-2)", marginBottom: 6 }}>
             كلمة المرور
           </label>
-          <input
-            name="password"
-            type="password"
-            style={{ ...inputStyle(), marginBottom: 10 }}
-            autoComplete="current-password"
-          />
+          <div style={{ marginBottom: 10 }}>
+            <PasswordField name="password" autoComplete="current-password" />
+          </div>
 
           {state.error && (
             <div
