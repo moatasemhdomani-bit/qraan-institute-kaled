@@ -42,11 +42,10 @@ export default async function LocalExamPage() {
       juz: e.juz,
       pages: e.pages,
       resultMark: e.resultMark,
-      localTotal: e.localTotal,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       notes: e.notes,
-      answers: e.answers.map((a) => ({ topicId: a.topicId, text: a.topic.text, mark: a.mark })),
+      answers: e.answers.map((a) => ({ topicId: a.topicId, text: a.topic.text })),
     };
   }
   for (const e of examsRaw) {

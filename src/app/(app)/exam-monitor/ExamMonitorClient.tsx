@@ -5,7 +5,7 @@ import { cardStyle, chipStyle } from "@/lib/ui";
 import { resultLabel, passFailLabel, TYPE_LABELS, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
 
-type Row = ExistingExam & { type: ExamTypeId; studentName: string; examinerId: string; examinerName: string; localTotal: number | null };
+type Row = ExistingExam & { type: ExamTypeId; studentName: string; examinerId: string; examinerName: string };
 type Block = {
   id: string;
   name: string;

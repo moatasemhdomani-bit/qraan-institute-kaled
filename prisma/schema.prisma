@@ -245,11 +245,8 @@ model Exam {
   // LOCAL (الأنواع الثلاثة) وWAQF_NOMINATION — أرقام صفحات مفردة، غير متتالية بالضرورة
   pages Int[] @default([])
 
-  // WAQF_NOMINATION، وLOCAL (غيباً/عمّ غيباً) — علامة من 100
+  // WAQF_NOMINATION، وLOCAL (الأنواع الثلاثة) — علامة من 100، يُدخلها المختبِر مباشرةً
   resultMark Int?
-
-  // LOCAL/HADIRAN فقط — محسوبة تلقائيًا: متوسط علامات الأسئلة × ١٠
-  localTotal Int?
 
   // WAQF_NOMINATION فقط
   nominationPresent Boolean? // true = حاضرًا, false = غيبًا
@@ -266,14 +263,14 @@ model Exam {
   @@index([examinerId])
 }
 
-// سطر سؤال واحد ضمن سبر محلي (حاضراً فقط) — إشارة إلى بند من بنك أسئلة التجويد
+// سطر سؤال واحد ضمن سبر محلي (حاضراً فقط) — أيّ بند من بنك أسئلة التجويد غُطِّي في هذا السبر
+// (توثيق فقط، بلا علامة — العلامة الكلية يُدخلها المختبِر مباشرةً في Exam.resultMark)
 model ExamAnswer {
   id      String       @id @default(cuid())
   examId  String
   exam    Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
   topicId String
   topic   TajweedTopic @relation(fields: [topicId], references: [id])
-  mark    Int // من ١٠
 }
 
 model Recitation {

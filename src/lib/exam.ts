@@ -27,26 +27,15 @@ export const LOCAL_KIND_LABELS: Record<LocalKindId, string> = {
   AMMA_GHAYBAN: "عمّ غيباً",
 };
 
-/** العلامة الكلية لسبر محلي حاضراً: متوسط علامات الأسئلة (من ١٠) × ١٠ = من ١٠٠. */
-export function localTotal(marks: number[]): number {
-  if (marks.length === 0) return 0;
-  return Math.round((marks.reduce((a, b) => a + b, 0) / marks.length) * 10);
-}
-
 type ExamResultShape = {
   type: ExamTypeId;
   localKind?: LocalKindId | null;
-  localTotal?: number | null;
   resultMark?: number | null;
   juz?: number | null;
 };
 
 /** نص نتيجة موحّد للعرض. */
 export function resultLabel(exam: ExamResultShape): string {
-  if (exam.type === "LOCAL") {
-    if (exam.localKind === "HADIRAN") return `${exam.localTotal ?? 0} / 100`;
-    return exam.resultMark != null ? `${exam.resultMark} / 100` : "—";
-  }
   if (exam.type === "PLACEMENT") return exam.juz != null ? `يبدأ من الجزء ${exam.juz}` : "—";
   return exam.resultMark != null ? `${exam.resultMark} / 100` : "—";
 }
@@ -71,12 +60,9 @@ type PassFailShape = ExamResultShape & { nominationPresent?: boolean | null };
 export function passFailLabel(exam: PassFailShape): "ناجح" | "راسب" | null {
   const threshold = passThreshold(exam.type, exam.localKind, exam.nominationPresent);
   if (threshold == null) return null;
-  const mark = exam.type === "LOCAL" && exam.localKind === "HADIRAN" ? exam.localTotal : exam.resultMark;
-  if (mark == null) return null;
-  return mark >= threshold ? "ناجح" : "راسب";
+  if (exam.resultMark == null) return null;
+  return exam.resultMark >= threshold ? "ناجح" : "راسب";
 }
-
-type LocalAnswerInput = { mark: number };
 
 /** يُرجع رسالة الرفض، أو null إن كانت بيانات السبر صحيحة وكاملة. */
 export function validateExam(input: {
@@ -87,7 +73,7 @@ export function validateExam(input: {
   resultMark?: number | null;
   nominationPresent?: boolean | null;
   nominationParts?: number | null;
-  answers?: LocalAnswerInput[];
+  topicIds?: string[];
   studentName?: string;
 }): string | null {
   if (input.type === "PLACEMENT") {
@@ -110,14 +96,11 @@ export function validateExam(input: {
       if (!input.juz || input.juz < 1 || input.juz > 30) return "اختاروا الجزء الذي سُبر فيه الطالب.";
     }
 
-    if (input.localKind === "HADIRAN") {
-      if (!input.answers || input.answers.length === 0) return "أضيفوا سؤالًا واحدًا على الأقل من بنك التجويد.";
-      for (const a of input.answers) {
-        if (!Number.isFinite(a.mark) || a.mark < 0 || a.mark > 10) return "علامة كل سؤال بين 0 و10.";
-      }
-    } else {
-      if (input.resultMark == null || input.resultMark < 0 || input.resultMark > 100) return "أدخلوا علامة من 0 إلى 100.";
+    if (input.localKind === "HADIRAN" && (!input.topicIds || input.topicIds.length === 0)) {
+      return "أضيفوا سؤالًا واحدًا على الأقل من بنك التجويد.";
     }
+
+    if (input.resultMark == null || input.resultMark < 0 || input.resultMark > 100) return "أدخلوا علامة من 0 إلى 100.";
   }
 
   if (input.type === "WAQF_NOMINATION") {

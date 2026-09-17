@@ -8,7 +8,7 @@ import Drawer from "@/components/Drawer";
 
 const initialState: FormState = {};
 
-export type ExamAnswerRow = { topicId: string; text: string; mark: number };
+export type ExamAnswerRow = { topicId: string; text: string };
 
 export type ExistingExam = {
   id: string;
@@ -140,11 +140,6 @@ export default function ExamFormDrawer({
     [topics, juz, topicSearch, answers]
   );
 
-  const total = useMemo(() => {
-    if (answers.length === 0) return 0;
-    return Math.round((answers.reduce((sum, a) => sum + (a.mark || 0), 0) / answers.length) * 10);
-  }, [answers]);
-
   const titles: Record<ExamTypeId, string> = {
     LOCAL: "سبر محلي",
     WAQF_NOMINATION: "ترشيح الأوقاف",
@@ -159,7 +154,6 @@ export default function ExamFormDrawer({
       : passFailLabel({
           type,
           localKind: localKind || null,
-          localTotal: total,
           resultMark: resultMark ? parseInt(resultMark, 10) : null,
           nominationPresent,
         });
@@ -246,7 +240,7 @@ export default function ExamFormDrawer({
         <input type="hidden" name="resultMark" value={resultMark} />
         <input type="hidden" name="nominationPresent" value={nominationPresent == null ? "" : nominationPresent ? "1" : "0"} />
         <input type="hidden" name="nominationParts" value={nominationParts ?? ""} />
-        <input type="hidden" name="answersJson" value={JSON.stringify(answers)} />
+        <input type="hidden" name="topicIdsJson" value={JSON.stringify(answers.map((a) => a.topicId))} />
 
         {type === "PLACEMENT" && !student && (
           <div>
@@ -342,22 +336,7 @@ export default function ExamFormDrawer({
               </div>
             )}
 
-            {localKind === "AMMA_GHAYBAN" && (
-              <div>
-                <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={resultMark}
-                  onChange={(e) => setResultMark(e.target.value)}
-                  placeholder="0 — 100"
-                  style={{ width: 120, minHeight: 46, padding: 11, borderRadius: 10, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 17, textAlign: "center", direction: "ltr" }}
-                />
-              </div>
-            )}
-
-            {localKind === "GHAYBAN" && (
+            {localKind && (
               <div>
                 <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
                 <input
@@ -376,7 +355,7 @@ export default function ExamFormDrawer({
               <>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 9, padding: 14, borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>أسئلة هذا السبر</div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>الأسئلة المُغطاة في هذا السبر</div>
                     {answers.length === 0 && (
                       <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>لم تُضف أسئلة بعد — اختاروا الجزء ثم أسئلة من بنك التجويد أدناه.</div>
                     )}
@@ -386,18 +365,6 @@ export default function ExamFormDrawer({
                           <span style={{ fontSize: 11, color: "var(--ink-3)" }}>سؤال {idx + 1}</span>
                           <span style={{ fontSize: 13.5, color: "var(--ink)" }}>{a.text}</span>
                         </div>
-                        <input
-                          type="number"
-                          min={0}
-                          max={10}
-                          value={a.mark}
-                          onChange={(e) => {
-                            const mark = Math.max(0, Math.min(10, parseInt(e.target.value, 10) || 0));
-                            setAnswers((prev) => prev.map((p, i) => (i === idx ? { ...p, mark } : p)));
-                          }}
-                          placeholder="/10"
-                          style={{ width: 64, flex: "none", minHeight: 44, padding: 9, borderRadius: 10, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 16, textAlign: "center", direction: "ltr" }}
-                        />
                         <button
                           type="button"
                           onClick={() => setAnswers((prev) => prev.filter((_, i) => i !== idx))}
@@ -407,10 +374,6 @@ export default function ExamFormDrawer({
                         </button>
                       </div>
                     ))}
-                    <div style={{ paddingTop: 9, borderTop: "1px solid var(--line-2)" }}>
-                      <div style={{ fontSize: 15, fontWeight: 700 }}>العلامة الكلية المحسوبة: {total} / 100</div>
-                      <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 3 }}>متوسط علامات الأسئلة × 10 — محسوبة تلقائيًا، لا تُختار.</div>
-                    </div>
                   </div>
 
                   {juz != null && (
@@ -516,7 +479,7 @@ export default function ExamFormDrawer({
                             <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               <button
                                 type="button"
-                                onClick={() => setAnswers((prev) => [...prev, { topicId: t.id, text: t.text, mark: 0 }])}
+                                onClick={() => setAnswers((prev) => [...prev, { topicId: t.id, text: t.text }])}
                                 style={{ flex: 1, minWidth: 0, textAlign: "start", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-grad)", color: "var(--ink)", fontSize: 13, cursor: "pointer" }}
                               >
                                 <span style={{ color: "var(--ink-3)" }}>الجزء {t.juz} — </span>

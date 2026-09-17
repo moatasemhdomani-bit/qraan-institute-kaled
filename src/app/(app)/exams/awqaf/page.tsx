@@ -50,11 +50,10 @@ export default async function AwqafExamPage() {
       juz: e.juz,
       pages: e.pages,
       resultMark: e.resultMark,
-      localTotal: e.localTotal,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       notes: e.notes,
-      answers: [] as { topicId: string; text: string; mark: number }[],
+      answers: [] as { topicId: string; text: string }[],
     };
   }
   for (const e of examsRaw) {

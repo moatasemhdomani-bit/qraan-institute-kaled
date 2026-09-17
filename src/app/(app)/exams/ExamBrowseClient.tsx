@@ -8,7 +8,7 @@ import ExamFormDrawer, { type ExistingExam } from "./ExamFormDrawer";
 
 type StudentLite = { id: string; no: number; name: string };
 type Halqa = { id: string; name: string; teacherName: string; cohortName: string; students: StudentLite[] };
-type ExamRow = ExistingExam & { examinerId: string; examinerName: string; localTotal: number | null };
+type ExamRow = ExistingExam & { examinerId: string; examinerName: string };
 
 export default function ExamBrowseClient({
   type,
@@ -162,7 +162,6 @@ export default function ExamBrowseClient({
               const passFail = passFailLabel({
                 type,
                 localKind: e.localKind,
-                localTotal: e.localTotal,
                 resultMark: e.resultMark,
                 nominationPresent: e.nominationPresent,
               });
@@ -170,7 +169,7 @@ export default function ExamBrowseClient({
                 <div key={e.id} style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 15, fontWeight: 700 }}>
-                      {resultLabel({ type, localKind: e.localKind, localTotal: e.localTotal, resultMark: e.resultMark })}
+                      {resultLabel({ type, localKind: e.localKind, resultMark: e.resultMark })}
                     </span>
                     {passFail && (
                       <span

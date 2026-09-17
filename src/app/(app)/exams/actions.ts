@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { localTotal, validateExam, passFailLabel, LOCAL_KIND_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
+import { validateExam, passFailLabel, LOCAL_KIND_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
 
 export type FormState = { error?: string; ok?: boolean; examId?: string };
 
@@ -110,12 +110,12 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   const nominationPartsRaw = String(formData.get("nominationParts") || "");
   const nominationParts = nominationPartsRaw ? parseInt(nominationPartsRaw, 10) : null;
 
-  let answers: { topicId: string; mark: number }[] = [];
+  let topicIds: string[] = [];
   if (type === "LOCAL" && localKind === "HADIRAN") {
     try {
-      answers = JSON.parse(String(formData.get("answersJson") || "[]"));
+      topicIds = JSON.parse(String(formData.get("topicIdsJson") || "[]"));
     } catch {
-      answers = [];
+      topicIds = [];
     }
   }
 
@@ -132,7 +132,7 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     resultMark,
     nominationPresent,
     nominationParts,
-    answers: answers.map((a) => ({ mark: a.mark })),
+    topicIds,
     studentName: type === "PLACEMENT" && !studentId ? studentName : undefined,
   });
   if (validationError) return { error: validationError };
@@ -156,10 +156,9 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     localKind: type === "LOCAL" ? localKind : null,
     juz: usesJuz ? juz : null,
     pages: type === "LOCAL" || type === "WAQF_NOMINATION" ? pages : [],
-    resultMark: type === "WAQF_NOMINATION" || (type === "LOCAL" && !isHadiran) ? resultMark : null,
+    resultMark: type === "WAQF_NOMINATION" || type === "LOCAL" ? resultMark : null,
     nominationPresent: type === "WAQF_NOMINATION" ? nominationPresent : null,
     nominationParts: type === "WAQF_NOMINATION" ? nominationParts : null,
-    localTotal: isHadiran ? localTotal(answers.map((a) => a.mark)) : null,
     notes,
   };
 
@@ -172,21 +171,15 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
 
     if (isHadiran) {
       await tx.examAnswer.deleteMany({ where: { examId: exam.id } });
-      for (const a of answers) {
-        await tx.examAnswer.create({ data: { examId: exam.id, topicId: a.topicId, mark: a.mark } });
+      for (const topicId of topicIds) {
+        await tx.examAnswer.create({ data: { examId: exam.id, topicId } });
       }
     }
 
     return exam.id;
   });
 
-  const passFail = passFailLabel({
-    type,
-    localKind,
-    localTotal: isHadiran ? localTotal(answers.map((a) => a.mark)) : null,
-    resultMark,
-    nominationPresent,
-  });
+  const passFail = passFailLabel({ type, localKind, resultMark, nominationPresent });
   const resultNote = passFail ? ` — النتيجة: ${passFail}` : "";
   await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)} للطالب «${student?.name ?? ""}»${resultNote}`);
 

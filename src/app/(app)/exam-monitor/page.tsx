@@ -38,11 +38,10 @@ export default async function ExamMonitorPage() {
         juz: e.juz,
         pages: e.pages,
         resultMark: e.resultMark,
-        localTotal: e.localTotal,
         nominationPresent: e.nominationPresent,
         nominationParts: e.nominationParts,
         notes: e.notes,
-        answers: e.answers.map((a) => ({ topicId: a.topicId, text: a.topic.text, mark: a.mark })),
+        answers: e.answers.map((a) => ({ topicId: a.topicId, text: a.topic.text })),
       }));
 
     const sobredIds = new Set(rows.map((r) => r.studentId));
