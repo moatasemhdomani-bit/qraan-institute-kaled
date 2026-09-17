@@ -6,6 +6,7 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[] }[]
   { id: "recitation", href: "/recitation", label: "التسميع اليومي", roles: ["TEACHER"] },
   { id: "monitor", href: "/monitor", label: "متابعة الحضور", roles: ["DIRECTOR", "ADMIN"] },
   { id: "recitation-monitor", href: "/recitation-monitor", label: "متابعة التسميع", roles: ["DIRECTOR", "ADMIN"] },
+  { id: "permits", href: "/permits", label: "إذن", roles: ["TEACHER", "ADMIN", "DIRECTOR"] },
   { id: "exams-hub", href: "/exams", label: "السبر", roles: ["DIRECTOR"] },
   { id: "exams-local", href: "/exams/local", label: "السبر المحلي", roles: ["EXAMINER"] },
   { id: "exams-awqaf", href: "/exams/awqaf", label: "ترشيح الأوقاف", roles: ["EXAMINER"] },

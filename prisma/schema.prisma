@@ -49,6 +49,7 @@ model User {
   recitationsTaken Recitation[]     @relation("RecitationRecorder")
   examsGiven       Exam[]           @relation("ExamsGiven")
   questions        Question[]
+  permitsSet       Permit[]         @relation("PermitSetter")
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
@@ -113,6 +114,7 @@ model Student {
   attendance  Attendance[]
   recitations Recitation[]
   exams       Exam[]
+  permits     Permit[]
 
   updatedAt DateTime @updatedAt
 }
@@ -164,6 +166,31 @@ model Attendance {
 
   @@unique([studentId, date])
   @@index([halqaId, date])
+}
+
+enum PermitKind {
+  ENTRY // إذن دخول
+  EXIT // إذن خروج
+}
+
+// إذن دائم — يلازم الطالب في كل أيام الدوام حتى يُحذف (ليس سجلًا يوميًا كالحضور).
+model Permit {
+  id    String     @id @default(cuid())
+  kind  PermitKind
+  time  String // HH:MM بصيغة 24 ساعة
+  note  String?
+  since String // YYYY-MM-DD — تاريخ إضافته أول مرة، لا يتغيّر مع التعديل
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  setById String
+  setBy   User   @relation("PermitSetter", fields: [setById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, kind])
 }
 
 // ==================== المرحلة ٣: السبر والأسئلة ====================
