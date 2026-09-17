@@ -22,12 +22,15 @@ export default async function PlacementExamPage() {
     examinerId: e.examinerId,
     examinerName: e.examiner.name,
     date: e.date,
+    localKind: null,
     juz: e.juz,
+    pageFrom: null,
+    pageTo: null,
     resultMark: e.resultMark,
     nominationPresent: e.nominationPresent,
     nominationParts: e.nominationParts,
     notes: e.notes,
-    answers: [] as { questionId?: string; text: string; mark: number }[],
+    answers: [] as { topicId: string; text: string; mark: number }[],
   }));
 
   return (

@@ -9,17 +9,17 @@ export default async function LocalExamPage() {
   if (!session) redirect("/login");
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
 
-  const [halaqatRaw, examsRaw, bankRaw] = await Promise.all([
+  const [halaqatRaw, examsRaw, tajweedTopics] = await Promise.all([
     prisma.halqa.findMany({
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
     }),
     prisma.exam.findMany({
       where: { type: "LOCAL" },
-      include: { examiner: { select: { id: true, name: true } }, answers: { include: { question: true } } },
+      include: { examiner: { select: { id: true, name: true } }, answers: { include: { topic: true } } },
       orderBy: { date: "desc" },
     }),
-    prisma.question.findMany({ where: { examinerId: session.userId }, orderBy: { createdAt: "desc" } }),
+    prisma.tajweedTopic.findMany({ orderBy: [{ juz: "asc" }, { order: "asc" }] }),
   ]);
 
   const halaqat = halaqatRaw.map((h) => ({
@@ -38,13 +38,16 @@ export default async function LocalExamPage() {
       examinerId: e.examinerId,
       examinerName: e.examiner.name,
       date: e.date,
+      localKind: e.localKind,
       juz: e.juz,
+      pageFrom: e.pageFrom,
+      pageTo: e.pageTo,
       resultMark: e.resultMark,
       localTotal: e.localTotal,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       notes: e.notes,
-      answers: e.answers.map((a) => ({ questionId: a.questionId, text: a.question.text, mark: a.mark })),
+      answers: e.answers.map((a) => ({ topicId: a.topicId, text: a.topic.text, mark: a.mark })),
     };
   }
   for (const e of examsRaw) {
@@ -53,13 +56,13 @@ export default async function LocalExamPage() {
 
   return (
     <>
-      <PageHeader title="السبر المحلي" subtitle="أسئلة من بنككم وعلامة من 10 لكل سؤال — الكلية محسوبة من 100." />
+      <PageHeader title="السبر المحلي" subtitle="غيباً أو حاضراً أو عمّ غيباً — بأرقام الصفحات وعلامة لكل نوع." />
       <ExamBrowseClient
         type="LOCAL"
         readOnly={false}
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}
-        bank={bankRaw.map((q) => ({ id: q.id, text: q.text }))}
+        tajweedTopics={tajweedTopics.map((t) => ({ id: t.id, juz: t.juz, text: t.text }))}
         halaqat={halaqat}
         examsByStudent={examsByStudent}
       />

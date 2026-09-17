@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle } from "@/lib/ui";
-import { resultLabel, TYPE_LABELS, type ExamTypeId } from "@/lib/exam";
+import { resultLabel, TYPE_LABELS, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
 
 type Row = ExistingExam & { type: ExamTypeId; studentName: string; examinerId: string; examinerName: string; localTotal: number | null };
@@ -18,13 +18,13 @@ export default function ExamMonitorClient({
   canEdit,
   isDirector,
   currentUserId,
-  banksByExaminer,
+  tajweedTopics,
   blocks,
 }: {
   canEdit: boolean;
   isDirector: boolean;
   currentUserId: string;
-  banksByExaminer: Record<string, { id: string; text: string }[]>;
+  tajweedTopics: { id: string; juz: number; text: string }[];
   blocks: Block[];
 }) {
   const [typeFilter, setTypeFilter] = useState<"all" | ExamTypeId>("all");
@@ -79,8 +79,16 @@ export default function ExamMonitorClient({
             b.rows.map((r) => (
               <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 5, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>{TYPE_LABELS[r.type]}</span>
+                  <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
+                    {TYPE_LABELS[r.type]}
+                    {r.localKind ? ` — ${LOCAL_KIND_LABELS[r.localKind]}` : ""}
+                  </span>
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{resultLabel(r)}</span>
+                  {r.type === "LOCAL" && r.pageFrom != null && r.pageTo != null && (
+                    <span style={{ fontSize: 12, color: "var(--ink-2)" }}>
+                      صفحات {r.pageFrom}-{r.pageTo}
+                    </span>
+                  )}
                   {canEdit && (isDirector || r.examinerId === currentUserId) && (
                     <button
                       onClick={() => setEditing({ row: r, halqaName: b.name })}
@@ -112,7 +120,7 @@ export default function ExamMonitorClient({
           type={editing.row.type}
           student={{ id: editing.row.studentId, name: editing.row.studentName }}
           existing={editing.row}
-          bank={banksByExaminer[editing.row.examinerId] ?? []}
+          tajweedTopics={tajweedTopics}
           onClose={() => setEditing(null)}
         />
       )}

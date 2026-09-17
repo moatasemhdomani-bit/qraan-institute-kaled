@@ -64,13 +64,13 @@ export default function PlacementClient({
         </div>
       </div>
 
-      {adding && <ExamFormDrawer type="PLACEMENT" student={null} existing={null} bank={[]} onClose={() => setAdding(false)} />}
+      {adding && <ExamFormDrawer type="PLACEMENT" student={null} existing={null} tajweedTopics={[]} onClose={() => setAdding(false)} />}
       {editing && (
         <ExamFormDrawer
           type="PLACEMENT"
           student={{ id: editing.studentId, name: editing.studentName }}
           existing={editing}
-          bank={[]}
+          tajweedTopics={[]}
           onClose={() => setEditing(null)}
         />
       )}

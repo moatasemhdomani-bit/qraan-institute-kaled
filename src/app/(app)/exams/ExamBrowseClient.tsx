@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
-import { resultLabel, type ExamTypeId } from "@/lib/exam";
+import { resultLabel, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
 import Drawer from "@/components/Drawer";
 import ExamFormDrawer, { type ExistingExam } from "./ExamFormDrawer";
 
@@ -15,7 +15,7 @@ export default function ExamBrowseClient({
   readOnly,
   currentUserId,
   isDirector,
-  bank,
+  tajweedTopics,
   halaqat,
   examsByStudent,
 }: {
@@ -23,7 +23,7 @@ export default function ExamBrowseClient({
   readOnly: boolean;
   currentUserId: string;
   isDirector: boolean;
-  bank: { id: string; text: string }[];
+  tajweedTopics: { id: string; juz: number; text: string }[];
   halaqat: Halqa[];
   examsByStudent: Record<string, ExamRow[]>;
 }) {
@@ -141,9 +141,18 @@ export default function ExamBrowseClient({
                 <div key={e.id} style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 15, fontWeight: 700 }}>
-                      {resultLabel({ type, localTotal: e.localTotal, resultMark: e.resultMark })}
+                      {resultLabel({ type, localKind: e.localKind, localTotal: e.localTotal, resultMark: e.resultMark })}
                     </span>
-                    {type === "LOCAL" && <span style={{ fontSize: 12, color: "var(--ink-2)" }}>الجزء {e.juz}</span>}
+                    {type === "LOCAL" && e.localKind && (
+                      <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
+                        {LOCAL_KIND_LABELS[e.localKind]}
+                      </span>
+                    )}
+                    {type === "LOCAL" && e.pageFrom != null && e.pageTo != null && (
+                      <span style={{ fontSize: 12, color: "var(--ink-2)" }}>
+                        صفحات {e.pageFrom}-{e.pageTo}
+                      </span>
+                    )}
                     {canEdit && (
                       <button
                         onClick={() => setFormOpen({ existing: e })}
@@ -170,7 +179,7 @@ export default function ExamBrowseClient({
           type={type}
           student={fileStudent}
           existing={formOpen.existing}
-          bank={bank}
+          tajweedTopics={tajweedTopics}
           onClose={() => setFormOpen(null)}
         />
       )}

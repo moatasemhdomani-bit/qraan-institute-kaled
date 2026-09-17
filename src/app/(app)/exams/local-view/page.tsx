@@ -16,7 +16,7 @@ export default async function LocalExamViewPage() {
     }),
     prisma.exam.findMany({
       where: { type: "LOCAL" },
-      include: { examiner: { select: { id: true, name: true } }, answers: { include: { question: true } } },
+      include: { examiner: { select: { id: true, name: true } }, answers: { include: { topic: true } } },
       orderBy: { date: "desc" },
     }),
   ]);
@@ -37,13 +37,16 @@ export default async function LocalExamViewPage() {
       examinerId: e.examinerId,
       examinerName: e.examiner.name,
       date: e.date,
+      localKind: e.localKind,
       juz: e.juz,
+      pageFrom: e.pageFrom,
+      pageTo: e.pageTo,
       resultMark: e.resultMark,
       localTotal: e.localTotal,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       notes: e.notes,
-      answers: e.answers.map((a) => ({ questionId: a.questionId, text: a.question.text, mark: a.mark })),
+      answers: e.answers.map((a) => ({ topicId: a.topicId, text: a.topic.text, mark: a.mark })),
     };
   }
   for (const e of examsRaw) {
@@ -58,7 +61,7 @@ export default async function LocalExamViewPage() {
         readOnly
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}
-        bank={[]}
+        tajweedTopics={[]}
         halaqat={halaqat}
         examsByStudent={examsByStudent}
       />

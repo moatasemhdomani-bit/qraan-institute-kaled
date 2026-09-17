@@ -16,9 +16,9 @@ enum Role {
 }
 
 model User {
-  id           String  @id @default(cuid())
+  id           String @id @default(cuid())
   name         String
-  username     String  @unique
+  username     String @unique
   passwordHash String
   role         Role
 
@@ -44,21 +44,20 @@ model User {
   teachableCohorts CohortTeacher[]
   halaqatTaught    Halqa[]
   auditLogs        AuditLog[]
-  guardianOf       Student[]        @relation("StudentGuardianAccount")
-  attendanceTaken  Attendance[]     @relation("AttendanceRecorder")
-  recitationsTaken Recitation[]     @relation("RecitationRecorder")
-  examsGiven       Exam[]           @relation("ExamsGiven")
-  questions        Question[]
-  permitsSet       Permit[]         @relation("PermitSetter")
+  guardianOf       Student[]       @relation("StudentGuardianAccount")
+  attendanceTaken  Attendance[]    @relation("AttendanceRecorder")
+  recitationsTaken Recitation[]    @relation("RecitationRecorder")
+  examsGiven       Exam[]          @relation("ExamsGiven")
+  permitsSet       Permit[]        @relation("PermitSetter")
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
 model Cohort {
-  id         String  @id
-  name       String  @unique
-  isRotating Boolean @default(false) // false = ثابت, true = قلّاب
-  time1      String?
-  time2      String? // قلّاب فقط
+  id            String  @id
+  name          String  @unique
+  isRotating    Boolean @default(false) // false = ثابت, true = قلّاب
+  time1         String?
+  time2         String? // قلّاب فقط
   // القلّاب يتناوب أسبوعًا بأسبوع؛ هذا التاريخ يحدد أي أسبوع هو الأول
   rotationStart String?
 
@@ -149,9 +148,9 @@ enum AttendanceStatus {
 }
 
 model Attendance {
-  id      String           @id @default(cuid())
-  date    String // YYYY-MM-DD
-  status  AttendanceStatus
+  id     String           @id @default(cuid())
+  date   String // YYYY-MM-DD
+  status AttendanceStatus
 
   studentId String
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -201,15 +200,24 @@ enum ExamType {
   PLACEMENT // تحديد مستوى
 }
 
-// بنك أسئلة — خاص بكل مختبِر على حدة، لا يُشارَك بين المختبِرين.
-model Question {
-  id         String   @id @default(cuid())
-  text       String
-  examinerId String
-  examiner   User     @relation(fields: [examinerId], references: [id])
-  createdAt  DateTime @default(now())
+// فروع السبر المحلي الثلاثة
+enum LocalKind {
+  GHAYBAN // غيباً — علامة واحدة فقط، بلا بنك أسئلة
+  HADIRAN // حاضراً — بنك أسئلة التجويد حسب الجزء
+  AMMA_GHAYBAN // عمّ غيباً — علامة واحدة فقط، بلا بنك أسئلة
+}
+
+// بنك أسئلة التجويد لسبر "حاضراً" — ثابت من خطة المعلم، وليس حرًّا لكل مختبِر.
+// الجزء 1 حتى 20 فقط؛ الأجزاء 21-30 ترث تراكميًا أسئلة الجزء 20 فما دون (لا أسئلة جديدة لها).
+model TajweedTopic {
+  id    String @id @default(cuid())
+  juz   Int
+  text  String
+  order Int    @default(0)
 
   answers ExamAnswer[]
+
+  @@index([juz])
 }
 
 model Exam {
@@ -223,13 +231,21 @@ model Exam {
   examinerId String
   examiner   User   @relation("ExamsGiven", fields: [examinerId], references: [id])
 
-  // LOCAL: الجزء المختبَر فيه · PLACEMENT: الجزء الذي يبدأ منه الطالب (نتيجة الفرز، بلا علامة)
+  // LOCAL فقط — أي فرع من الفروع الثلاثة
+  localKind LocalKind?
+
+  // PLACEMENT: الجزء الذي يبدأ منه الطالب (نتيجة الفرز، بلا علامة)
+  // LOCAL/HADIRAN فقط: الجزء الذي يُسحب منه بنك أسئلة التجويد (تراكميًا حتى هذا الجزء)
   juz Int?
 
-  // WAQF_NOMINATION فقط — علامة من 100
+  // LOCAL: أرقام الصفحات التي سُبر الطالب فيها (الأنواع الثلاثة كلها)
+  pageFrom Int?
+  pageTo   Int?
+
+  // WAQF_NOMINATION، وLOCAL (غيباً/عمّ غيباً) — علامة من 100
   resultMark Int?
 
-  // LOCAL فقط — محسوبة تلقائيًا: متوسط علامات الأسئلة × ١٠
+  // LOCAL/HADIRAN فقط — محسوبة تلقائيًا: متوسط علامات الأسئلة × ١٠
   localTotal Int?
 
   // WAQF_NOMINATION فقط
@@ -247,14 +263,14 @@ model Exam {
   @@index([examinerId])
 }
 
-// سطر سؤال واحد ضمن سبر محلي
+// سطر سؤال واحد ضمن سبر محلي (حاضراً فقط) — إشارة إلى بند من بنك أسئلة التجويد
 model ExamAnswer {
-  id         String   @id @default(cuid())
-  examId     String
-  exam       Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
-  questionId String
-  question   Question @relation(fields: [questionId], references: [id])
-  mark       Int // من ١٠
+  id      String       @id @default(cuid())
+  examId  String
+  exam    Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  topicId String
+  topic   TajweedTopic @relation(fields: [topicId], references: [id])
+  mark    Int // من ١٠
 }
 
 model Recitation {

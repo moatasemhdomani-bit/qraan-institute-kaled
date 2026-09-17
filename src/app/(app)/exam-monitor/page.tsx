@@ -9,17 +9,17 @@ export default async function ExamMonitorPage() {
   if (!session) redirect("/login");
   if (session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
 
-  const [halaqatRaw, examsRaw, bankRaw] = await Promise.all([
+  const [halaqatRaw, examsRaw, tajweedTopics] = await Promise.all([
     prisma.halqa.findMany({
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { select: { id: true } } },
       orderBy: { name: "asc" },
     }),
     prisma.exam.findMany({
       where: { student: { halqaId: { not: null } } },
-      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, halqaId: true } }, answers: { include: { question: true } } },
+      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, halqaId: true } }, answers: { include: { topic: true } } },
       orderBy: { date: "desc" },
     }),
-    session.role === "DIRECTOR" ? prisma.question.findMany({ orderBy: { createdAt: "desc" } }) : Promise.resolve([]),
+    session.role === "DIRECTOR" ? prisma.tajweedTopic.findMany({ orderBy: [{ juz: "asc" }, { order: "asc" }] }) : Promise.resolve([]),
   ]);
 
   const blocks = halaqatRaw.map((h) => {
@@ -33,13 +33,16 @@ export default async function ExamMonitorPage() {
         examinerId: e.examinerId,
         examinerName: e.examiner.name,
         date: e.date,
+        localKind: e.localKind,
         juz: e.juz,
+        pageFrom: e.pageFrom,
+        pageTo: e.pageTo,
         resultMark: e.resultMark,
         localTotal: e.localTotal,
         nominationPresent: e.nominationPresent,
         nominationParts: e.nominationParts,
         notes: e.notes,
-        answers: e.answers.map((a) => ({ questionId: a.questionId, text: a.question.text, mark: a.mark })),
+        answers: e.answers.map((a) => ({ topicId: a.topicId, text: a.topic.text, mark: a.mark })),
       }));
 
     const sobredIds = new Set(rows.map((r) => r.studentId));
@@ -54,11 +57,6 @@ export default async function ExamMonitorPage() {
     };
   });
 
-  const banksByExaminer: Record<string, { id: string; text: string }[]> = {};
-  for (const q of bankRaw) {
-    (banksByExaminer[q.examinerId] ??= []).push({ id: q.id, text: q.text });
-  }
-
   return (
     <>
       <PageHeader title="متابعة السبر" subtitle="سبورات كل الحلقات، وما لم يُسبَر بعد." />
@@ -66,7 +64,7 @@ export default async function ExamMonitorPage() {
         canEdit={session.role === "DIRECTOR"}
         isDirector={session.role === "DIRECTOR"}
         currentUserId={session.userId}
-        banksByExaminer={banksByExaminer}
+        tajweedTopics={tajweedTopics.map((t) => ({ id: t.id, juz: t.juz, text: t.text }))}
         blocks={blocks}
       />
     </>

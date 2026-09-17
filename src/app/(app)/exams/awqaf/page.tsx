@@ -37,13 +37,16 @@ export default async function AwqafExamPage() {
       examinerId: e.examinerId,
       examinerName: e.examiner.name,
       date: e.date,
+      localKind: null,
       juz: e.juz,
+      pageFrom: null,
+      pageTo: null,
       resultMark: e.resultMark,
       localTotal: e.localTotal,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       notes: e.notes,
-      answers: [] as { questionId?: string; text: string; mark: number }[],
+      answers: [] as { topicId: string; text: string; mark: number }[],
     };
   }
   for (const e of examsRaw) {
@@ -58,7 +61,7 @@ export default async function AwqafExamPage() {
         readOnly={false}
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}
-        bank={[]}
+        tajweedTopics={[]}
         halaqat={halaqat}
         examsByStudent={examsByStudent}
       />

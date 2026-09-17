@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { localTotal, validateExam, type ExamTypeId } from "@/lib/exam";
+import { localTotal, validateExam, LOCAL_KIND_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
 
 export type FormState = { error?: string; ok?: boolean; examId?: string };
 
@@ -41,6 +41,12 @@ export async function addPlacementStudent(name: string): Promise<{ error?: strin
   return { studentId: created.id };
 }
 
+function examLabel(type: ExamTypeId, localKind: LocalKindId | null): string {
+  if (type === "LOCAL") return `سبر محلي (${LOCAL_KIND_LABELS[localKind ?? "GHAYBAN"]})`;
+  if (type === "WAQF_NOMINATION") return "سبر ترشيح أوقاف";
+  return "سبر تحديد مستوى";
+}
+
 export async function saveExam(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();
   if (!session || (session.role !== "EXAMINER" && session.role !== "DIRECTOR")) {
@@ -59,8 +65,16 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     if (!canEdit(session, existing.examinerId)) return { error: "غير مصرَّح لك بتعديل سبر مختبِر آخر." };
   }
 
+  const localKindRaw = String(formData.get("localKind") || "");
+  const localKind = (localKindRaw || null) as LocalKindId | null;
+
   const juzRaw = String(formData.get("juz") || "");
   const juz = juzRaw ? parseInt(juzRaw, 10) : null;
+
+  const pageFromRaw = String(formData.get("pageFrom") || "");
+  const pageFrom = pageFromRaw ? parseInt(pageFromRaw, 10) : null;
+  const pageToRaw = String(formData.get("pageTo") || "");
+  const pageTo = pageToRaw ? parseInt(pageToRaw, 10) : null;
 
   const resultMarkRaw = String(formData.get("resultMark") || "");
   const resultMark = resultMarkRaw ? parseInt(resultMarkRaw, 10) : null;
@@ -70,8 +84,8 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   const nominationPartsRaw = String(formData.get("nominationParts") || "");
   const nominationParts = nominationPartsRaw ? parseInt(nominationPartsRaw, 10) : null;
 
-  let answers: { questionId?: string; text: string; mark: number }[] = [];
-  if (type === "LOCAL") {
+  let answers: { topicId: string; mark: number }[] = [];
+  if (type === "LOCAL" && localKind === "HADIRAN") {
     try {
       answers = JSON.parse(String(formData.get("answersJson") || "[]"));
     } catch {
@@ -86,7 +100,10 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
 
   const validationError = validateExam({
     type,
+    localKind,
     juz,
+    pageFrom,
+    pageTo,
     resultMark,
     nominationPresent,
     nominationParts,
@@ -104,15 +121,20 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   }
   if (!finalStudentId) return { error: "لا يوجد طالب لهذا السبر." };
 
+  const isHadiran = type === "LOCAL" && localKind === "HADIRAN";
+
   const data = {
     type,
     date,
     studentId: finalStudentId,
-    juz: type === "LOCAL" || type === "PLACEMENT" ? juz : null,
-    resultMark: type === "WAQF_NOMINATION" ? resultMark : null,
+    localKind: type === "LOCAL" ? localKind : null,
+    juz: type === "PLACEMENT" || isHadiran ? juz : null,
+    pageFrom: type === "LOCAL" ? pageFrom : null,
+    pageTo: type === "LOCAL" ? pageTo : null,
+    resultMark: type === "WAQF_NOMINATION" || (type === "LOCAL" && !isHadiran) ? resultMark : null,
     nominationPresent: type === "WAQF_NOMINATION" ? nominationPresent : null,
     nominationParts: type === "WAQF_NOMINATION" ? nominationParts : null,
-    localTotal: type === "LOCAL" ? localTotal(answers.map((a) => a.mark)) : null,
+    localTotal: isHadiran ? localTotal(answers.map((a) => a.mark)) : null,
     notes,
   };
 
@@ -123,26 +145,17 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
       ? await tx.exam.update({ where: { id }, data })
       : await tx.exam.create({ data: { ...data, examinerId: session.userId } });
 
-    if (type === "LOCAL") {
+    if (isHadiran) {
       await tx.examAnswer.deleteMany({ where: { examId: exam.id } });
       for (const a of answers) {
-        let questionId = a.questionId;
-        if (!questionId) {
-          const text = a.text.trim();
-          const existingQ = await tx.question.findFirst({ where: { examinerId: exam.examinerId, text } });
-          questionId = existingQ ? existingQ.id : (await tx.question.create({ data: { text, examinerId: exam.examinerId } })).id;
-        }
-        await tx.examAnswer.create({ data: { examId: exam.id, questionId, mark: a.mark } });
+        await tx.examAnswer.create({ data: { examId: exam.id, topicId: a.topicId, mark: a.mark } });
       }
     }
 
     return exam.id;
   });
 
-  await logAction(
-    session.userId,
-    `${id ? "عدّل" : "سجّل"} ${type === "LOCAL" ? "سبرًا محليًا" : type === "WAQF_NOMINATION" ? "سبر ترشيح أوقاف" : "سبر تحديد مستوى"} للطالب «${student?.name ?? ""}»`
-  );
+  await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)} للطالب «${student?.name ?? ""}»`);
 
   revalidateExamPaths();
   return { ok: true, examId };
