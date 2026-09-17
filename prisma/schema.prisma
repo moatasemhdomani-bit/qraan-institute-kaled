@@ -174,19 +174,6 @@ enum ExamType {
   PLACEMENT // تحديد مستوى
 }
 
-enum EvalMode {
-  MARK100 // علامة من 100
-  GRADE // تقدير
-  LEVEL // مستوى
-}
-
-// صف وحيد (id ثابت = 1) — شكل عرض نتيجة تحديد المستوى وترشيح الأوقاف، تضبطه الإدارة مرة واحدة.
-model EvaluationSettings {
-  id            Int      @id @default(1)
-  placementMode EvalMode @default(MARK100)
-  awqafMode     EvalMode @default(MARK100)
-}
-
 // بنك أسئلة — خاص بكل مختبِر على حدة، لا يُشارَك بين المختبِرين.
 model Question {
   id         String   @id @default(cuid())
@@ -209,13 +196,11 @@ model Exam {
   examinerId String
   examiner   User   @relation("ExamsGiven", fields: [examinerId], references: [id])
 
-  // LOCAL: الجزء المختبَر فيه · PLACEMENT: الجزء الذي يبدأ منه الطالب (نتيجة الفرز)
+  // LOCAL: الجزء المختبَر فيه · PLACEMENT: الجزء الذي يبدأ منه الطالب (نتيجة الفرز، بلا علامة)
   juz Int?
 
-  // نتيجة PLACEMENT وWAQF_NOMINATION حسب الوضع المضبوط في EvaluationSettings وقت الحفظ
-  resultMark  Int?
-  resultGrade String?
-  resultLevel String?
+  // WAQF_NOMINATION فقط — علامة من 100
+  resultMark Int?
 
   // LOCAL فقط — محسوبة تلقائيًا: متوسط علامات الأسئلة × ١٠
   localTotal Int?

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { getEvalSettings } from "@/lib/exam";
 import PageHeader from "@/components/PageHeader";
 import PlacementClient from "./PlacementClient";
 
@@ -10,14 +9,11 @@ export default async function PlacementExamPage() {
   if (!session) redirect("/login");
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
 
-  const [examsRaw, settings] = await Promise.all([
-    prisma.exam.findMany({
-      where: { type: "PLACEMENT", student: { halqaId: null } },
-      include: { examiner: { select: { id: true, name: true } }, student: { select: { name: true } } },
-      orderBy: { date: "desc" },
-    }),
-    getEvalSettings(),
-  ]);
+  const examsRaw = await prisma.exam.findMany({
+    where: { type: "PLACEMENT", student: { halqaId: null } },
+    include: { examiner: { select: { id: true, name: true } }, student: { select: { name: true } } },
+    orderBy: { date: "desc" },
+  });
 
   const rows = examsRaw.map((e) => ({
     id: e.id,
@@ -28,8 +24,6 @@ export default async function PlacementExamPage() {
     date: e.date,
     juz: e.juz,
     resultMark: e.resultMark,
-    resultGrade: e.resultGrade,
-    resultLevel: e.resultLevel,
     nominationPresent: e.nominationPresent,
     nominationParts: e.nominationParts,
     notes: e.notes,
@@ -39,7 +33,7 @@ export default async function PlacementExamPage() {
   return (
     <>
       <PageHeader title="تحديد مستوى" subtitle="لطالب غير مسجَّل بعد — نتيجته هي الجزء الذي يبدأ منه حفظه." />
-      <PlacementClient currentUserId={session.userId} isDirector={session.role === "DIRECTOR"} mode={settings.placementMode} rows={rows} />
+      <PlacementClient currentUserId={session.userId} isDirector={session.role === "DIRECTOR"} rows={rows} />
     </>
   );
 }

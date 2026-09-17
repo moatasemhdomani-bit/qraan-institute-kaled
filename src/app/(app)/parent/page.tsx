@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { today, isValidDate, formatDateAr, ATT_LABELS, ATT_STATES, pageSpan } from "@/lib/daily";
-import { getEvalSettings, resultLabel, TYPE_LABELS } from "@/lib/exam";
+import { resultLabel, TYPE_LABELS } from "@/lib/exam";
 import PageHeader from "@/components/PageHeader";
 import ParentClient from "./ParentClient";
 
@@ -63,7 +63,7 @@ export default async function ParentPage({
 
   if (!child) redirect("/parent");
 
-  const [attHistory, recHistory, todayAtt, todayRec, exams, settings] = await Promise.all([
+  const [attHistory, recHistory, todayAtt, todayRec, exams] = await Promise.all([
     prisma.attendance.findMany({
       where: { studentId: child.id, date: { gte: from, lte: to } },
       orderBy: { date: "desc" },
@@ -79,7 +79,6 @@ export default async function ParentPage({
       include: { examiner: { select: { name: true } } },
       orderBy: { date: "desc" },
     }),
-    getEvalSettings(),
   ]);
 
   const stateColor = ATT_STATES.find((s) => s.id === todayAtt?.status)?.color ?? "#8FA8C8";
@@ -137,7 +136,7 @@ export default async function ParentPage({
         }))}
         examRows={exams.map((e) => ({
           type: TYPE_LABELS[e.type],
-          result: resultLabel(e, settings),
+          result: resultLabel(e),
           date: formatDateAr(e.date),
           examinerName: e.examiner.name,
           notes: e.notes,

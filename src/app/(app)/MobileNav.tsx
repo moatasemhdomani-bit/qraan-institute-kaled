@@ -6,7 +6,7 @@ import { logout } from "./actions";
 import type { RoleId } from "@/lib/ui";
 import { NAV } from "./nav";
 
-export default function MobileNav({ role }: { role: RoleId }) {
+export default function MobileNav({ role, name }: { role: RoleId; name: string }) {
   const pathname = usePathname();
   const items = NAV.filter((n) => n.roles.includes(role));
 
@@ -55,24 +55,40 @@ export default function MobileNav({ role }: { role: RoleId }) {
           </Link>
         );
       })}
-      <form action={logout} style={{ marginTop: "auto" }}>
-        <button
-          type="submit"
+      <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+        <div
+          title={name}
           style={{
             width: "100%",
-            padding: "6px 4px",
-            borderRadius: 8,
-            border: "1px solid var(--line)",
-            background: "transparent",
+            fontSize: 9.5,
             color: "var(--ink-3)",
-            fontSize: 10,
-            fontFamily: "inherit",
-            cursor: "pointer",
+            textAlign: "center",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
-          خروج
-        </button>
-      </form>
+          {name}
+        </div>
+        <form action={logout} style={{ width: "100%" }}>
+          <button
+            type="submit"
+            style={{
+              width: "100%",
+              padding: "6px 4px",
+              borderRadius: 8,
+              border: "1px solid var(--line)",
+              background: "transparent",
+              color: "var(--ink-3)",
+              fontSize: 10,
+              fontFamily: "inherit",
+              cursor: "pointer",
+            }}
+          >
+            خروج
+          </button>
+        </form>
+      </div>
     </nav>
   );
 }

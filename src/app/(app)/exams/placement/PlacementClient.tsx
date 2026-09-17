@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cardStyle, primaryButtonStyle } from "@/lib/ui";
-import { resultLabel, type EvalModeId } from "@/lib/exam";
+import { resultLabel } from "@/lib/exam";
 import ExamFormDrawer, { type ExistingExam } from "../ExamFormDrawer";
 
 type Row = ExistingExam & { studentName: string; examinerId: string; examinerName: string };
@@ -10,12 +10,10 @@ type Row = ExistingExam & { studentName: string; examinerId: string; examinerNam
 export default function PlacementClient({
   currentUserId,
   isDirector,
-  mode,
   rows,
 }: {
   currentUserId: string;
   isDirector: boolean;
-  mode: EvalModeId;
   rows: Row[];
 }) {
   const [adding, setAdding] = useState(false);
@@ -42,10 +40,7 @@ export default function PlacementClient({
               <div key={r.id} style={{ display: "flex", alignItems: "flex-start", flexDirection: "column", gap: 6, padding: "13px 16px", borderTop: "1px solid var(--line-2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", width: "100%" }}>
                   <span style={{ fontSize: 14.5, fontWeight: 600 }}>{r.studentName}</span>
-                  <span style={{ fontSize: 13, color: "var(--ink-2)" }}>يبدأ من الجزء {r.juz}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>
-                    {resultLabel({ type: "PLACEMENT", resultMark: r.resultMark, resultGrade: r.resultGrade, resultLevel: r.resultLevel }, { placementMode: mode, awqafMode: mode })}
-                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{resultLabel({ type: "PLACEMENT", juz: r.juz })}</span>
                   {canEdit && (
                     <button
                       onClick={() => setEditing(r)}
@@ -69,13 +64,12 @@ export default function PlacementClient({
         </div>
       </div>
 
-      {adding && <ExamFormDrawer type="PLACEMENT" student={null} existing={null} mode={mode} bank={[]} onClose={() => setAdding(false)} />}
+      {adding && <ExamFormDrawer type="PLACEMENT" student={null} existing={null} bank={[]} onClose={() => setAdding(false)} />}
       {editing && (
         <ExamFormDrawer
           type="PLACEMENT"
           student={{ id: editing.studentId, name: editing.studentName }}
           existing={editing}
-          mode={mode}
           bank={[]}
           onClose={() => setEditing(null)}
         />

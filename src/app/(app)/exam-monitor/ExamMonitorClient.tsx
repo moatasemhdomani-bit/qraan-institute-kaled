@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle } from "@/lib/ui";
-import { resultLabel, TYPE_LABELS, type EvalModeId, type ExamTypeId } from "@/lib/exam";
+import { resultLabel, TYPE_LABELS, type ExamTypeId } from "@/lib/exam";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
 
 type Row = ExistingExam & { type: ExamTypeId; studentName: string; examinerId: string; examinerName: string; localTotal: number | null };
@@ -18,14 +18,12 @@ export default function ExamMonitorClient({
   canEdit,
   isDirector,
   currentUserId,
-  settings,
   banksByExaminer,
   blocks,
 }: {
   canEdit: boolean;
   isDirector: boolean;
   currentUserId: string;
-  settings: { placementMode: EvalModeId; awqafMode: EvalModeId };
   banksByExaminer: Record<string, { id: string; text: string }[]>;
   blocks: Block[];
 }) {
@@ -82,7 +80,7 @@ export default function ExamMonitorClient({
               <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 5, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>{TYPE_LABELS[r.type]}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>{resultLabel(r, settings)}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{resultLabel(r)}</span>
                   {canEdit && (isDirector || r.examinerId === currentUserId) && (
                     <button
                       onClick={() => setEditing({ row: r, halqaName: b.name })}
@@ -114,7 +112,6 @@ export default function ExamMonitorClient({
           type={editing.row.type}
           student={{ id: editing.row.studentId, name: editing.row.studentName }}
           existing={editing.row}
-          mode={editing.row.type === "WAQF_NOMINATION" ? settings.awqafMode : settings.placementMode}
           bank={banksByExaminer[editing.row.examinerId] ?? []}
           onClose={() => setEditing(null)}
         />

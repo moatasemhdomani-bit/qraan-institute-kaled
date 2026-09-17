@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { getEvalSettings } from "@/lib/exam";
 import PageHeader from "@/components/PageHeader";
 import ExamBrowseClient from "../ExamBrowseClient";
 
@@ -10,7 +9,7 @@ export default async function LocalExamPage() {
   if (!session) redirect("/login");
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
 
-  const [halaqatRaw, examsRaw, bankRaw, settings] = await Promise.all([
+  const [halaqatRaw, examsRaw, bankRaw] = await Promise.all([
     prisma.halqa.findMany({
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
@@ -21,7 +20,6 @@ export default async function LocalExamPage() {
       orderBy: { date: "desc" },
     }),
     prisma.question.findMany({ where: { examinerId: session.userId }, orderBy: { createdAt: "desc" } }),
-    getEvalSettings(),
   ]);
 
   const halaqat = halaqatRaw.map((h) => ({
@@ -42,8 +40,6 @@ export default async function LocalExamPage() {
       date: e.date,
       juz: e.juz,
       resultMark: e.resultMark,
-      resultGrade: e.resultGrade,
-      resultLevel: e.resultLevel,
       localTotal: e.localTotal,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
@@ -63,7 +59,6 @@ export default async function LocalExamPage() {
         readOnly={false}
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}
-        mode={settings.placementMode}
         bank={bankRaw.map((q) => ({ id: q.id, text: q.text }))}
         halaqat={halaqat}
         examsByStudent={examsByStudent}

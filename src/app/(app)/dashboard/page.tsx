@@ -14,7 +14,6 @@ const QUICK_LINKS: Record<string, { href: string; label: string; note: string }>
   students: { href: "/students", label: "الطلاب", note: "قائمة الطلاب وفرزهم" },
   "exam-monitor": { href: "/exam-monitor", label: "متابعة السبر", note: "سبورات كل الحلقات، وما لم يُسبَر بعد" },
   "exams-local-view": { href: "/exams/local-view", label: "متابعة السبر المحلي", note: "نتائج السبر المحلي — عرض فقط" },
-  "exam-settings": { href: "/exam-settings", label: "طريقة التقييم", note: "شكل نتيجة تحديد المستوى وترشيح الأوقاف" },
 };
 
 const SOON_TEXT: Record<string, string> = {

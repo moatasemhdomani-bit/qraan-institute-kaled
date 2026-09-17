@@ -3,8 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { saveExam, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
-import { GRADES } from "@/lib/daily";
-import { JUZ, LEVELS, NOMINATION_PARTS, EVAL_MODE_LABELS, type EvalModeId, type ExamTypeId } from "@/lib/exam";
+import { JUZ, NOMINATION_PARTS, type ExamTypeId } from "@/lib/exam";
 import Drawer from "@/components/Drawer";
 
 const initialState: FormState = {};
@@ -17,8 +16,6 @@ export type ExistingExam = {
   date: string;
   juz: number | null;
   resultMark: number | null;
-  resultGrade: string | null;
-  resultLevel: string | null;
   nominationPresent: boolean | null;
   nominationParts: number | null;
   notes: string | null;
@@ -29,7 +26,6 @@ export default function ExamFormDrawer({
   type,
   student,
   existing,
-  mode,
   bank,
   onClose,
   onSaved,
@@ -38,7 +34,6 @@ export default function ExamFormDrawer({
   /** null فقط عند إضافة طالب جديد ضمن تحديد المستوى */
   student: { id: string; name: string } | null;
   existing: ExistingExam | null;
-  mode: EvalModeId;
   bank: { id: string; text: string }[];
   onClose: () => void;
   onSaved?: () => void;
@@ -49,8 +44,6 @@ export default function ExamFormDrawer({
   const [date, setDate] = useState(existing?.date ?? new Date().toISOString().slice(0, 10));
   const [juz, setJuz] = useState<number | null>(existing?.juz ?? null);
   const [resultMark, setResultMark] = useState(existing?.resultMark != null ? String(existing.resultMark) : "");
-  const [resultGrade, setResultGrade] = useState(existing?.resultGrade ?? "");
-  const [resultLevel, setResultLevel] = useState(existing?.resultLevel ?? "");
   const [nominationPresent, setNominationPresent] = useState<boolean | null>(existing?.nominationPresent ?? null);
   const [nominationParts, setNominationParts] = useState<number | null>(existing?.nominationParts ?? null);
   const [notes, setNotes] = useState(existing?.notes ?? "");
@@ -112,8 +105,6 @@ export default function ExamFormDrawer({
         <input type="hidden" name="studentId" value={student?.id ?? ""} />
         <input type="hidden" name="juz" value={juz ?? ""} />
         <input type="hidden" name="resultMark" value={resultMark} />
-        <input type="hidden" name="resultGrade" value={resultGrade} />
-        <input type="hidden" name="resultLevel" value={resultLevel} />
         <input type="hidden" name="nominationPresent" value={nominationPresent == null ? "" : nominationPresent ? "1" : "0"} />
         <input type="hidden" name="nominationParts" value={nominationParts ?? ""} />
         <input type="hidden" name="answersJson" value={JSON.stringify(answers)} />
@@ -169,7 +160,7 @@ export default function ExamFormDrawer({
             </div>
             {type === "PLACEMENT" && (
               <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 10 }}>
-                نتيجة تحديد المستوى تشمل هذا الاختيار بالإضافة إلى التقييم أدناه.
+                لا يُختبَر في جزء معيّن — نتيجة السبر هي فرزه على أحد الأجزاء الثلاثين ليبدأ حفظه منه.
               </div>
             )}
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -263,40 +254,18 @@ export default function ExamFormDrawer({
           </div>
         )}
 
-        {(type === "PLACEMENT" || type === "WAQF_NOMINATION") && (
+        {type === "WAQF_NOMINATION" && (
           <div>
-            <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>
-              {EVAL_MODE_LABELS[mode]} — الشكل الذي ضبطته الإدارة
-            </div>
-            {mode === "MARK100" && (
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={resultMark}
-                onChange={(e) => setResultMark(e.target.value)}
-                placeholder="0 — 100"
-                style={{ width: 120, minHeight: 46, padding: 11, borderRadius: 10, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 17, textAlign: "center", direction: "ltr" }}
-              />
-            )}
-            {mode === "GRADE" && (
-              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                {GRADES.map((g) => (
-                  <button key={g} type="button" onClick={() => setResultGrade(g)} style={{ ...chipStyle(resultGrade === g), minHeight: 42 }}>
-                    {g}
-                  </button>
-                ))}
-              </div>
-            )}
-            {mode === "LEVEL" && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {LEVELS.map((l) => (
-                  <button key={l.id} type="button" onClick={() => setResultLevel(l.id)} style={{ ...chipStyle(resultLevel === l.id), minHeight: 42 }}>
-                    {l.id}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={resultMark}
+              onChange={(e) => setResultMark(e.target.value)}
+              placeholder="0 — 100"
+              style={{ width: 120, minHeight: 46, padding: 11, borderRadius: 10, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 17, textAlign: "center", direction: "ltr" }}
+            />
           </div>
         )}
 

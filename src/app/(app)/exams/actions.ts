@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { getEvalSettings, localTotal, validateExam, type EvalModeId, type ExamTypeId } from "@/lib/exam";
+import { localTotal, validateExam, type ExamTypeId } from "@/lib/exam";
 
 export type FormState = { error?: string; ok?: boolean; examId?: string };
 
@@ -59,16 +59,11 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     if (!canEdit(session, existing.examinerId)) return { error: "غير مصرَّح لك بتعديل سبر مختبِر آخر." };
   }
 
-  const settings = await getEvalSettings();
-  const mode: EvalModeId = type === "WAQF_NOMINATION" ? settings.awqafMode : settings.placementMode;
-
   const juzRaw = String(formData.get("juz") || "");
   const juz = juzRaw ? parseInt(juzRaw, 10) : null;
 
   const resultMarkRaw = String(formData.get("resultMark") || "");
   const resultMark = resultMarkRaw ? parseInt(resultMarkRaw, 10) : null;
-  const resultGrade = String(formData.get("resultGrade") || "") || null;
-  const resultLevel = String(formData.get("resultLevel") || "") || null;
 
   const nominationPresentRaw = String(formData.get("nominationPresent") || "");
   const nominationPresent = nominationPresentRaw === "" ? null : nominationPresentRaw === "1";
@@ -92,10 +87,7 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   const validationError = validateExam({
     type,
     juz,
-    mode,
     resultMark,
-    resultGrade,
-    resultLevel,
     nominationPresent,
     nominationParts,
     answers: answers.map((a) => ({ mark: a.mark })),
@@ -117,9 +109,7 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     date,
     studentId: finalStudentId,
     juz: type === "LOCAL" || type === "PLACEMENT" ? juz : null,
-    resultMark: (type === "PLACEMENT" || type === "WAQF_NOMINATION") && mode === "MARK100" ? resultMark : null,
-    resultGrade: (type === "PLACEMENT" || type === "WAQF_NOMINATION") && mode === "GRADE" ? resultGrade : null,
-    resultLevel: (type === "PLACEMENT" || type === "WAQF_NOMINATION") && mode === "LEVEL" ? resultLevel : null,
+    resultMark: type === "WAQF_NOMINATION" ? resultMark : null,
     nominationPresent: type === "WAQF_NOMINATION" ? nominationPresent : null,
     nominationParts: type === "WAQF_NOMINATION" ? nominationParts : null,
     localTotal: type === "LOCAL" ? localTotal(answers.map((a) => a.mark)) : null,

@@ -11,7 +11,6 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[] }[]
   { id: "exams-awqaf", href: "/exams/awqaf", label: "ترشيح الأوقاف", roles: ["EXAMINER"] },
   { id: "exams-placement", href: "/exams/placement", label: "تحديد مستوى", roles: ["EXAMINER"] },
   { id: "exam-monitor", href: "/exam-monitor", label: "متابعة السبر", roles: ["DIRECTOR", "ADMIN"] },
-  { id: "exam-settings", href: "/exam-settings", label: "طريقة التقييم", roles: ["DIRECTOR", "ADMIN"] },
   { id: "parent", href: "/parent", label: "متابعة الابن", roles: ["GUARDIAN"] },
   { id: "users", href: "/users", label: "إدارة المستخدمين", roles: ["DIRECTOR", "ADMIN"] },
   { id: "audit", href: "/audit", label: "سجل التدقيق", roles: ["DIRECTOR"] },

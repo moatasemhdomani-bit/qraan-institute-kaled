@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { getEvalSettings } from "@/lib/exam";
 import PageHeader from "@/components/PageHeader";
 import ExamBrowseClient from "../ExamBrowseClient";
 
@@ -10,7 +9,7 @@ export default async function AwqafExamPage() {
   if (!session) redirect("/login");
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
 
-  const [halaqatRaw, examsRaw, settings] = await Promise.all([
+  const [halaqatRaw, examsRaw] = await Promise.all([
     prisma.halqa.findMany({
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
@@ -20,7 +19,6 @@ export default async function AwqafExamPage() {
       include: { examiner: { select: { id: true, name: true } }, answers: true },
       orderBy: { date: "desc" },
     }),
-    getEvalSettings(),
   ]);
 
   const halaqat = halaqatRaw.map((h) => ({
@@ -41,8 +39,6 @@ export default async function AwqafExamPage() {
       date: e.date,
       juz: e.juz,
       resultMark: e.resultMark,
-      resultGrade: e.resultGrade,
-      resultLevel: e.resultLevel,
       localTotal: e.localTotal,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
@@ -62,7 +58,6 @@ export default async function AwqafExamPage() {
         readOnly={false}
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}
-        mode={settings.awqafMode}
         bank={[]}
         halaqat={halaqat}
         examsByStudent={examsByStudent}

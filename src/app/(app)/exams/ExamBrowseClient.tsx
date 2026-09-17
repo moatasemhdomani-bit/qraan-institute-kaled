@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
-import { resultLabel, type EvalModeId, type ExamTypeId } from "@/lib/exam";
+import { resultLabel, type ExamTypeId } from "@/lib/exam";
 import Drawer from "@/components/Drawer";
 import ExamFormDrawer, { type ExistingExam } from "./ExamFormDrawer";
 
@@ -15,7 +15,6 @@ export default function ExamBrowseClient({
   readOnly,
   currentUserId,
   isDirector,
-  mode,
   bank,
   halaqat,
   examsByStudent,
@@ -24,7 +23,6 @@ export default function ExamBrowseClient({
   readOnly: boolean;
   currentUserId: string;
   isDirector: boolean;
-  mode: EvalModeId;
   bank: { id: string; text: string }[];
   halaqat: Halqa[];
   examsByStudent: Record<string, ExamRow[]>;
@@ -143,10 +141,7 @@ export default function ExamBrowseClient({
                 <div key={e.id} style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 15, fontWeight: 700 }}>
-                      {resultLabel(
-                        { type, localTotal: e.localTotal, resultMark: e.resultMark, resultGrade: e.resultGrade, resultLevel: e.resultLevel },
-                        { placementMode: mode, awqafMode: mode }
-                      )}
+                      {resultLabel({ type, localTotal: e.localTotal, resultMark: e.resultMark })}
                     </span>
                     {type === "LOCAL" && <span style={{ fontSize: 12, color: "var(--ink-2)" }}>الجزء {e.juz}</span>}
                     {canEdit && (
@@ -175,7 +170,6 @@ export default function ExamBrowseClient({
           type={type}
           student={fileStudent}
           existing={formOpen.existing}
-          mode={mode}
           bank={bank}
           onClose={() => setFormOpen(null)}
         />
