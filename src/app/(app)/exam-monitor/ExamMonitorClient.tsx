@@ -81,6 +81,7 @@ export default function ExamMonitorClient({
               return (
               <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 5, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 14.5, fontWeight: 700 }}>{r.studentName}</span>
                   <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
                     {TYPE_LABELS[r.type]}
                     {r.localKind ? ` — ${LOCAL_KIND_LABELS[r.localKind]}` : ""}
