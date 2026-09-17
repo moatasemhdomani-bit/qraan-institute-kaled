@@ -12,18 +12,10 @@ export default function LoginForm() {
 
   return (
     <div className="login-grid" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1.05fr 1fr", alignItems: "stretch" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 40px" }}>
+      <div className="login-form-panel" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 40px" }}>
         <form action={formAction} style={{ width: "100%", maxWidth: 380 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-            <div
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                background: "var(--btn-grad)",
-                boxShadow: "var(--btn-shadow)",
-              }}
-            />
+            <img src="/logo-mark.png" alt="" width={44} height={44} style={{ display: "block" }} />
             <div style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.3 }}>
               معهد الصحابي الجليل
               <br />
@@ -82,7 +74,7 @@ export default function LoginForm() {
         style={{
           position: "relative",
           overflow: "hidden",
-          backgroundImage: "url(/login-bg-kufi.webp)",
+          backgroundImage: "url(/login-bg.png)",
           backgroundSize: "cover",
           backgroundPosition: "center",
           borderInlineStart: "1px solid var(--line)",
@@ -103,6 +95,7 @@ export default function LoginForm() {
           }}
         />
         <div
+          className="login-hero-content"
           style={{
             position: "relative",
             height: "100%",

@@ -121,9 +121,22 @@ button {
   .login-grid {
     display: flex !important;
     flex-direction: column;
-    min-height: auto !important;
+    min-height: 100vh !important;
+  }
+  .login-form-panel {
+    padding: 28px 20px !important;
+    margin: 16px !important;
+    border-radius: 16px;
+    border: 1px solid rgba(212, 175, 55, 0.28);
+    background: #0c1e37;
   }
   .login-hero {
+    flex: 0 0 170px;
+    min-height: 170px;
+    border-inline-start: none !important;
+    background-image: url(/login-bg-mobile.png) !important;
+  }
+  .login-hero-content {
     display: none !important;
   }
 }
