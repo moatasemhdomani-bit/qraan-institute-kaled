@@ -3,6 +3,7 @@
 import { useEffect, useState, useActionState, useTransition } from "react";
 import { updateCohortTiming, addTeacherToCohort, removeTeacherFromCohort, type FormState } from "./actions";
 import { inputStyle, cardStyle } from "@/lib/ui";
+import TimeField from "@/components/TimeField";
 
 type Cohort = {
   id: string;
@@ -62,20 +63,20 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
           <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 5 }}>
             {cohort.isRotating ? "الوقت الأول — بداية ونهاية" : "وقت الدوام — بداية ونهاية"}
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input type="time" name="time1Start" defaultValue={cohort.time1Start} style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center", direction: "ltr" }} />
-            <span style={{ alignSelf: "center", color: "var(--ink-3)", fontSize: 12 }}>إلى</span>
-            <input type="time" name="time1End" defaultValue={cohort.time1End} style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center", direction: "ltr" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <TimeField name="time1Start" defaultValue={cohort.time1Start} />
+            <span style={{ color: "var(--ink-3)", fontSize: 12 }}>إلى</span>
+            <TimeField name="time1End" defaultValue={cohort.time1End} />
           </div>
         </div>
 
         {cohort.isRotating && (
           <div>
             <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 5 }}>الوقت الثاني — بداية ونهاية (يتبادل مع الأول أسبوعًا بأسبوع)</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input type="time" name="time2Start" defaultValue={cohort.time2Start} style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center", direction: "ltr" }} />
-              <span style={{ alignSelf: "center", color: "var(--ink-3)", fontSize: 12 }}>إلى</span>
-              <input type="time" name="time2End" defaultValue={cohort.time2End} style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center", direction: "ltr" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <TimeField name="time2Start" defaultValue={cohort.time2Start} />
+              <span style={{ color: "var(--ink-3)", fontSize: 12 }}>إلى</span>
+              <TimeField name="time2End" defaultValue={cohort.time2End} />
             </div>
           </div>
         )}

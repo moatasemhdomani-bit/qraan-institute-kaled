@@ -4,6 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { savePermit, deletePermit, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
+import TimeField from "@/components/TimeField";
 
 const initialState: FormState = {};
 
@@ -187,18 +188,7 @@ export default function PermitForm({
           </div>
         </div>
 
-        <div>
-          <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>
-            {kindInfo ? `الوقت الذي ${kindInfo.verb}ه الطالب` : "وقت الإذن"}
-          </label>
-          <input
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            placeholder="09:15"
-            style={{ width: 130, minHeight: 48, padding: 11, borderRadius: 11, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 18, textAlign: "center", direction: "ltr" }}
-          />
-          <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>بصيغة 24 ساعة — مثل 09:15 للدخول أو 11:30 للخروج.</div>
-        </div>
+        <TimeField label={kindInfo ? `الوقت الذي ${kindInfo.verb}ه الطالب` : "وقت الإذن"} value={time} onChange={setTime} />
 
         <div>
           <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>سبب الإذن (اختياري)</label>
