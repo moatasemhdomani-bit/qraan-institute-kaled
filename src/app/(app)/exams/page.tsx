@@ -5,7 +5,7 @@ import { cardStyle } from "@/lib/ui";
 import Link from "next/link";
 
 const CARDS = [
-  { href: "/exams/local", title: "السبر المحلي", note: "أسئلة من بنككم، علامة من 10 لكل سؤال، والكلية محسوبة من 100." },
+  { href: "/exams/local", title: "السبر المحلي", note: "غيباً أو حاضراً أو عمّ غيباً — بأرقام الصفحات وعلامة لكل نوع." },
   { href: "/exams/awqaf", title: "ترشيح الأوقاف", note: "حاضرًا أو غيبًا وعدد الأجزاء — يتيح سبر الأوقاف في المرحلة 4." },
   { href: "/exams/placement", title: "تحديد مستوى", note: "لطالب غير مسجَّل بعد — الاسم والجزء الذي يبدأ منه، والنتيجة تذهب إلى الإدارة." },
 ];
