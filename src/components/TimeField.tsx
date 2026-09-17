@@ -1,6 +1,7 @@
 "use client";
 
 import { inputStyle } from "@/lib/ui";
+import { padTime } from "@/lib/daily";
 
 /** حقل وقت موحّد — نفس الشكل والسلوك في كل مكان بالموقع يُدخَل فيه وقت (الإذن، توقيت الأفواج، ...). */
 export default function TimeField({
@@ -22,8 +23,8 @@ export default function TimeField({
       <input
         type="time"
         name={name}
-        value={value}
-        defaultValue={defaultValue}
+        value={value !== undefined ? padTime(value) : undefined}
+        defaultValue={defaultValue !== undefined ? padTime(defaultValue) : undefined}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         style={{ ...inputStyle(), width: 150, minHeight: 46, fontSize: 16, textAlign: "center", direction: "ltr" }}
       />

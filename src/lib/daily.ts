@@ -42,6 +42,17 @@ export function formatDateAr(date: string): string {
 }
 
 /**
+ * input[type=time] يرفض بصمت أي قيمة ليست HH:MM بالضبط (مثلًا "9:30" بلا صفر بادئ)،
+ * وبيانات قديمة أُدخلت كنص حر قبل توحيد حقل الوقت قد تكون بهذا الشكل — طبّعوها للعرض والحقول معًا.
+ */
+export function padTime(t: string | null | undefined): string {
+  if (!t) return "";
+  const m = /^(\d{1,2}):(\d{1,2})$/.exec(t.trim());
+  if (!m) return t;
+  return `${m[1].padStart(2, "0")}:${m[2].padStart(2, "0")}`;
+}
+
+/**
  * سبب إقفال اليوم إن وُجد: عطلة مضافة، أو يوم خارج أيام الدوام الرسمية.
  * يُرجع null إن كان اليوم مفتوحًا للتسجيل.
  */

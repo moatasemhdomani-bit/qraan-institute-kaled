@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, primaryButtonStyle } from "@/lib/ui";
+import { padTime } from "@/lib/daily";
 import PermitForm, { type ExistingPermit } from "./PermitForm";
 import { deletePermit } from "./actions";
 
@@ -115,7 +116,7 @@ export default function PermitsClient({ scopeNote, halaqat }: { scopeNote: strin
                       {KIND_LABELS[p.kind]}
                     </span>
                     <span style={{ fontSize: 14, fontWeight: 700, direction: "ltr" }}>
-                      {KIND_VERBS[p.kind]} {p.time}
+                      {KIND_VERBS[p.kind]} {padTime(p.time)}
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
