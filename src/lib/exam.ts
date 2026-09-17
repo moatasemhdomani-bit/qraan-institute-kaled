@@ -4,12 +4,6 @@ export { MIN_PAGE, MAX_PAGE };
 
 export const JUZ = Array.from({ length: 30 }, (_, i) => i + 1);
 
-/** بنك أسئلة التجويد (حاضراً) مبني حتى الجزء ٢٠ فقط؛ الأجزاء ٢١-٣٠ ترث كل ما دونها. */
-export const TAJWEED_MAX_JUZ = 20;
-export function tajweedJuzCap(juz: number): number {
-  return Math.min(juz, TAJWEED_MAX_JUZ);
-}
-
 export const NOMINATION_PARTS: Record<"present" | "absent", number[]> = {
   present: [10, 20, 30],
   absent: [5, 10, 15, 20, 25, 30],
@@ -57,6 +51,31 @@ export function resultLabel(exam: ExamResultShape): string {
   return exam.resultMark != null ? `${exam.resultMark} / 100` : "—";
 }
 
+/** الحدود الدنيا للنجاح — ثابتة، لا تُضبط من الإدارة. لا حدّ لتحديد المستوى (لا علامة له أصلًا). */
+export function passThreshold(
+  type: ExamTypeId,
+  localKind: LocalKindId | null | undefined,
+  nominationPresent: boolean | null | undefined
+): number | null {
+  if (type === "WAQF_NOMINATION") return nominationPresent ? 90 : 80;
+  if (type === "LOCAL") {
+    if (localKind === "HADIRAN") return 90;
+    if (localKind === "GHAYBAN" || localKind === "AMMA_GHAYBAN") return 80;
+  }
+  return null;
+}
+
+type PassFailShape = ExamResultShape & { nominationPresent?: boolean | null };
+
+/** "ناجح" أو "راسب" — أو null لما لا حدّ نجاح له (تحديد مستوى، أو سبر بلا نتيجة بعد). */
+export function passFailLabel(exam: PassFailShape): "ناجح" | "راسب" | null {
+  const threshold = passThreshold(exam.type, exam.localKind, exam.nominationPresent);
+  if (threshold == null) return null;
+  const mark = exam.type === "LOCAL" && exam.localKind === "HADIRAN" ? exam.localTotal : exam.resultMark;
+  if (mark == null) return null;
+  return mark >= threshold ? "ناجح" : "راسب";
+}
+
 type LocalAnswerInput = { mark: number };
 
 /** يُرجع رسالة الرفض، أو null إن كانت بيانات السبر صحيحة وكاملة. */
@@ -64,8 +83,7 @@ export function validateExam(input: {
   type: ExamTypeId;
   localKind?: LocalKindId | null;
   juz?: number | null;
-  pageFrom?: number | null;
-  pageTo?: number | null;
+  pages?: number[];
   resultMark?: number | null;
   nominationPresent?: boolean | null;
   nominationParts?: number | null;
@@ -77,20 +95,22 @@ export function validateExam(input: {
     if (!input.juz || input.juz < 1 || input.juz > 30) return "اختاروا الجزء الذي يبدأ منه الطالب.";
   }
 
+  if (input.type === "LOCAL" || input.type === "WAQF_NOMINATION") {
+    const pages = input.pages ?? [];
+    if (pages.length === 0) return "أضيفوا صفحة واحدة على الأقل.";
+    for (const p of pages) {
+      if (!Number.isFinite(p) || p < MIN_PAGE || p > MAX_PAGE) return `أرقام الصفحات بين ${MIN_PAGE} و${MAX_PAGE}.`;
+    }
+  }
+
   if (input.type === "LOCAL") {
     if (!input.localKind) return "اختاروا نوع السبر المحلي: غيباً أو حاضراً أو عمّ غيباً.";
-    if (
-      !input.pageFrom ||
-      !input.pageTo ||
-      input.pageFrom < MIN_PAGE ||
-      input.pageTo > MAX_PAGE ||
-      input.pageTo < input.pageFrom
-    ) {
-      return `أرقام الصفحات بين ${MIN_PAGE} و${MAX_PAGE}، و"إلى" لا تسبق "من".`;
+
+    if (input.localKind === "HADIRAN" || input.localKind === "GHAYBAN") {
+      if (!input.juz || input.juz < 1 || input.juz > 30) return "اختاروا الجزء الذي سُبر فيه الطالب.";
     }
 
     if (input.localKind === "HADIRAN") {
-      if (!input.juz || input.juz < 1 || input.juz > 30) return "اختاروا الجزء لعرض أسئلة التجويد الخاصة به.";
       if (!input.answers || input.answers.length === 0) return "أضيفوا سؤالًا واحدًا على الأقل من بنك التجويد.";
       for (const a of input.answers) {
         if (!Number.isFinite(a.mark) || a.mark < 0 || a.mark > 10) return "علامة كل سؤال بين 0 و10.";

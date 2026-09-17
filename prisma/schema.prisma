@@ -38,8 +38,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // دور ولي الأمر فقط: كلمة المرور مخزَّنة مشفَّرة (قابلة للاسترجاع) لتظهر للإداريين في ملف الطالب
-  guardianPasswordEnc String?
+  // كلمة المرور مخزَّنة أيضًا مشفَّرة (قابلة للاسترجاع) لتظهر للإداريين — لكل الأدوار، وليس ولي الأمر وحده
+  passwordEnc String?
 
   teachableCohorts CohortTeacher[]
   halaqatTaught    Halqa[]
@@ -53,11 +53,15 @@ model User {
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
 model Cohort {
-  id            String  @id
-  name          String  @unique
-  isRotating    Boolean @default(false) // false = ثابت, true = قلّاب
-  time1         String?
-  time2         String? // قلّاب فقط
+  id         String  @id
+  name       String  @unique
+  isRotating Boolean @default(false) // false = ثابت, true = قلّاب
+
+  time1Start String? // HH:MM
+  time1End   String? // HH:MM
+  time2Start String? // قلّاب فقط
+  time2End   String? // قلّاب فقط
+
   // القلّاب يتناوب أسبوعًا بأسبوع؛ هذا التاريخ يحدد أي أسبوع هو الأول
   rotationStart String?
 
@@ -207,8 +211,8 @@ enum LocalKind {
   AMMA_GHAYBAN // عمّ غيباً — علامة واحدة فقط، بلا بنك أسئلة
 }
 
-// بنك أسئلة التجويد لسبر "حاضراً" — ثابت من خطة المعلم، وليس حرًّا لكل مختبِر.
-// الجزء 1 حتى 20 فقط؛ الأجزاء 21-30 ترث تراكميًا أسئلة الجزء 20 فما دون (لا أسئلة جديدة لها).
+// بنك أسئلة التجويد لسبر "حاضراً" — بداية من خطة المعلم، وقابل لتعديل أي مختبِر وإضافته إليه.
+// عند اختيار جزء N يظهر كل سؤال بجزء ≤ N (تراكميًا).
 model TajweedTopic {
   id    String @id @default(cuid())
   juz   Int
@@ -235,12 +239,11 @@ model Exam {
   localKind LocalKind?
 
   // PLACEMENT: الجزء الذي يبدأ منه الطالب (نتيجة الفرز، بلا علامة)
-  // LOCAL/HADIRAN فقط: الجزء الذي يُسحب منه بنك أسئلة التجويد (تراكميًا حتى هذا الجزء)
+  // LOCAL/HADIRAN وLOCAL/GHAYBAN: الجزء الذي سُبر فيه (لا يوجد لعمّ غيباً — دائمًا جزء عمّ)
   juz Int?
 
-  // LOCAL: أرقام الصفحات التي سُبر الطالب فيها (الأنواع الثلاثة كلها)
-  pageFrom Int?
-  pageTo   Int?
+  // LOCAL (الأنواع الثلاثة) وWAQF_NOMINATION — أرقام صفحات مفردة، غير متتالية بالضرورة
+  pages Int[] @default([])
 
   // WAQF_NOMINATION، وLOCAL (غيباً/عمّ غيباً) — علامة من 100
   resultMark Int?

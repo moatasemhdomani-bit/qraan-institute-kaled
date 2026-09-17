@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { today, isValidDate, dayLockReason, rotationSlot, formatDateAr } from "@/lib/daily";
+import { today, isValidDate, dayLockReason, rotationSlot, timeRangeLabel, formatDateAr } from "@/lib/daily";
 import PageHeader from "@/components/PageHeader";
 import DailyShell from "@/components/DailyShell";
 import AttendanceClient from "./AttendanceClient";
@@ -39,7 +39,7 @@ export default async function AttendancePage({
 
   const slot = halqa ? rotationSlot(halqa.cohort, date) : null;
   const dutyNote = slot
-    ? `فوج ${halqa!.cohort.name} — النظام حسب أن هذا الأسبوع دوام الوقت ${slot.time || "غير محدَّد"}، وعرض طلابه.`
+    ? `فوج ${halqa!.cohort.name} — النظام حسب أن هذا الأسبوع دوام الوقت ${timeRangeLabel(slot.start, slot.end)}، وعرض طلابه.`
     : halqa?.cohort.isRotating
       ? `فوج ${halqa.cohort.name} قلّاب، لكن تاريخ بداية التناوب غير مضبوط — راجع الإدارة.`
       : "";

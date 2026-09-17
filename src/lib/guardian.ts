@@ -53,7 +53,7 @@ export async function createGuardianAccount(studentNo: number, studentName: stri
       name: `ولي أمر ${studentName}`,
       username: String(studentNo),
       passwordHash: await hashPassword(password),
-      guardianPasswordEnc: encryptPassword(password),
+      passwordEnc: encryptPassword(password),
       role: "GUARDIAN",
     },
   });
@@ -62,12 +62,16 @@ export async function createGuardianAccount(studentNo: number, studentName: stri
 
 /** يولّد كلمة مرور جديدة لحساب ولي أمر قائم (إن فُقدت السابقة). */
 export async function regenerateGuardianPassword(guardianUserId: string) {
-  const password = generatePassword();
+  return setUserPassword(guardianUserId);
+}
+
+/** يولّد كلمة مرور جديدة لأي مستخدم (موظف أو ولي أمر) ويعيدها ظاهرة. */
+export async function setUserPassword(userId: string, password: string = generatePassword()) {
   await prisma.user.update({
-    where: { id: guardianUserId },
+    where: { id: userId },
     data: {
       passwordHash: await hashPassword(password),
-      guardianPasswordEnc: encryptPassword(password),
+      passwordEnc: encryptPassword(password),
     },
   });
   return password;

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
-import { resultLabel, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
+import { resultLabel, passFailLabel, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
 import Drawer from "@/components/Drawer";
 import ExamFormDrawer, { type ExistingExam } from "./ExamFormDrawer";
 
@@ -18,6 +18,7 @@ export default function ExamBrowseClient({
   tajweedTopics,
   halaqat,
   examsByStudent,
+  readyStudents,
 }: {
   type: ExamTypeId;
   readOnly: boolean;
@@ -26,6 +27,7 @@ export default function ExamBrowseClient({
   tajweedTopics: { id: string; juz: number; text: string }[];
   halaqat: Halqa[];
   examsByStudent: Record<string, ExamRow[]>;
+  readyStudents?: { id: string; no: number; name: string; date: string }[];
 }) {
   const [search, setSearch] = useState("");
   const [openHalqa, setOpenHalqa] = useState<string | null>(halaqat[0]?.id ?? null);
@@ -61,6 +63,26 @@ export default function ExamBrowseClient({
           </div>
         )}
       </div>
+
+      {readyStudents && readyStudents.length > 0 && (
+        <div style={{ ...cardStyle, padding: "13px 16px" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#6FBF8B" }}>قائمة جاهز للسبر ({readyStudents.length})</div>
+          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 10 }}>طلاب نجحوا في سبر ترشيح الأوقاف — جاهزون لسبر الأوقاف الفعلي.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {readyStudents.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setFileStudent({ id: s.id, no: s.no, name: s.name })}
+                style={{ textAlign: "start", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(111,191,139,0.35)", background: "rgba(111,191,139,0.08)", color: "var(--ink)", fontSize: 13.5, cursor: "pointer" }}
+              >
+                <span>{s.name}</span>
+                <span style={{ color: "var(--ink-3)", fontSize: 11 }}>#{s.no}</span>
+                <span style={{ marginInlineStart: "auto", fontSize: 11.5, color: "var(--ink-3)", direction: "ltr" }}>{s.date}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {halaqat.length === 0 ? (
         <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا توجد حلقات بعد.</div>
@@ -137,20 +159,41 @@ export default function ExamBrowseClient({
             )}
             {(examsByStudent[fileStudent.id] ?? []).map((e) => {
               const canEdit = !readOnly && (isDirector || e.examinerId === currentUserId);
+              const passFail = passFailLabel({
+                type,
+                localKind: e.localKind,
+                localTotal: e.localTotal,
+                resultMark: e.resultMark,
+                nominationPresent: e.nominationPresent,
+              });
               return (
                 <div key={e.id} style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 15, fontWeight: 700 }}>
                       {resultLabel({ type, localKind: e.localKind, localTotal: e.localTotal, resultMark: e.resultMark })}
                     </span>
+                    {passFail && (
+                      <span
+                        style={{
+                          padding: "3px 10px",
+                          borderRadius: 999,
+                          fontSize: 11.5,
+                          fontWeight: 700,
+                          border: `1px solid ${passFail === "ناجح" ? "rgba(111,191,139,0.5)" : "rgba(224,138,138,0.5)"}`,
+                          color: passFail === "ناجح" ? "#6FBF8B" : "#E08A8A",
+                        }}
+                      >
+                        {passFail}
+                      </span>
+                    )}
                     {type === "LOCAL" && e.localKind && (
                       <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
                         {LOCAL_KIND_LABELS[e.localKind]}
                       </span>
                     )}
-                    {type === "LOCAL" && e.pageFrom != null && e.pageTo != null && (
-                      <span style={{ fontSize: 12, color: "var(--ink-2)" }}>
-                        صفحات {e.pageFrom}-{e.pageTo}
+                    {e.pages != null && e.pages.length > 0 && (
+                      <span style={{ fontSize: 12, color: "var(--ink-2)", direction: "ltr" }}>
+                        صفحات: {e.pages.join("، ")}
                       </span>
                     )}
                     {canEdit && (

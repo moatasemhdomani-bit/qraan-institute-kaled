@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import ExamBrowseClient from "../ExamBrowseClient";
+import { passFailLabel } from "@/lib/exam";
 
 export default async function AwqafExamPage() {
   const session = await getSession();
@@ -16,10 +17,18 @@ export default async function AwqafExamPage() {
     }),
     prisma.exam.findMany({
       where: { type: "WAQF_NOMINATION" },
-      include: { examiner: { select: { id: true, name: true } }, answers: true },
+      include: { examiner: { select: { id: true, name: true } }, answers: true, student: { select: { id: true, name: true, studentNo: true } } },
       orderBy: { date: "desc" },
     }),
   ]);
+
+  const readyMap = new Map<string, { id: string; no: number; name: string; date: string }>();
+  for (const e of examsRaw) {
+    if (readyMap.has(e.studentId)) continue; // examsRaw مرتّبة تنازليًا حسب التاريخ — أول ظهور هو الأحدث
+    const passed = passFailLabel({ type: "WAQF_NOMINATION", resultMark: e.resultMark, nominationPresent: e.nominationPresent }) === "ناجح";
+    if (passed) readyMap.set(e.studentId, { id: e.student.id, no: e.student.studentNo, name: e.student.name, date: e.date });
+  }
+  const readyStudents = Array.from(readyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
 
   const halaqat = halaqatRaw.map((h) => ({
     id: h.id,
@@ -39,8 +48,7 @@ export default async function AwqafExamPage() {
       date: e.date,
       localKind: null,
       juz: e.juz,
-      pageFrom: null,
-      pageTo: null,
+      pages: e.pages,
       resultMark: e.resultMark,
       localTotal: e.localTotal,
       nominationPresent: e.nominationPresent,
@@ -64,6 +72,7 @@ export default async function AwqafExamPage() {
         tajweedTopics={[]}
         halaqat={halaqat}
         examsByStudent={examsByStudent}
+        readyStudents={readyStudents}
       />
     </>
   );

@@ -7,10 +7,11 @@ import ExamMonitorClient from "./ExamMonitorClient";
 export default async function ExamMonitorPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
+  if (session.role !== "DIRECTOR" && session.role !== "ADMIN" && session.role !== "TEACHER") redirect("/dashboard");
 
   const [halaqatRaw, examsRaw, tajweedTopics] = await Promise.all([
     prisma.halqa.findMany({
+      where: session.role === "TEACHER" ? { teacherId: session.userId } : undefined,
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { select: { id: true } } },
       orderBy: { name: "asc" },
     }),
@@ -35,8 +36,7 @@ export default async function ExamMonitorPage() {
         date: e.date,
         localKind: e.localKind,
         juz: e.juz,
-        pageFrom: e.pageFrom,
-        pageTo: e.pageTo,
+        pages: e.pages,
         resultMark: e.resultMark,
         localTotal: e.localTotal,
         nominationPresent: e.nominationPresent,

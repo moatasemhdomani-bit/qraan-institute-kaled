@@ -37,7 +37,7 @@ export default function ScheduleClient({
         <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>قائمة العطل</div>
         <form action={formAction} style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
           <input name="name" placeholder="اسم العطلة" style={{ ...inputStyle(), flex: 1, minWidth: 130 }} />
-          <input name="date" placeholder="التاريخ" style={{ ...inputStyle(), width: 120 }} />
+          <input type="date" name="date" style={{ ...inputStyle(), width: 155, textAlign: "center", direction: "ltr" }} />
           <button type="submit" disabled={pending} style={{ ...primaryButtonStyle, padding: "9px 14px", fontSize: 13, opacity: pending ? 0.7 : 1 }}>
             إضافة
           </button>

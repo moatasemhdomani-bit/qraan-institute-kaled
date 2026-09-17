@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle } from "@/lib/ui";
-import { resultLabel, TYPE_LABELS, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
+import { resultLabel, passFailLabel, TYPE_LABELS, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
 
 type Row = ExistingExam & { type: ExamTypeId; studentName: string; examinerId: string; examinerName: string; localTotal: number | null };
@@ -76,7 +76,9 @@ export default function ExamMonitorClient({
           {b.rows.length === 0 ? (
             <div style={{ padding: "16px", fontSize: 13, color: "var(--ink-3)" }}>لا نتائج مطابقة للفلاتر الحالية.</div>
           ) : (
-            b.rows.map((r) => (
+            b.rows.map((r) => {
+              const passFail = passFailLabel(r);
+              return (
               <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 5, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
@@ -84,9 +86,23 @@ export default function ExamMonitorClient({
                     {r.localKind ? ` — ${LOCAL_KIND_LABELS[r.localKind]}` : ""}
                   </span>
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{resultLabel(r)}</span>
-                  {r.type === "LOCAL" && r.pageFrom != null && r.pageTo != null && (
-                    <span style={{ fontSize: 12, color: "var(--ink-2)" }}>
-                      صفحات {r.pageFrom}-{r.pageTo}
+                  {passFail && (
+                    <span
+                      style={{
+                        padding: "3px 10px",
+                        borderRadius: 999,
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        border: `1px solid ${passFail === "ناجح" ? "rgba(111,191,139,0.5)" : "rgba(224,138,138,0.5)"}`,
+                        color: passFail === "ناجح" ? "#6FBF8B" : "#E08A8A",
+                      }}
+                    >
+                      {passFail}
+                    </span>
+                  )}
+                  {r.pages != null && r.pages.length > 0 && (
+                    <span style={{ fontSize: 12, color: "var(--ink-2)", direction: "ltr" }}>
+                      صفحات: {r.pages.join("، ")}
                     </span>
                   )}
                   {canEdit && (isDirector || r.examinerId === currentUserId) && (
@@ -104,7 +120,8 @@ export default function ExamMonitorClient({
                 </div>
                 {r.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>ملاحظات: {r.notes}</div>}
               </div>
-            ))
+              );
+            })
           )}
         </div>
       ))}

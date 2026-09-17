@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { decryptPassword } from "@/lib/guardian";
 import PageHeader from "@/components/PageHeader";
 import UsersClient from "./UsersClient";
 
@@ -37,6 +38,7 @@ export default async function UsersPage() {
     quran: u.quranLevel || "",
     halqaLabel: u.halaqatTaught.length ? u.halaqatTaught.map((h) => `${h.name} · ${h.cohort.name}`).join("، ") : "—",
     cohortIds: u.teachableCohorts.map((c) => c.cohortId),
+    currentPassword: decryptPassword(u.passwordEnc) || "",
   }));
 
   return (

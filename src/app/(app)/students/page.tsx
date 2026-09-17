@@ -35,7 +35,7 @@ export default async function StudentsPage() {
     halqaName: s.halqa?.name || "—",
     cohortName: s.halqa?.cohort.name || "—",
     guardianUsername: s.guardianUser?.username || "",
-    guardianPassword: decryptPassword(s.guardianUser?.guardianPasswordEnc) || "",
+    guardianPassword: decryptPassword(s.guardianUser?.passwordEnc) || "",
   }));
 
   const halaqat = halaqatRaw.map((h) => ({ id: h.id, name: h.name, cohortName: h.cohort.name }));

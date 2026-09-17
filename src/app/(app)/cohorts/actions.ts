@@ -21,11 +21,13 @@ export async function updateCohortTiming(_prev: FormState, formData: FormData): 
     return { error: "غير مصرَّح لك بهذا الإجراء." };
   }
   const id = String(formData.get("id") || "");
-  const time1 = String(formData.get("time1") || "") || null;
-  const time2 = String(formData.get("time2") || "") || null;
+  const time1Start = String(formData.get("time1Start") || "") || null;
+  const time1End = String(formData.get("time1End") || "") || null;
+  const time2Start = String(formData.get("time2Start") || "") || null;
+  const time2End = String(formData.get("time2End") || "") || null;
   const rotationStart = String(formData.get("rotationStart") || "") || null;
 
-  const cohort = await prisma.cohort.update({ where: { id }, data: { time1, time2, rotationStart } });
+  const cohort = await prisma.cohort.update({ where: { id }, data: { time1Start, time1End, time2Start, time2End, rotationStart } });
   await logAction(session.userId, `عدّل توقيت الفوج «${cohort.name}»`);
   revalidatePath("/cohorts");
   return { ok: true };

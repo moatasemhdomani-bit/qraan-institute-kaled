@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { saveExam, type FormState } from "./actions";
+import { saveExam, saveTajweedTopic, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
-import { JUZ, MIN_PAGE, MAX_PAGE, NOMINATION_PARTS, LOCAL_KINDS, LOCAL_KIND_LABELS, tajweedJuzCap, type ExamTypeId, type LocalKindId } from "@/lib/exam";
+import { JUZ, MIN_PAGE, MAX_PAGE, NOMINATION_PARTS, LOCAL_KINDS, LOCAL_KIND_LABELS, passFailLabel, type ExamTypeId, type LocalKindId } from "@/lib/exam";
 import Drawer from "@/components/Drawer";
 
 const initialState: FormState = {};
@@ -16,14 +16,72 @@ export type ExistingExam = {
   date: string;
   localKind: LocalKindId | null;
   juz: number | null;
-  pageFrom: number | null;
-  pageTo: number | null;
+  pages: number[];
   resultMark: number | null;
   nominationPresent: boolean | null;
   nominationParts: number | null;
   notes: string | null;
   answers: ExamAnswerRow[];
 };
+
+function PagePicker({ pages, setPages }: { pages: number[]; setPages: (p: number[]) => void }) {
+  const [pageInput, setPageInput] = useState("");
+
+  function addPage() {
+    const n = parseInt(pageInput, 10);
+    if (!Number.isFinite(n) || n < MIN_PAGE || n > MAX_PAGE) return;
+    if (!pages.includes(n)) setPages([...pages, n].sort((a, b) => a - b));
+    setPageInput("");
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>أرقام الصفحات التي سُبر فيها الطالب</div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", maxWidth: 300 }}>
+        <input
+          type="number"
+          min={MIN_PAGE}
+          max={MAX_PAGE}
+          value={pageInput}
+          onChange={(e) => setPageInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addPage();
+            }
+          }}
+          placeholder={`${MIN_PAGE} — ${MAX_PAGE}`}
+          style={{ ...inputStyle(), textAlign: "center", direction: "ltr" }}
+        />
+        <button type="button" onClick={addPage} style={{ ...primaryButtonStyle, flex: "none", padding: "10px 16px", fontSize: 13 }}>
+          إضافة صفحة
+        </button>
+      </div>
+      {pages.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+          {pages.map((p) => (
+            <span
+              key={p}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 6px 5px 12px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13, direction: "ltr" }}
+            >
+              {p}
+              <button
+                type="button"
+                onClick={() => setPages(pages.filter((x) => x !== p))}
+                style={{ width: 22, height: 22, borderRadius: "50%", border: "none", background: "transparent", color: "var(--ink-3)", fontSize: 14, cursor: "pointer", lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>
+        أضيفوا كل صفحة اختُبر فيها الطالب على حدة — ليست بالضرورة متتالية. الصفحات بين {MIN_PAGE} و{MAX_PAGE}.
+      </div>
+    </div>
+  );
+}
 
 export default function ExamFormDrawer({
   type,
@@ -47,14 +105,24 @@ export default function ExamFormDrawer({
   const [date, setDate] = useState(existing?.date ?? new Date().toISOString().slice(0, 10));
   const [localKind, setLocalKind] = useState<LocalKindId | "">(existing?.localKind ?? "");
   const [juz, setJuz] = useState<number | null>(existing?.juz ?? null);
-  const [pageFrom, setPageFrom] = useState(existing?.pageFrom != null ? String(existing.pageFrom) : "");
-  const [pageTo, setPageTo] = useState(existing?.pageTo != null ? String(existing.pageTo) : "");
+  const [pages, setPages] = useState<number[]>(existing?.pages ?? []);
   const [resultMark, setResultMark] = useState(existing?.resultMark != null ? String(existing.resultMark) : "");
   const [nominationPresent, setNominationPresent] = useState<boolean | null>(existing?.nominationPresent ?? null);
   const [nominationParts, setNominationParts] = useState<number | null>(existing?.nominationParts ?? null);
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [answers, setAnswers] = useState<ExamAnswerRow[]>(existing?.answers ?? []);
   const [topicSearch, setTopicSearch] = useState("");
+  const [topics, setTopics] = useState(tajweedTopics);
+
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
+  const [editingTopicText, setEditingTopicText] = useState("");
+  const [editingTopicJuz, setEditingTopicJuz] = useState<number>(1);
+  const [topicSaving, setTopicSaving] = useState(false);
+  const [topicError, setTopicError] = useState("");
+
+  const [addingTopic, setAddingTopic] = useState(false);
+  const [newTopicText, setNewTopicText] = useState("");
+  const [newTopicJuz, setNewTopicJuz] = useState<number>(juz ?? 1);
 
   useEffect(() => {
     if (state.ok) {
@@ -63,14 +131,13 @@ export default function ExamFormDrawer({
     }
   }, [state.ok, onClose, onSaved]);
 
-  const cappedJuz = juz ? tajweedJuzCap(juz) : 0;
   const topicHits = useMemo(
     () =>
-      tajweedTopics
-        .filter((t) => t.juz <= cappedJuz)
+      topics
+        .filter((t) => t.juz <= (juz ?? 0))
         .filter((t) => !topicSearch.trim() || t.text.includes(topicSearch.trim()))
         .filter((t) => !answers.some((a) => a.topicId === t.id)),
-    [tajweedTopics, cappedJuz, topicSearch, answers]
+    [topics, juz, topicSearch, answers]
   );
 
   const total = useMemo(() => {
@@ -85,6 +152,66 @@ export default function ExamFormDrawer({
   };
 
   const partsOptions = nominationPresent == null ? [] : NOMINATION_PARTS[nominationPresent ? "present" : "absent"];
+
+  const currentPassFail =
+    type === "PLACEMENT"
+      ? null
+      : passFailLabel({
+          type,
+          localKind: localKind || null,
+          localTotal: total,
+          resultMark: resultMark ? parseInt(resultMark, 10) : null,
+          nominationPresent,
+        });
+
+  async function startEditTopic(t: { id: string; juz: number; text: string }) {
+    setAddingTopic(false);
+    setEditingTopicId(t.id);
+    setEditingTopicText(t.text);
+    setEditingTopicJuz(t.juz);
+    setTopicError("");
+  }
+
+  async function saveEditedTopic() {
+    if (!editingTopicId) return;
+    if (!editingTopicText.trim()) {
+      setTopicError("اكتبوا نص السؤال.");
+      return;
+    }
+    setTopicSaving(true);
+    setTopicError("");
+    const res = await saveTajweedTopic({ id: editingTopicId, juz: editingTopicJuz, text: editingTopicText.trim() });
+    setTopicSaving(false);
+    if (res.error) {
+      setTopicError(res.error);
+      return;
+    }
+    if (res.topic) {
+      setTopics((prev) => prev.map((t) => (t.id === res.topic!.id ? res.topic! : t)));
+      setAnswers((prev) => prev.map((a) => (a.topicId === res.topic!.id ? { ...a, text: res.topic!.text } : a)));
+    }
+    setEditingTopicId(null);
+  }
+
+  async function addNewTopic() {
+    if (!newTopicText.trim()) {
+      setTopicError("اكتبوا نص السؤال.");
+      return;
+    }
+    setTopicSaving(true);
+    setTopicError("");
+    const res = await saveTajweedTopic({ juz: newTopicJuz, text: newTopicText.trim() });
+    setTopicSaving(false);
+    if (res.error) {
+      setTopicError(res.error);
+      return;
+    }
+    if (res.topic) {
+      setTopics((prev) => [...prev, res.topic!]);
+      setNewTopicText("");
+    }
+    setAddingTopic(false);
+  }
 
   return (
     <Drawer
@@ -115,8 +242,7 @@ export default function ExamFormDrawer({
         <input type="hidden" name="studentId" value={student?.id ?? ""} />
         <input type="hidden" name="localKind" value={localKind} />
         <input type="hidden" name="juz" value={juz ?? ""} />
-        <input type="hidden" name="pageFrom" value={pageFrom} />
-        <input type="hidden" name="pageTo" value={pageTo} />
+        <input type="hidden" name="pagesJson" value={JSON.stringify(pages)} />
         <input type="hidden" name="resultMark" value={resultMark} />
         <input type="hidden" name="nominationPresent" value={nominationPresent == null ? "" : nominationPresent ? "1" : "0"} />
         <input type="hidden" name="nominationParts" value={nominationParts ?? ""} />
@@ -163,6 +289,7 @@ export default function ExamFormDrawer({
                 </div>
               </div>
             )}
+            <PagePicker pages={pages} setPages={setPages} />
           </div>
         )}
 
@@ -200,38 +327,37 @@ export default function ExamFormDrawer({
               </div>
             </div>
 
-            {localKind && (
+            {localKind && <PagePicker pages={pages} setPages={setPages} />}
+
+            {(localKind === "GHAYBAN" || localKind === "HADIRAN") && (
               <div>
-                <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>أرقام الصفحات التي سُبر فيها الطالب</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 300 }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: 11.5, color: "var(--ink-3)", marginBottom: 5 }}>من صفحة</label>
-                    <input
-                      type="number"
-                      min={MIN_PAGE}
-                      max={MAX_PAGE}
-                      value={pageFrom}
-                      onChange={(e) => setPageFrom(e.target.value)}
-                      style={{ ...inputStyle(), textAlign: "center", direction: "ltr" }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: 11.5, color: "var(--ink-3)", marginBottom: 5 }}>إلى صفحة</label>
-                    <input
-                      type="number"
-                      min={MIN_PAGE}
-                      max={MAX_PAGE}
-                      value={pageTo}
-                      onChange={(e) => setPageTo(e.target.value)}
-                      style={{ ...inputStyle(), textAlign: "center", direction: "ltr" }}
-                    />
-                  </div>
+                <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>الجزء الذي سُبر فيه الطالب</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {JUZ.map((j) => (
+                    <button key={j} type="button" onClick={() => setJuz(j)} style={{ ...chipStyle(juz === j), width: 42, minHeight: 40, padding: 0 }}>
+                      {j}
+                    </button>
+                  ))}
                 </div>
-                <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>الصفحات بين {MIN_PAGE} و{MAX_PAGE}.</div>
               </div>
             )}
 
-            {(localKind === "GHAYBAN" || localKind === "AMMA_GHAYBAN") && (
+            {localKind === "AMMA_GHAYBAN" && (
+              <div>
+                <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={resultMark}
+                  onChange={(e) => setResultMark(e.target.value)}
+                  placeholder="0 — 100"
+                  style={{ width: 120, minHeight: 46, padding: 11, borderRadius: 10, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 17, textAlign: "center", direction: "ltr" }}
+                />
+              </div>
+            )}
+
+            {localKind === "GHAYBAN" && (
               <div>
                 <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
                 <input
@@ -248,20 +374,6 @@ export default function ExamFormDrawer({
 
             {localKind === "HADIRAN" && (
               <>
-                <div>
-                  <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>الجزء (لعرض أسئلة التجويد المناسبة له)</div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {JUZ.map((j) => (
-                      <button key={j} type="button" onClick={() => setJuz(j)} style={{ ...chipStyle(juz === j), width: 42, minHeight: 40, padding: 0 }}>
-                        {j}
-                      </button>
-                    ))}
-                  </div>
-                  {juz != null && juz > 20 && (
-                    <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>الأجزاء بعد العشرين تعرض أسئلة الجزء 20 فما دون تراكميًا.</div>
-                  )}
-                </div>
-
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 9, padding: 14, borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
                     <div style={{ fontSize: 13, fontWeight: 700 }}>أسئلة هذا السبر</div>
@@ -303,21 +415,123 @@ export default function ExamFormDrawer({
 
                   {juz != null && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 9, padding: 14, borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>بنك أسئلة التجويد</div>
-                      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>أسئلة الجزء {cappedJuz} فما دون — ثابتة من خطة المعلم.</div>
-                      <input value={topicSearch} onChange={(e) => setTopicSearch(e.target.value)} placeholder="بحث في الأسئلة" style={inputStyle()} />
-                      {topicHits.length === 0 && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>لا سؤال مطابق، أو أُضيفت كل الأسئلة المتاحة بالفعل.</div>}
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 210, overflow: "auto" }}>
-                        {topicHits.map((t) => (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>بنك أسئلة التجويد</div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddingTopic((v) => !v);
+                            setEditingTopicId(null);
+                            setNewTopicJuz(juz ?? 1);
+                            setTopicError("");
+                          }}
+                          style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}
+                        >
+                          {addingTopic ? "إلغاء" : "+ سؤال جديد"}
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>أسئلة الجزء {juz} فما دون — تراكميًا من كل الأجزاء الأقل.</div>
+
+                      {topicError && <div style={{ fontSize: 12, color: "#F0B4B4" }}>{topicError}</div>}
+
+                      {addingTopic && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-grad)" }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <label style={{ fontSize: 12, color: "var(--ink-2)" }}>الجزء</label>
+                            <select
+                              value={newTopicJuz}
+                              onChange={(e) => setNewTopicJuz(parseInt(e.target.value, 10))}
+                              style={{ ...inputStyle(), width: 90, direction: "ltr" }}
+                            >
+                              {JUZ.map((j) => (
+                                <option key={j} value={j}>
+                                  {j}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <textarea
+                            value={newTopicText}
+                            onChange={(e) => setNewTopicText(e.target.value)}
+                            placeholder="نص السؤال"
+                            rows={2}
+                            style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 13, resize: "vertical" }}
+                          />
                           <button
-                            key={t.id}
                             type="button"
-                            onClick={() => setAnswers((prev) => [...prev, { topicId: t.id, text: t.text, mark: 0 }])}
-                            style={{ width: "100%", textAlign: "start", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-grad)", color: "var(--ink)", fontSize: 13, cursor: "pointer" }}
+                            disabled={topicSaving}
+                            onClick={addNewTopic}
+                            style={{ ...primaryButtonStyle, padding: "8px 14px", fontSize: 13, opacity: topicSaving ? 0.7 : 1 }}
                           >
-                            {t.text}
+                            {topicSaving ? "جارٍ الإضافة…" : "إضافة إلى البنك"}
                           </button>
-                        ))}
+                        </div>
+                      )}
+
+                      <input value={topicSearch} onChange={(e) => setTopicSearch(e.target.value)} placeholder="بحث في الأسئلة" style={inputStyle()} />
+                      {topicHits.length === 0 && !addingTopic && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>لا سؤال مطابق، أو أُضيفت كل الأسئلة المتاحة بالفعل.</div>}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflow: "auto" }}>
+                        {topicHits.map((t) =>
+                          editingTopicId === t.id ? (
+                            <div key={t.id} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-grad)" }}>
+                              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                <label style={{ fontSize: 12, color: "var(--ink-2)" }}>الجزء</label>
+                                <select
+                                  value={editingTopicJuz}
+                                  onChange={(e) => setEditingTopicJuz(parseInt(e.target.value, 10))}
+                                  style={{ ...inputStyle(), width: 90, direction: "ltr" }}
+                                >
+                                  {JUZ.map((j) => (
+                                    <option key={j} value={j}>
+                                      {j}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <textarea
+                                value={editingTopicText}
+                                onChange={(e) => setEditingTopicText(e.target.value)}
+                                rows={2}
+                                style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 13, resize: "vertical" }}
+                              />
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button
+                                  type="button"
+                                  disabled={topicSaving}
+                                  onClick={saveEditedTopic}
+                                  style={{ ...primaryButtonStyle, padding: "7px 14px", fontSize: 12.5, opacity: topicSaving ? 0.7 : 1 }}
+                                >
+                                  {topicSaving ? "جارٍ الحفظ…" : "حفظ"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingTopicId(null)}
+                                  style={{ padding: "7px 14px", borderRadius: 9, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 12.5, cursor: "pointer" }}
+                                >
+                                  إلغاء
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <button
+                                type="button"
+                                onClick={() => setAnswers((prev) => [...prev, { topicId: t.id, text: t.text, mark: 0 }])}
+                                style={{ flex: 1, minWidth: 0, textAlign: "start", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-grad)", color: "var(--ink)", fontSize: 13, cursor: "pointer" }}
+                              >
+                                <span style={{ color: "var(--ink-3)" }}>الجزء {t.juz} — </span>
+                                {t.text}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => startEditTopic(t)}
+                                style={{ flex: "none", padding: "10px 10px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}
+                              >
+                                تعديل
+                              </button>
+                            </div>
+                          )
+                        )}
                       </div>
                     </div>
                   )}
@@ -342,6 +556,24 @@ export default function ExamFormDrawer({
           </div>
         )}
 
+        {currentPassFail && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignSelf: "flex-start",
+              padding: "6px 16px",
+              borderRadius: 999,
+              fontSize: 13,
+              fontWeight: 700,
+              border: `1px solid ${currentPassFail === "ناجح" ? "rgba(111,191,139,0.5)" : "rgba(224,138,138,0.5)"}`,
+              background: currentPassFail === "ناجح" ? "rgba(111,191,139,0.12)" : "rgba(224,138,138,0.12)",
+              color: currentPassFail === "ناجح" ? "#6FBF8B" : "#E08A8A",
+            }}
+          >
+            النتيجة: {currentPassFail}
+          </div>
+        )}
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>
           <div>
             <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>تاريخ السبر</label>
@@ -359,7 +591,7 @@ export default function ExamFormDrawer({
             placeholder="ما يحتاج المدرّس أن يعرفه"
             style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 14, lineHeight: 1.6, resize: "vertical" }}
           />
-          <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>تصل هذه الملاحظات تلقائيًا إلى مدرّس الطالب.</div>
+          <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>تصل هذه الملاحظات وأرقام الصفحات والنتيجة تلقائيًا إلى مدرّس الطالب.</div>
         </div>
       </form>
     </Drawer>

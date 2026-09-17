@@ -8,8 +8,10 @@ type Cohort = {
   id: string;
   name: string;
   isRotating: boolean;
-  time1: string;
-  time2: string;
+  time1Start: string;
+  time1End: string;
+  time2Start: string;
+  time2End: string;
   rotationStart: string;
   teachers: { id: string; name: string }[];
 };
@@ -58,15 +60,25 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
         <input type="hidden" name="id" value={cohort.id} />
         <div>
           <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 5 }}>
-            {cohort.isRotating ? "وقتان يتبادلان أسبوعًا بأسبوع" : "وقت واحد يُحدَّد ولا يتغيّر"}
+            {cohort.isRotating ? "الوقت الأول — بداية ونهاية" : "وقت الدوام — بداية ونهاية"}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <input name="time1" defaultValue={cohort.time1} placeholder="مثال 08:30" style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center" }} />
-            {cohort.isRotating && (
-              <input name="time2" defaultValue={cohort.time2} placeholder="مثال 16:00" style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center" }} />
-            )}
+            <input type="time" name="time1Start" defaultValue={cohort.time1Start} style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center", direction: "ltr" }} />
+            <span style={{ alignSelf: "center", color: "var(--ink-3)", fontSize: 12 }}>إلى</span>
+            <input type="time" name="time1End" defaultValue={cohort.time1End} style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center", direction: "ltr" }} />
           </div>
         </div>
+
+        {cohort.isRotating && (
+          <div>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 5 }}>الوقت الثاني — بداية ونهاية (يتبادل مع الأول أسبوعًا بأسبوع)</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input type="time" name="time2Start" defaultValue={cohort.time2Start} style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center", direction: "ltr" }} />
+              <span style={{ alignSelf: "center", color: "var(--ink-3)", fontSize: 12 }}>إلى</span>
+              <input type="time" name="time2End" defaultValue={cohort.time2End} style={{ ...inputStyle(), flex: 1, minWidth: 0, textAlign: "center", direction: "ltr" }} />
+            </div>
+          </div>
+        )}
 
         {cohort.isRotating && (
           <div>

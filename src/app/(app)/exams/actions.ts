@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { localTotal, validateExam, LOCAL_KIND_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
+import { localTotal, validateExam, passFailLabel, LOCAL_KIND_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
 
 export type FormState = { error?: string; ok?: boolean; examId?: string };
 
@@ -41,6 +41,30 @@ export async function addPlacementStudent(name: string): Promise<{ error?: strin
   return { studentId: created.id };
 }
 
+/** إنشاء/تعديل سؤال في بنك أسئلة التجويد — لأي مختبِر (أو مدير المعهد). */
+export async function saveTajweedTopic(input: {
+  id?: string;
+  juz: number;
+  text: string;
+}): Promise<{ error?: string; topic?: { id: string; juz: number; text: string } }> {
+  const session = await getSession();
+  if (!session || (session.role !== "EXAMINER" && session.role !== "DIRECTOR")) {
+    return { error: "غير مصرَّح لك بهذا الإجراء." };
+  }
+  const text = input.text.trim();
+  if (!text) return { error: "اكتبوا نص السؤال." };
+  if (!input.juz || input.juz < 1 || input.juz > 30) return { error: "اختاروا جزءًا صحيحًا (١-٣٠)." };
+
+  const topic = input.id
+    ? await prisma.tajweedTopic.update({ where: { id: input.id }, data: { juz: input.juz, text } })
+    : await prisma.tajweedTopic.create({ data: { juz: input.juz, text } });
+
+  await logAction(session.userId, `${input.id ? "عدّل" : "أضاف"} سؤالًا في بنك التجويد (الجزء ${input.juz})`);
+  revalidatePath("/exams/local");
+  revalidatePath("/exam-monitor");
+  return { topic: { id: topic.id, juz: topic.juz, text: topic.text } };
+}
+
 function examLabel(type: ExamTypeId, localKind: LocalKindId | null): string {
   if (type === "LOCAL") return `سبر محلي (${LOCAL_KIND_LABELS[localKind ?? "GHAYBAN"]})`;
   if (type === "WAQF_NOMINATION") return "سبر ترشيح أوقاف";
@@ -71,10 +95,12 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   const juzRaw = String(formData.get("juz") || "");
   const juz = juzRaw ? parseInt(juzRaw, 10) : null;
 
-  const pageFromRaw = String(formData.get("pageFrom") || "");
-  const pageFrom = pageFromRaw ? parseInt(pageFromRaw, 10) : null;
-  const pageToRaw = String(formData.get("pageTo") || "");
-  const pageTo = pageToRaw ? parseInt(pageToRaw, 10) : null;
+  let pages: number[] = [];
+  try {
+    pages = JSON.parse(String(formData.get("pagesJson") || "[]"));
+  } catch {
+    pages = [];
+  }
 
   const resultMarkRaw = String(formData.get("resultMark") || "");
   const resultMark = resultMarkRaw ? parseInt(resultMarkRaw, 10) : null;
@@ -102,8 +128,7 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     type,
     localKind,
     juz,
-    pageFrom,
-    pageTo,
+    pages,
     resultMark,
     nominationPresent,
     nominationParts,
@@ -122,15 +147,15 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   if (!finalStudentId) return { error: "لا يوجد طالب لهذا السبر." };
 
   const isHadiran = type === "LOCAL" && localKind === "HADIRAN";
+  const usesJuz = type === "PLACEMENT" || isHadiran || (type === "LOCAL" && localKind === "GHAYBAN");
 
   const data = {
     type,
     date,
     studentId: finalStudentId,
     localKind: type === "LOCAL" ? localKind : null,
-    juz: type === "PLACEMENT" || isHadiran ? juz : null,
-    pageFrom: type === "LOCAL" ? pageFrom : null,
-    pageTo: type === "LOCAL" ? pageTo : null,
+    juz: usesJuz ? juz : null,
+    pages: type === "LOCAL" || type === "WAQF_NOMINATION" ? pages : [],
     resultMark: type === "WAQF_NOMINATION" || (type === "LOCAL" && !isHadiran) ? resultMark : null,
     nominationPresent: type === "WAQF_NOMINATION" ? nominationPresent : null,
     nominationParts: type === "WAQF_NOMINATION" ? nominationParts : null,
@@ -155,7 +180,15 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     return exam.id;
   });
 
-  await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)} للطالب «${student?.name ?? ""}»`);
+  const passFail = passFailLabel({
+    type,
+    localKind,
+    localTotal: isHadiran ? localTotal(answers.map((a) => a.mark)) : null,
+    resultMark,
+    nominationPresent,
+  });
+  const resultNote = passFail ? ` — النتيجة: ${passFail}` : "";
+  await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)} للطالب «${student?.name ?? ""}»${resultNote}`);
 
   revalidateExamPaths();
   return { ok: true, examId };

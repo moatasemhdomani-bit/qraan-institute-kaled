@@ -74,9 +74,16 @@ export async function dayLockReason(date: string): Promise<string | null> {
  * بالاعتماد على تاريخ بداية التناوب — أو null إن لم يُضبط بعد.
  */
 export function rotationSlot(
-  cohort: { isRotating: boolean; time1: string | null; time2: string | null; rotationStart: string | null },
+  cohort: {
+    isRotating: boolean;
+    time1Start: string | null;
+    time1End: string | null;
+    time2Start: string | null;
+    time2End: string | null;
+    rotationStart: string | null;
+  },
   date: string
-): { time: string | null; which: 1 | 2 } | null {
+): { start: string | null; end: string | null; which: 1 | 2 } | null {
   if (!cohort.isRotating) return null;
   if (!cohort.rotationStart || !isValidDate(cohort.rotationStart)) return null;
 
@@ -84,7 +91,16 @@ export function rotationSlot(
   const cur = new Date(date + "T00:00:00").getTime();
   const weeks = Math.floor((cur - start) / (7 * 24 * 60 * 60 * 1000));
   const which = ((weeks % 2) + 2) % 2 === 0 ? 1 : 2;
-  return { time: which === 1 ? cohort.time1 : cohort.time2, which };
+  return which === 1
+    ? { start: cohort.time1Start, end: cohort.time1End, which }
+    : { start: cohort.time2Start, end: cohort.time2End, which };
+}
+
+/** نص وقت مقروء لعرض "من — إلى"، أو "غير محدَّد" إن لم يُضبط بعد. */
+export function timeRangeLabel(start: string | null, end: string | null): string {
+  if (!start && !end) return "غير محدَّد";
+  if (start && end) return `${start} — ${end}`;
+  return start || end || "غير محدَّد";
 }
 
 export function pageSpan(from: number | null, to: number | null): number {

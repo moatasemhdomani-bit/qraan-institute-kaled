@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { hashPassword } from "@/lib/password";
+import { generatePassword, encryptPassword } from "@/lib/guardian";
 import { logAction } from "@/lib/audit";
 import { ROLE_LABELS } from "@/lib/ui";
 import { revalidatePath } from "next/cache";
@@ -11,7 +12,7 @@ import path from "path";
 import crypto from "crypto";
 import { normalizePhone } from "@/lib/phone";
 
-export type FormState = { error?: string; ok?: boolean };
+export type FormState = { error?: string; ok?: boolean; generatedPassword?: string };
 
 async function savePhoto(file: File, prefix: string): Promise<string> {
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -33,7 +34,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   const role = String(formData.get("role") || "TEACHER") as "DIRECTOR" | "ADMIN" | "TEACHER" | "EXAMINER";
   const name = String(formData.get("name") || "").trim();
   const username = String(formData.get("username") || "").trim();
-  const password = String(formData.get("password") || "");
+  const password = String(formData.get("password") || "").trim();
 
   if (!name) return { error: "اكتبوا اسم العامل." };
   if (role === "DIRECTOR" && session.role !== "DIRECTOR") {
@@ -57,6 +58,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   };
 
   let userId = id;
+  let generatedPassword: string | undefined;
 
   if (id) {
     const existing = await prisma.user.findUnique({ where: { id } });
@@ -65,7 +67,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
       return { error: "تعديل حساب مدير المعهد من اختصاصه وحده." };
     }
 
-    const updateData: typeof data & { username?: string; passwordHash?: string } = { ...data };
+    const updateData: typeof data & { username?: string; passwordHash?: string; passwordEnc?: string } = { ...data };
 
     if (username && username !== existing.username) {
       const clash = await prisma.user.findUnique({ where: { username } });
@@ -74,16 +76,20 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     }
     if (password) {
       updateData.passwordHash = await hashPassword(password);
+      updateData.passwordEnc = encryptPassword(password);
     }
 
     await prisma.user.update({ where: { id }, data: updateData });
     await logAction(session.userId, `عدّل بيانات العامل «${name}»`);
   } else {
-    if (!username || !password) return { error: "اسم المستخدم وكلمة المرور مطلوبان لحساب جديد." };
+    if (!username) return { error: "اسم المستخدم مطلوب لحساب جديد." };
     const clash = await prisma.user.findUnique({ where: { username } });
     if (clash) return { error: "اسم المستخدم مستخدَم مسبقًا." };
-    const passwordHash = await hashPassword(password);
-    const created = await prisma.user.create({ data: { ...data, username, passwordHash } });
+    const finalPassword = password || generatePassword();
+    generatedPassword = finalPassword;
+    const passwordHash = await hashPassword(finalPassword);
+    const passwordEnc = encryptPassword(finalPassword);
+    const created = await prisma.user.create({ data: { ...data, username, passwordHash, passwordEnc } });
     userId = created.id;
     await logAction(session.userId, `سجّل عاملًا جديدًا «${name}» بدور ${ROLE_LABELS[role]}`);
   }
@@ -106,7 +112,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   }
 
   revalidatePath("/users");
-  return { ok: true };
+  return { ok: true, generatedPassword };
 }
 
 export async function deleteStaff(id: string): Promise<FormState> {

@@ -26,6 +26,7 @@ type StaffRow = {
   quran: string;
   halqaLabel: string;
   cohortIds: string[];
+  currentPassword: string;
 };
 
 const STAFF_ROLES: RoleId[] = ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER"];
@@ -319,8 +320,8 @@ function StaffForm({
   );
 
   useEffect(() => {
-    if (state.ok) onClose();
-  }, [state.ok, onClose]);
+    if (state.ok && !state.generatedPassword) onClose();
+  }, [state.ok, state.generatedPassword, onClose]);
   useEffect(() => {
     if (deleteState.ok) onClose();
   }, [deleteState.ok, onClose]);
@@ -366,6 +367,21 @@ function StaffForm({
       {(state.error || deleteState.error) && (
         <div style={{ padding: "12px 14px", borderRadius: 11, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 13 }}>
           {state.error || deleteState.error}
+        </div>
+      )}
+
+      {state.ok && state.generatedPassword && (
+        <div style={{ padding: "14px", borderRadius: 11, border: "1px solid rgba(111,191,139,0.4)", background: "rgba(111,191,139,0.1)", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#6FBF8B" }}>تم إنشاء الحساب — كلمة المرور المولَّدة:</div>
+          <PasswordField name="generatedPasswordView" defaultValue={state.generatedPassword} />
+          <div style={{ fontSize: 12, color: "var(--ink-2)" }}>احفظوها الآن — لن تظهر بهذا الشكل مرة أخرى إلا من هنا عند التعديل لاحقًا.</div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ ...primaryButtonStyle, alignSelf: "flex-start", padding: "8px 18px", fontSize: 13 }}
+          >
+            تم، إغلاق
+          </button>
         </div>
       )}
 
@@ -419,13 +435,28 @@ function StaffForm({
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
           <Field label="اسم المستخدم" name="username" defaultValue={initial?.username} />
-          <PasswordField
-            label={initial ? "كلمة مرور جديدة" : "كلمة المرور"}
-            name="password"
-            autoComplete="new-password"
-            placeholder={initial ? "اتركه فارغًا للإبقاء على كلمة المرور الحالية" : undefined}
-          />
+          {initial ? (
+            <PasswordField label="كلمة المرور الحالية" name="currentPasswordView" defaultValue={initial.currentPassword} readOnly />
+          ) : (
+            <div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>كلمة المرور</div>
+              <div style={{ padding: "11px 13px", borderRadius: 10, border: "1px dashed var(--line)", fontSize: 12.5, color: "var(--ink-3)" }}>
+                تُولَّد تلقائيًا كلمة مرور قوية عند الحفظ، وتظهر لكم مباشرة لتسليمها للموظف.
+              </div>
+            </div>
+          )}
         </div>
+
+        {initial && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+            <PasswordField
+              label="كلمة مرور جديدة"
+              name="password"
+              autoComplete="new-password"
+              placeholder="اتركوه فارغًا للإبقاء على كلمة المرور الحالية"
+            />
+          </div>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
           <Field label="الاسم" name="name" defaultValue={initial?.name} />
