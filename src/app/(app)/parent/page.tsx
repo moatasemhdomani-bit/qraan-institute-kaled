@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { today, isValidDate, formatDateAr, ATT_LABELS, ATT_STATES, pageSpan } from "@/lib/daily";
 import { resultLabel, TYPE_LABELS } from "@/lib/exam";
+import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import PageHeader from "@/components/PageHeader";
 import ParentClient from "./ParentClient";
 
@@ -63,7 +64,7 @@ export default async function ParentPage({
 
   if (!child) redirect("/parent");
 
-  const [attHistory, recHistory, todayAtt, todayRec, exams] = await Promise.all([
+  const [attHistory, recHistory, todayAtt, todayRec, exams, awqafResults] = await Promise.all([
     prisma.attendance.findMany({
       where: { studentId: child.id, date: { gte: from, lte: to } },
       orderBy: { date: "desc" },
@@ -78,6 +79,11 @@ export default async function ParentPage({
       where: { studentId: child.id },
       include: { examiner: { select: { name: true } } },
       orderBy: { date: "desc" },
+    }),
+    prisma.awqafResult.findMany({
+      where: { studentId: child.id },
+      include: { batch: { select: { date: true } } },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -134,13 +140,28 @@ export default async function ParentPage({
             ? "لم يقرأ ماضيًا"
             : `ماضي: ${r.pastFrom}→${r.pastTo} (${pageSpan(r.pastFrom, r.pastTo)} صفحة) — ${r.gradePast ?? ""}`,
         }))}
-        examRows={exams.map((e) => ({
-          type: TYPE_LABELS[e.type],
-          result: resultLabel(e),
-          date: formatDateAr(e.date),
-          examinerName: e.examiner.name,
-          notes: e.notes,
-        }))}
+        examRows={[
+          ...exams.map((e) => ({
+            type: TYPE_LABELS[e.type],
+            result: resultLabel(e),
+            rawDate: e.date,
+            examinerName: e.examiner.name,
+            notes: e.notes as string | null,
+          })),
+          ...awqafResults.map((r) => {
+            const passed = awqafPassed(r.score, r.nominationPresent);
+            return {
+              type: "سبر الأوقاف",
+              result: r.score != null ? `${r.score} / 100${passed != null ? ` — ${passed ? "ناجح" : "راسب"}` : ""}` : "بانتظار العلامة",
+              rawDate: r.batch.date,
+              examinerName: "",
+              notes: null as string | null,
+              certStatus: passed ? certCycleLabel(r) : undefined,
+            };
+          }),
+        ]
+          .sort((a, b) => b.rawDate.localeCompare(a.rawDate))
+          .map(({ rawDate, ...rest }) => ({ ...rest, date: formatDateAr(rawDate) }))}
       />
     </>
   );

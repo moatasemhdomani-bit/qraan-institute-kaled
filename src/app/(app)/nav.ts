@@ -8,6 +8,7 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[] }[]
   { id: "recitation-monitor", href: "/recitation-monitor", label: "متابعة التسميع", roles: ["DIRECTOR", "ADMIN"] },
   { id: "permits", href: "/permits", label: "إذن", roles: ["TEACHER", "ADMIN", "DIRECTOR"] },
   { id: "exams-hub", href: "/exams", label: "السبر", roles: ["DIRECTOR"] },
+  { id: "awqaf-batches", href: "/exams/awqaf-batches", label: "سبر الأوقاف والشهادات", roles: ["DIRECTOR", "ADMIN"] },
   { id: "exams-local", href: "/exams/local", label: "السبر المحلي", roles: ["EXAMINER"] },
   { id: "exams-awqaf", href: "/exams/awqaf", label: "ترشيح الأوقاف", roles: ["EXAMINER"] },
   { id: "exams-placement", href: "/exams/placement", label: "تحديد مستوى", roles: ["EXAMINER"] },

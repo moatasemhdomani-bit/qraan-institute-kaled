@@ -9,7 +9,7 @@ export default async function ExamMonitorPage() {
   if (!session) redirect("/login");
   if (session.role !== "DIRECTOR" && session.role !== "ADMIN" && session.role !== "TEACHER") redirect("/dashboard");
 
-  const [halaqatRaw, examsRaw, tajweedTopics] = await Promise.all([
+  const [halaqatRaw, examsRaw, tajweedTopics, awqafResultsRaw] = await Promise.all([
     prisma.halqa.findMany({
       where: session.role === "TEACHER" ? { teacherId: session.userId } : undefined,
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { select: { id: true } } },
@@ -21,18 +21,24 @@ export default async function ExamMonitorPage() {
       orderBy: { date: "desc" },
     }),
     session.role === "DIRECTOR" ? prisma.tajweedTopic.findMany({ orderBy: [{ juz: "asc" }, { order: "asc" }] }) : Promise.resolve([]),
+    prisma.awqafResult.findMany({
+      where: { student: { halqaId: { not: null } } },
+      include: { batch: { select: { date: true } }, student: { select: { id: true, name: true, halqaId: true } } },
+      orderBy: { batch: { date: "desc" } },
+    }),
   ]);
 
   const blocks = halaqatRaw.map((h) => {
-    const rows = examsRaw
+    const examRows = examsRaw
       .filter((e) => e.student.halqaId === h.id)
       .map((e) => ({
         id: e.id,
         studentId: e.studentId,
         studentName: e.student.name,
-        type: e.type,
+        type: e.type as (typeof e.type) | "AWQAF_ACTUAL",
         examinerId: e.examinerId,
         examinerName: e.examiner.name,
+        batchId: null as string | null,
         date: e.date,
         localKind: e.localKind,
         juz: e.juz,
@@ -42,9 +48,38 @@ export default async function ExamMonitorPage() {
         nominationParts: e.nominationParts,
         notes: e.notes,
         answers: e.answers.map((a) => ({ topicId: a.topicId, text: a.topic.text })),
+        certArrived: false,
+        certArchived: false,
+        certDelivered: false,
       }));
 
-    const sobredIds = new Set(rows.map((r) => r.studentId));
+    const awqafRows = awqafResultsRaw
+      .filter((r) => r.student.halqaId === h.id)
+      .map((r) => ({
+        id: r.id,
+        studentId: r.studentId,
+        studentName: r.student.name,
+        type: "AWQAF_ACTUAL" as const,
+        examinerId: "",
+        examinerName: "جهة الأوقاف",
+        batchId: r.batchId as string | null,
+        date: r.batch.date,
+        localKind: null,
+        juz: null,
+        pages: [] as number[],
+        resultMark: r.score,
+        nominationPresent: r.nominationPresent,
+        nominationParts: null,
+        notes: null as string | null,
+        answers: [] as { topicId: string; text: string }[],
+        certArrived: r.certArrived,
+        certArchived: r.certArchived,
+        certDelivered: r.certDelivered,
+      }));
+
+    const rows = [...examRows, ...awqafRows].sort((a, b) => b.date.localeCompare(a.date));
+
+    const sobredIds = new Set(examRows.map((r) => r.studentId));
     const neverCount = h.students.filter((s) => !sobredIds.has(s.id)).length;
 
     return {
@@ -62,6 +97,7 @@ export default async function ExamMonitorPage() {
       <ExamMonitorClient
         canEdit={session.role === "DIRECTOR"}
         isDirector={session.role === "DIRECTOR"}
+        canManageAwqaf={session.role === "DIRECTOR" || session.role === "ADMIN"}
         currentUserId={session.userId}
         tajweedTopics={tajweedTopics.map((t) => ({ id: t.id, juz: t.juz, text: t.text }))}
         blocks={blocks}

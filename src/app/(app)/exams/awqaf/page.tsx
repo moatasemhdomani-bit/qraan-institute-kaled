@@ -4,13 +4,15 @@ import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import ExamBrowseClient from "../ExamBrowseClient";
 import { passFailLabel } from "@/lib/exam";
+import { formatDateAr } from "@/lib/daily";
+import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 
 export default async function AwqafExamPage() {
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
 
-  const [halaqatRaw, examsRaw] = await Promise.all([
+  const [halaqatRaw, examsRaw, awqafResultsRaw] = await Promise.all([
     prisma.halqa.findMany({
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
@@ -20,7 +22,18 @@ export default async function AwqafExamPage() {
       include: { examiner: { select: { id: true, name: true } }, answers: true, student: { select: { id: true, name: true, studentNo: true } } },
       orderBy: { date: "desc" },
     }),
+    prisma.awqafResult.findMany({ include: { batch: { select: { date: true } } }, orderBy: { createdAt: "desc" } }),
   ]);
+
+  const awqafByStudent: Record<string, { batchDate: string; score: number | null; passed: boolean | null; certLabel: string }[]> = {};
+  for (const r of awqafResultsRaw) {
+    (awqafByStudent[r.studentId] ??= []).push({
+      batchDate: formatDateAr(r.batch.date),
+      score: r.score,
+      passed: awqafPassed(r.score, r.nominationPresent),
+      certLabel: certCycleLabel(r),
+    });
+  }
 
   const readyMap = new Map<string, { id: string; no: number; name: string; date: string }>();
   for (const e of examsRaw) {
@@ -72,6 +85,7 @@ export default async function AwqafExamPage() {
         halaqat={halaqat}
         examsByStudent={examsByStudent}
         readyStudents={readyStudents}
+        awqafByStudent={awqafByStudent}
       />
     </>
   );

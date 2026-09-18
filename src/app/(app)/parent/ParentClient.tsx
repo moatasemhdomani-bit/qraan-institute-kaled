@@ -28,7 +28,7 @@ export default function ParentClient({
   recDateLabel: string;
   attHistory: { date: string; label: string; color: string }[];
   recHistory: { date: string; blank: boolean; newLine: string; pastLine: string }[];
-  examRows: { type: string; result: string; date: string; examinerName: string; notes: string | null }[];
+  examRows: { type: string; result: string; date: string; examinerName: string; notes: string | null; certStatus?: string }[];
 }) {
   const router = useRouter();
   const go = (child: string, f: string, t: string) => router.push(`/parent?child=${child}&from=${f}&to=${t}`);
@@ -179,7 +179,8 @@ export default function ParentClient({
                 <span style={{ fontSize: 14, fontWeight: 700 }}>{e.result}</span>
                 <span style={{ marginInlineStart: "auto", fontSize: 12, color: "var(--ink-3)", direction: "ltr" }}>{e.date}</span>
               </div>
-              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>المختبِر: {e.examinerName}</div>
+              {e.examinerName && <div style={{ fontSize: 12, color: "var(--ink-2)" }}>المختبِر: {e.examinerName}</div>}
+              {e.certStatus && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{e.certStatus}</div>}
               {e.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>ملاحظات: {e.notes}</div>}
             </div>
           ))

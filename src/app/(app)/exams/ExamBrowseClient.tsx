@@ -10,6 +10,8 @@ type StudentLite = { id: string; no: number; name: string };
 type Halqa = { id: string; name: string; teacherName: string; cohortName: string; students: StudentLite[] };
 type ExamRow = ExistingExam & { examinerId: string; examinerName: string };
 
+type AwqafRow = { batchDate: string; score: number | null; passed: boolean | null; certLabel: string };
+
 export default function ExamBrowseClient({
   type,
   readOnly,
@@ -19,6 +21,7 @@ export default function ExamBrowseClient({
   halaqat,
   examsByStudent,
   readyStudents,
+  awqafByStudent,
 }: {
   type: ExamTypeId;
   readOnly: boolean;
@@ -28,6 +31,7 @@ export default function ExamBrowseClient({
   halaqat: Halqa[];
   examsByStudent: Record<string, ExamRow[]>;
   readyStudents?: { id: string; no: number; name: string; date: string }[];
+  awqafByStudent?: Record<string, AwqafRow[]>;
 }) {
   const [search, setSearch] = useState("");
   const [openHalqa, setOpenHalqa] = useState<string | null>(halaqat[0]?.id ?? null);
@@ -151,6 +155,25 @@ export default function ExamBrowseClient({
               {label} جديد
             </button>
           )}
+
+          {(awqafByStudent?.[fileStudent.id] ?? []).length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-3)" }}>سبر الأوقاف الفعلي — مشاهدة فقط</div>
+              {awqafByStudent![fileStudent.id].map((a, i) => (
+                <div key={i} style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 700 }}>{a.score != null ? `${a.score} / 100` : "بانتظار العلامة"}</span>
+                    {a.passed != null && (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: a.passed ? "#6FBF8B" : "#E08A8A" }}>{a.passed ? "ناجح" : "راسب"}</span>
+                    )}
+                    <span style={{ marginInlineStart: "auto", fontSize: 11.5, color: "var(--ink-3)", direction: "ltr" }}>{a.batchDate}</span>
+                  </div>
+                  {a.passed && <div style={{ fontSize: 11.5, color: "var(--ink-2)" }}>{a.certLabel}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
             {(examsByStudent[fileStudent.id] ?? []).length === 0 && (
               <div style={{ padding: "30px 16px", borderRadius: 12, border: "1px dashed var(--line)", background: "var(--card-2-grad)", textAlign: "center", fontSize: 13, color: "var(--ink-2)" }}>

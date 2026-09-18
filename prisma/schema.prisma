@@ -49,6 +49,7 @@ model User {
   recitationsTaken Recitation[]    @relation("RecitationRecorder")
   examsGiven       Exam[]          @relation("ExamsGiven")
   permitsSet       Permit[]        @relation("PermitSetter")
+  awqafBatchesMade AwqafBatch[]    @relation("AwqafBatchCreator")
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
@@ -118,6 +119,7 @@ model Student {
   recitations Recitation[]
   exams       Exam[]
   permits     Permit[]
+  awqafResults AwqafResult[]
 
   updatedAt DateTime @updatedAt
 }
@@ -271,6 +273,47 @@ model ExamAnswer {
   exam    Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
   topicId String
   topic   TajweedTopic @relation(fields: [topicId], references: [id])
+}
+
+// ==================== المرحلة ٤: سبر الأوقاف والشهادات ====================
+
+// دفعة سبر أوقاف: حدث جماعي بتاريخ واحد، يضم عدة طلاب اختارهم الإداري معًا.
+// الاختبار نفسه يقع خارج النظام بالكامل (جهة الأوقاف) — الدفعة تُدار قبله (اختيار من رشّحهم) وبعده (العلامات ودورة الشهادة).
+model AwqafBatch {
+  id   String @id @default(cuid())
+  date String // YYYY-MM-DD
+
+  createdById String
+  createdBy   User   @relation("AwqafBatchCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  results AwqafResult[]
+}
+
+// نتيجة طالب واحد ضمن دفعة: علامته، ثم — إن نجح — دورة شهادته الثلاثية.
+model AwqafResult {
+  id        String     @id @default(cuid())
+  batchId   String
+  batch     AwqafBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  score Int? // علامة من 100 — تصل من جهة الأوقاف، تُدخلها الإدارة بعد الاختبار
+
+  // حاضرًا (تلاوة، حدّ النجاح 90) أو غيبًا (حفظ، حدّ النجاح 80) — لقطة من مسار ترشيحه وقت إضافته للدفعة
+  nominationPresent Boolean
+
+  // دورة الشهادة — تسلسل تصاعدي القفل، للناجح فقط (تبقى false لمن رسب)
+  certArrived   Boolean @default(false)
+  certArchived  Boolean @default(false)
+  certFileUrl   String?
+  certDelivered Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([batchId, studentId])
+  @@index([studentId])
 }
 
 model Recitation {

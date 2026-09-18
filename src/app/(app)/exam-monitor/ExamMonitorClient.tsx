@@ -1,11 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { cardStyle, chipStyle } from "@/lib/ui";
 import { resultLabel, passFailLabel, TYPE_LABELS, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
+import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
 
-type Row = ExistingExam & { type: ExamTypeId; studentName: string; examinerId: string; examinerName: string };
+type RowType = ExamTypeId | "AWQAF_ACTUAL";
+type Row = ExistingExam & {
+  type: RowType;
+  studentName: string;
+  examinerId: string;
+  examinerName: string;
+  batchId: string | null;
+  certArrived: boolean;
+  certArchived: boolean;
+  certDelivered: boolean;
+};
 type Block = {
   id: string;
   name: string;
@@ -17,19 +29,21 @@ type Block = {
 export default function ExamMonitorClient({
   canEdit,
   isDirector,
+  canManageAwqaf,
   currentUserId,
   tajweedTopics,
   blocks,
 }: {
   canEdit: boolean;
   isDirector: boolean;
+  canManageAwqaf: boolean;
   currentUserId: string;
   tajweedTopics: { id: string; juz: number; text: string }[];
   blocks: Block[];
 }) {
-  const [typeFilter, setTypeFilter] = useState<"all" | ExamTypeId>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | RowType>("all");
   const [examinerFilter, setExaminerFilter] = useState("all");
-  const [editing, setEditing] = useState<{ row: Row; halqaName: string } | null>(null);
+  const [editing, setEditing] = useState<{ row: Row & { type: ExamTypeId }; halqaName: string } | null>(null);
 
   const examinerNames = useMemo(() => {
     const names = new Set<string>();
@@ -46,9 +60,9 @@ export default function ExamMonitorClient({
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {(["all", "LOCAL", "WAQF_NOMINATION"] as const).map((t) => (
+          {(["all", "LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL"] as const).map((t) => (
             <button key={t} onClick={() => setTypeFilter(t)} style={chipStyle(typeFilter === t)}>
-              {t === "all" ? "كل الأنواع" : TYPE_LABELS[t]}
+              {t === "all" ? "كل الأنواع" : t === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[t]}
             </button>
           ))}
         </div>
@@ -77,16 +91,28 @@ export default function ExamMonitorClient({
             <div style={{ padding: "16px", fontSize: 13, color: "var(--ink-3)" }}>لا نتائج مطابقة للفلاتر الحالية.</div>
           ) : (
             b.rows.map((r) => {
-              const passFail = passFailLabel(r);
+              const isAwqafActual = r.type === "AWQAF_ACTUAL";
+              const examRow = r as Row & { type: ExamTypeId };
+              const passFail = isAwqafActual
+                ? awqafPassed(r.resultMark, r.nominationPresent ?? false) === null
+                  ? null
+                  : awqafPassed(r.resultMark, r.nominationPresent ?? false)
+                    ? "ناجح"
+                    : "راسب"
+                : passFailLabel(examRow);
+              const resultText = isAwqafActual
+                ? r.resultMark != null ? `${r.resultMark} / 100` : "بانتظار العلامة"
+                : resultLabel(examRow);
               return (
               <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 5, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 14.5, fontWeight: 700 }}>{r.studentName}</span>
                   <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
-                    {TYPE_LABELS[r.type]}
+                    {isAwqafActual ? "سبر الأوقاف الفعلي" : TYPE_LABELS[r.type as ExamTypeId]}
                     {r.localKind ? ` — ${LOCAL_KIND_LABELS[r.localKind]}` : ""}
+                    {isAwqafActual ? ` — ${r.nominationPresent ? "حاضرًا" : "غيبًا"}` : ""}
                   </span>
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>{resultLabel(r)}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{resultText}</span>
                   {passFail && (
                     <span
                       style={{
@@ -101,22 +127,33 @@ export default function ExamMonitorClient({
                       {passFail}
                     </span>
                   )}
+                  {isAwqafActual && passFail === "ناجح" && (
+                    <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>{certCycleLabel(r)}</span>
+                  )}
                   {r.pages != null && r.pages.length > 0 && (
                     <span style={{ fontSize: 12, color: "var(--ink-2)", direction: "ltr" }}>
                       صفحات: {r.pages.join("، ")}
                     </span>
                   )}
-                  {canEdit && (isDirector || r.examinerId === currentUserId) && (
+                  {!isAwqafActual && canEdit && (isDirector || r.examinerId === currentUserId) && (
                     <button
-                      onClick={() => setEditing({ row: r, halqaName: b.name })}
+                      onClick={() => setEditing({ row: r as Row & { type: ExamTypeId }, halqaName: b.name })}
                       style={{ marginInlineStart: "auto", padding: "6px 13px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}
                     >
                       تعديل
                     </button>
                   )}
+                  {isAwqafActual && canManageAwqaf && r.batchId && (
+                    <Link
+                      href={`/exams/awqaf-batches/${r.batchId}`}
+                      style={{ marginInlineStart: "auto", padding: "6px 13px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, textDecoration: "none" }}
+                    >
+                      فتح الدفعة
+                    </Link>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, color: "var(--ink-2)" }}>
-                  <span>المختبِر: {r.examinerName}</span>
+                  {!isAwqafActual && <span>المختبِر: {r.examinerName}</span>}
                   <span style={{ direction: "ltr" }}>{r.date}</span>
                 </div>
                 {r.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>ملاحظات: {r.notes}</div>}
