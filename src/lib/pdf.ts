@@ -23,24 +23,17 @@ function findLocalBrowser(): string | null {
   return CANDIDATE_BROWSERS.find((p) => existsSync(p)) ?? null;
 }
 
-async function launchOptions(): Promise<LaunchOptions & { executablePath: string; args: string[] }> {
+function launchOptions(): LaunchOptions & { executablePath: string; args: string[] } {
   const local = findLocalBrowser();
-  if (local) {
-    return { executablePath: local, headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] };
+  if (!local) {
+    throw new Error("لا يوجد متصفح Chrome أو Edge أو Chromium مثبَّت على الجهاز — لازم لتصدير التقارير PDF.");
   }
-  // بيئة سحابية بلا متصفح نظام مثبَّت مسبقًا (كـ Railway) — Chromium معبَّأ مع الحزمة نفسها، بلا اعتماد
-  // على أي تثبيت خارجي أو بحث في PATH؛ nixpacks.toml يبقي مكتبات النظام المشتركة (nss, gtk, ...) متاحة له.
-  const chromium = (await import("@sparticuz/chromium")).default;
-  return {
-    executablePath: await chromium.executablePath(),
-    headless: true,
-    args: chromium.args,
-  };
+  return { executablePath: local, headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] };
 }
 
 /** يحوّل صفحة HTML كاملة (مستقلة، بلا حاجة لجلسة أو كوكيز) إلى ملف PDF عبر متصفح خفي. */
 export async function renderPdf(html: string, landscape = false): Promise<Buffer> {
-  const browser = await puppeteer.launch(await launchOptions());
+  const browser = await puppeteer.launch(launchOptions());
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });

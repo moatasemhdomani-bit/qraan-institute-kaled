@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+pgtools
+public/uploads
+.env
+.env.*
+*.tsbuildinfo
+npm-debug.log*
