@@ -1,6 +1,5 @@
-import puppeteer from "puppeteer-core";
+import puppeteer, { type LaunchOptions } from "puppeteer-core";
 import { existsSync } from "fs";
-import { execSync } from "child_process";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
@@ -16,39 +15,32 @@ const CANDIDATE_BROWSERS = [
   "/usr/bin/microsoft-edge",
 ];
 
-/** يبحث عن اسم برنامج ضمن PATH (يغطي حالات مثل Nixpacks على Railway، حيث الاسم متاح بلا مسار ثابت). */
-function resolveOnPath(cmd: string): string | null {
-  try {
-    const which = process.platform === "win32" ? "where" : "which";
-    const out = execSync(`${which} ${cmd}`, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
-    const first = out.split(/\r?\n/)[0]?.trim();
-    return first && existsSync(first) ? first : null;
-  } catch {
-    return null;
-  }
-}
-
-function findBrowser(): string {
+/** متصفح مثبَّت محليًا (جهاز التطوير) — أسرع، بلا تنزيل. */
+function findLocalBrowser(): string | null {
   if (process.env.PUPPETEER_EXECUTABLE_PATH && existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
     return process.env.PUPPETEER_EXECUTABLE_PATH;
   }
-  const found = CANDIDATE_BROWSERS.find((p) => existsSync(p));
-  if (found) return found;
-  for (const cmd of ["chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "msedge"]) {
-    const resolved = resolveOnPath(cmd);
-    if (resolved) return resolved;
+  return CANDIDATE_BROWSERS.find((p) => existsSync(p)) ?? null;
+}
+
+async function launchOptions(): Promise<LaunchOptions & { executablePath: string; args: string[] }> {
+  const local = findLocalBrowser();
+  if (local) {
+    return { executablePath: local, headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] };
   }
-  throw new Error("لا يوجد متصفح Chrome أو Edge مثبَّت على الجهاز — لازم لتصدير التقارير PDF.");
+  // بيئة سحابية بلا متصفح نظام مثبَّت مسبقًا (كـ Railway) — Chromium معبَّأ مع الحزمة نفسها، بلا اعتماد
+  // على أي تثبيت خارجي أو بحث في PATH؛ nixpacks.toml يبقي مكتبات النظام المشتركة (nss, gtk, ...) متاحة له.
+  const chromium = (await import("@sparticuz/chromium")).default;
+  return {
+    executablePath: await chromium.executablePath(),
+    headless: true,
+    args: chromium.args,
+  };
 }
 
 /** يحوّل صفحة HTML كاملة (مستقلة، بلا حاجة لجلسة أو كوكيز) إلى ملف PDF عبر متصفح خفي. */
 export async function renderPdf(html: string, landscape = false): Promise<Buffer> {
-  const browser = await puppeteer.launch({
-    executablePath: findBrowser(),
-    headless: true,
-    // لازم داخل حاويات Linux تعمل بصلاحية root (كما على Railway) — بلا هذا يفشل تشغيل Chrome عادة.
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+  const browser = await puppeteer.launch(await launchOptions());
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
