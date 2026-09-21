@@ -56,8 +56,8 @@ a:hover {
   --btn-soft: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.06));
   --chip: linear-gradient(135deg, rgba(212, 175, 55, 0.22), rgba(212, 175, 55, 0.05));
   --input-grad: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
-  --hero-grad: linear-gradient(200deg, rgba(212, 175, 55, 0.34), rgba(18, 48, 88, 0.75) 45%, rgba(6, 17, 31, 0.95));
-  --hero-glow: radial-gradient(80% 60% at 30% 20%, rgba(232, 198, 90, 0.35), transparent 70%);
+  --hero-grad: linear-gradient(to top, rgba(10, 25, 47, 0.8) 0%, rgba(10, 25, 47, 0.34) 55%, rgba(10, 25, 47, 0.06) 100%);
+  --hero-glow: linear-gradient(to right, rgba(20, 44, 77, 0) 0%, rgba(20, 44, 77, 0.45) 62%, #142c4d 100%);
   --glow: 0 18px 48px rgba(0, 0, 0, 0.5);
 
   /* form-feedback semantics (not part of the designer's tokens — kept legible against navy) */
@@ -117,6 +117,44 @@ button {
 }
 
 /* ---------- Responsive login screen ---------- */
+.login-hero {
+  background-image: url(/login-bg.png);
+  background-size: auto 170%;
+  background-repeat: no-repeat;
+  background-position: center calc(100% + 430px);
+}
+.login-brand-text {
+  font-size: 15.5px;
+}
+.login-h1 {
+  font-size: 42px;
+  margin: 0 0 9px;
+}
+.login-lead {
+  font-size: 17.5px;
+  margin: 0 0 28px;
+}
+.login-label {
+  font-size: 15px;
+  margin-bottom: 7px;
+}
+.login-input {
+  padding: 13px 14px;
+  border-radius: 10px;
+  font-size: 16.5px;
+  margin-bottom: 14px;
+}
+.login-btn {
+  padding: 13px;
+  border-radius: 10px;
+  font-size: 17.5px;
+  font-weight: 700;
+}
+.login-foot {
+  margin-top: 22px;
+  font-size: 13px;
+}
+
 @media (max-width: 780px) {
   .login-grid {
     display: flex !important;
@@ -128,16 +166,49 @@ button {
     margin: 16px !important;
     border-radius: 16px;
     border: 1px solid rgba(212, 175, 55, 0.28);
-    background: #0c1e37;
+    background: #0c1e37 !important;
   }
   .login-hero {
-    flex: 0 0 170px;
-    min-height: 170px;
+    flex: 0 0 280px;
+    min-height: 280px;
     border-inline-start: none !important;
     background-image: url(/login-bg-mobile.png) !important;
+    background-size: contain !important;
+    background-position: center bottom !important;
   }
   .login-hero-content {
     display: none !important;
+  }
+  .login-brand-text {
+    font-size: 12.5px;
+  }
+  .login-h1 {
+    font-size: 23px;
+    margin: 0 0 10px;
+  }
+  .login-lead {
+    display: none;
+  }
+  .login-label {
+    font-size: 12.5px;
+    margin-bottom: 5px;
+  }
+  .login-input {
+    padding: 10px 12px;
+    border-radius: 9px;
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+  .login-btn {
+    padding: 12px;
+    font-size: 16px;
+  }
+  .login-foot {
+    display: none;
+  }
+  :root {
+    --hero-grad: linear-gradient(to bottom, #0a192f 0%, rgba(10, 25, 47, 0.72) 26%, rgba(10, 25, 47, 0.25) 58%, rgba(10, 25, 47, 0) 100%);
+    --hero-glow: none;
   }
 }
 

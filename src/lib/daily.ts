@@ -19,11 +19,15 @@ export const ATT_LABELS: Record<string, string> = Object.fromEntries(
   ATT_STATES.map((a) => [a.id, a.label])
 );
 
-/** اليوم بصيغة YYYY-MM-DD بتوقيت الجهاز المحلي (لا UTC — وإلا انزلق اليوم مساءً). */
-export function today(): string {
-  const d = new Date();
+/** أي تاريخ بصيغة YYYY-MM-DD بتوقيت الجهاز المحلي (لا UTC — وإلا انزلق اليوم مساءً). */
+export function dateOnly(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** اليوم بصيغة YYYY-MM-DD بتوقيت الجهاز المحلي (لا UTC — وإلا انزلق اليوم مساءً). */
+export function today(): string {
+  return dateOnly(new Date());
 }
 
 export function isValidDate(s: string): boolean {

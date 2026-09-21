@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { saveHalqa, type FormState } from "./actions";
 import { inputStyle, primaryButtonStyle, cardStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
+import Select from "@/components/Select";
 
 type HalqaRow = { id: string; name: string; teacherId: string; teacherName: string; cohortId: string; cohortName: string; count: number };
 const initialState: FormState = {};
@@ -158,6 +159,8 @@ function HalqaForm({
   onClose: () => void;
 }) {
   const [state, formAction, pending] = useActionState(saveHalqa, initialState);
+  const [teacherId, setTeacherId] = useState(initial?.teacherId ?? "");
+  const [cohortId, setCohortId] = useState(initial?.cohortId ?? "");
 
   useEffect(() => {
     if (state.ok) onClose();
@@ -193,29 +196,23 @@ function HalqaForm({
         </div>
         <div>
           <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>المدرس</label>
-          <select name="teacherId" defaultValue={initial?.teacherId ?? ""} style={inputStyle()}>
-            <option value="" disabled>
-              من العاملين المسجّلين كمدرّس
-            </option>
-            {teachers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            name="teacherId"
+            value={teacherId}
+            onChange={setTeacherId}
+            options={teachers.map((t) => ({ value: t.id, label: t.name }))}
+            placeholder="من العاملين المسجّلين كمدرّس"
+          />
         </div>
         <div>
           <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الفوج</label>
-          <select name="cohortId" defaultValue={initial?.cohortId ?? ""} style={inputStyle()}>
-            <option value="" disabled>
-              من الأفواج الخمسة
-            </option>
-            {cohorts.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            name="cohortId"
+            value={cohortId}
+            onChange={setCohortId}
+            options={cohorts.map((c) => ({ value: c.id, label: c.name }))}
+            placeholder="من الأفواج الخمسة"
+          />
         </div>
       </form>
     </Drawer>

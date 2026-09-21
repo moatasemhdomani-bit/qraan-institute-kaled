@@ -1,3 +1,5 @@
+import { toWesternDigits } from "./numbers";
+
 /**
  * Normalizes a phone number to one canonical form before it is stored.
  *
@@ -7,13 +9,11 @@
  * Handles: Arabic-Indic digits, spaces/dashes/parens, and the Syrian country
  * code written as +963 / 00963 / 963 — all collapse to the local 09XXXXXXXX form.
  */
+
 export function normalizePhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
 
-  // Arabic-Indic (٠-٩) and Eastern Arabic-Indic (۰-۹) digits → Western
-  const western = String(raw)
-    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
-    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
+  const western = toWesternDigits(String(raw));
 
   // Keep digits only; a leading + is re-expressed as the 00 prefix first
   let digits = western.trim().replace(/^\+/, "00").replace(/\D/g, "");

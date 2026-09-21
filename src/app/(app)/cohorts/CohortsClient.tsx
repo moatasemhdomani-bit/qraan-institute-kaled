@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useActionState, useTransition } from "react";
 import { updateCohortTiming, addTeacherToCohort, removeTeacherFromCohort, type FormState } from "./actions";
-import { inputStyle, cardStyle } from "@/lib/ui";
+import { cardStyle } from "@/lib/ui";
 import TimeField from "@/components/TimeField";
+import DateField from "@/components/DateField";
+import Select from "@/components/Select";
 
 type Cohort = {
   id: string;
@@ -86,12 +88,7 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
             <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 5 }}>
               تاريخ بداية التناوب — منه يعرف النظام أي وقت دوام هذا الأسبوع
             </div>
-            <input
-              type="date"
-              name="rotationStart"
-              defaultValue={cohort.rotationStart}
-              style={{ ...inputStyle(), textAlign: "center", direction: "ltr" }}
-            />
+            <DateField name="rotationStart" defaultValue={cohort.rotationStart} />
           </div>
         )}
 
@@ -130,18 +127,13 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
 
           {availableTeachers.length > 0 && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <select
+              <Select
                 value={pickTeacher}
-                onChange={(e) => setPickTeacher(e.target.value)}
-                style={{ padding: "5px 8px", borderRadius: 999, border: "1px dashed var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 12 }}
-              >
-                <option value="">اختر مدرّسًا</option>
-                {availableTeachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setPickTeacher}
+                options={availableTeachers.map((t) => ({ value: t.id, label: t.name }))}
+                placeholder="اختر مدرّسًا"
+                width={150}
+              />
               <button
                 type="button"
                 disabled={!pickTeacher}

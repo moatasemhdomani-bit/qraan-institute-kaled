@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useState } from "react";
 import { uploadRecitation, type FormState } from "./actions";
 import { GRADES, MIN_PAGE, MAX_PAGE } from "@/lib/daily";
-import { chipStyle, inputStyle } from "@/lib/ui";
+import { chipStyle } from "@/lib/ui";
+import NumberField from "@/components/NumberField";
 
 const initialState: FormState = {};
 
@@ -28,14 +29,19 @@ type Student = {
   lastPastTo: number | null;
 };
 
-/** «من» يبدأ من الصفحة التالية لآخر تسميع — قابل للتعديل. */
+/**
+ * «تسميع جديد — من» يبدأ من الصفحة التالية لأعلى صفحة جديدة سُمِّعت من قبل — قابل للتعديل، لكن لا يجوز
+ * النزول تحتها (لا يُعاد تسميع صفحة سُمِّعت جديدًا من قبل).
+ * «ماضي — من» يُترك فارغًا عمدًا: الماضي مراجعة، لا يُشترط أن يكمل من حيث انتهى آخر مرة، ويجوز
+ * الرجوع لأي صفحة سابقة.
+ */
 const blank = (s: Student): Entry => ({
   none: false,
   noNew: false,
   noPast: false,
   nf: s.lastNewTo ? String(Math.min(s.lastNewTo + 1, MAX_PAGE)) : "",
   nt: "",
-  rf: s.lastPastTo ? String(Math.min(s.lastPastTo + 1, MAX_PAGE)) : "",
+  rf: "",
   rt: "",
   gradeNew: "",
   gradePast: "",
@@ -214,21 +220,19 @@ export default function RecitationClient({
                             <label style={{ display: "block", fontSize: 11.5, color: "var(--ink-2)", marginBottom: 5 }}>
                               {f.label}
                             </label>
-                            <input
-                              type="number"
-                              min={MIN_PAGE}
-                              max={MAX_PAGE}
-                              inputMode="numeric"
+                            <NumberField
                               disabled={f.off}
+                              dim={f.off}
                               value={e[f.key]}
                               onChange={(ev) => set(s.id, { [f.key]: ev.target.value } as Partial<Entry>)}
-                              style={{ ...inputStyle(f.off), textAlign: "center", direction: "ltr", opacity: f.off ? 0.5 : 1 }}
+                              style={{ opacity: f.off ? 0.5 : 1 }}
                             />
                           </div>
                         ))}
                       </div>
                       <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
-                        حقل «من» مُلئ تلقائيًا من نهاية آخر تسميع — عدّله إن لزم. الصفحات بين {MIN_PAGE} و{MAX_PAGE}.
+                        تسميع جديد «من» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت جديدًا — لا يجوز النزول تحتها. الماضي مراجعة حرّة، لأي صفحة سابقة
+                        {s.lastPastTo ? ` (آخر ماضٍ وصل إلى صفحة ${s.lastPastTo})` : ""}. الصفحات بين {MIN_PAGE} و{MAX_PAGE}.
                       </div>
 
                       {!e.noNew && (

@@ -64,6 +64,7 @@ export default async function AttendancePage({
       />
       {!lock && halqa && (
         <AttendanceClient
+          key={halqa.id + date}
           halqaId={halqa.id}
           date={date}
           students={students.map((s) => ({ id: s.id, no: s.studentNo, name: s.name }))}

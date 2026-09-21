@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useRef } from "react";
-import { cardStyle, inputStyle, softButtonStyle } from "@/lib/ui";
+import { cardStyle, softButtonStyle } from "@/lib/ui";
+import NumberField from "@/components/NumberField";
 import { awqafPassed, certStepLocked, type CertStep } from "@/lib/awqaf";
 import { saveAwqafScore, setCertStep, bulkSetCertStep, type FormState } from "../actions";
 
@@ -86,13 +87,10 @@ function ResultRow({ result }: { result: Result }) {
       <form action={scoreAction} style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <input type="hidden" name="id" value={result.id} />
         <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>العلامة</span>
-        <input
+        <NumberField
           name="score"
-          type="number"
-          min={0}
-          max={100}
-          defaultValue={result.score ?? ""}
-          style={{ ...inputStyle(), width: 90, minHeight: 36, textAlign: "center" }}
+          defaultValue={result.score != null ? String(result.score) : ""}
+          style={{ width: 90, minHeight: 36 }}
         />
         <span style={{ fontSize: 12, color: "var(--ink-3)" }}>/ 100</span>
         <button type="submit" disabled={scorePending} style={{ ...softButtonStyle, padding: "6px 13px" }}>

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ATT_STATES } from "@/lib/daily";
-import { chipStyle, inputStyle } from "@/lib/ui";
+import { chipStyle } from "@/lib/ui";
+import DateField from "@/components/DateField";
 
 type Block = {
   id: string;
@@ -94,12 +95,7 @@ export default function MonitorClient({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginInlineStart: "auto" }}>
           <span style={{ fontSize: 12, color: "var(--ink-3)" }}>التاريخ</span>
-          <input
-            type="date"
-            defaultValue={date}
-            onChange={(e) => e.target.value && router.push(`/monitor?date=${e.target.value}`)}
-            style={{ ...inputStyle(), width: 170, minHeight: 40, textAlign: "center", direction: "ltr" }}
-          />
+          <DateField defaultValue={date} onChange={(v) => v && router.push(`/monitor?date=${v}`)} />
         </div>
       </div>
 

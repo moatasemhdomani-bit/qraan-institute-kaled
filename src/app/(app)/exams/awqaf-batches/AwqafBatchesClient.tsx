@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cardStyle, inputStyle, primaryButtonStyle, softButtonStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
+import DateField from "@/components/DateField";
 import { createAwqafBatch, type FormState } from "./actions";
+import { today } from "@/lib/daily";
 
 type Candidate = { id: string; no: number; name: string; nominationDate: string; nominationPresent: boolean; priorFailNote: string | null };
 type Batch = {
@@ -25,12 +27,6 @@ type SearchStudent = {
   name: string;
   history: { batchDate: string; score: number | null; passed: boolean | null; certLabel: string }[];
 };
-
-function todayStr() {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
 
 function batchBadge(b: Batch) {
   if (!b.allScored) return { label: "بانتظار العلامات", color: "#D4AF37" };
@@ -188,7 +184,7 @@ function NewBatchDrawer({
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
-  const [date, setDate] = useState(todayStr());
+  const [date, setDate] = useState(today());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [state, formAction, pending] = useActionState<FormState, FormData>(createAwqafBatch, {});
 
@@ -211,7 +207,7 @@ function NewBatchDrawer({
         <input type="hidden" name="studentIdsJson" value={JSON.stringify(Array.from(selected))} />
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>تاريخ الدفعة</div>
-          <input name="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle(), width: "100%" }} />
+          <DateField name="date" value={date} onChange={setDate} width={170} />
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

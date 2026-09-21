@@ -3,10 +3,15 @@
 import { useEffect, useMemo, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { saveStudent, resetGuardianPassword, type FormState } from "./actions";
+import { saveBehavior, type BehaviorState } from "./behaviorActions";
+import Link from "next/link";
 import { copyToClipboard } from "@/lib/clipboard";
 import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import PhotoField from "@/components/PhotoField";
+import DateField from "@/components/DateField";
+import Select from "@/components/Select";
+import { today, formatDateAr } from "@/lib/daily";
 
 type StudentRow = {
   id: string;
@@ -14,6 +19,7 @@ type StudentRow = {
   name: string;
   father: string;
   mother: string;
+  familyName: string;
   birth: string;
   address: string;
   job: string;
@@ -24,18 +30,31 @@ type StudentRow = {
   halqaId: string;
   halqaName: string;
   cohortName: string;
+  teacherName: string;
   guardianUsername: string;
   guardianPassword: string;
+  behavior: string;
+  behaviorLog: { previousValue: string; newValue: string; note: string; by: string; date: string }[];
+};
+
+const BEHAVIOR = ["ممتاز", "جيد جدًا", "جيد", "ضعيف"] as const;
+const BEHAVIOR_COLORS: Record<string, string> = {
+  "ممتاز": "#6FBF8B",
+  "جيد جدًا": "#D4AF37",
+  "جيد": "#8FA8C8",
+  "ضعيف": "#E08A8A",
 };
 
 const initialState: FormState = {};
+
+type HalqaOption = { id: string; name: string; cohortId: string; cohortName: string; teacherId: string; teacherName: string };
 
 export default function StudentsClient({
   students,
   halaqat,
 }: {
   students: StudentRow[];
-  halaqat: { id: string; name: string; cohortName: string }[];
+  halaqat: HalqaOption[];
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -108,20 +127,21 @@ export default function StudentsClient({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "0.5fr 1.2fr 0.9fr 2.4fr 90px",
+                gridTemplateColumns: "0.5fr 1.1fr 0.9fr 0.8fr 1.1fr 90px",
                 gap: 12,
                 padding: "11px 16px",
                 background: "var(--head-grad)",
                 fontSize: 12,
                 color: "var(--ink-2)",
                 fontWeight: 600,
-                minWidth: 620,
+                minWidth: 720,
               }}
             >
               <div>رقم الطالب</div>
               <div>الاسم</div>
               <div>الحلقة</div>
               <div>الفوج</div>
+              <div>المدرس</div>
               <div />
             </div>
             {filtered.map((s) => (
@@ -129,13 +149,13 @@ export default function StudentsClient({
                 key={s.id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "0.5fr 1.2fr 0.9fr 2.4fr 90px",
+                  gridTemplateColumns: "0.5fr 1.1fr 0.9fr 0.8fr 1.1fr 90px",
                   gap: 12,
                   padding: "13px 16px",
                   borderTop: "1px solid var(--line-2)",
                   alignItems: "center",
                   fontSize: 14,
-                  minWidth: 620,
+                  minWidth: 720,
                   background: s.halqaId ? undefined : "linear-gradient(90deg, rgba(224,138,138,0.10), transparent 60%)",
                 }}
               >
@@ -147,6 +167,7 @@ export default function StudentsClient({
                     {s.cohortName}
                   </span>
                 </div>
+                <div style={{ color: "var(--ink-2)", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.teacherName}</div>
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
                   <button
                     onClick={() => {
@@ -185,6 +206,7 @@ export default function StudentsClient({
                     <span style={{ padding: "4px 10px", borderRadius: 999, background: "var(--chip)", border: "1px solid var(--line)", fontSize: 12 }}>
                       {s.cohortName}
                     </span>
+                    {s.halqaId && <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{s.teacherName}</span>}
                   </div>
                 </div>
                 <button
@@ -216,18 +238,29 @@ function StudentForm({
   onClose,
 }: {
   initial: StudentRow | null;
-  halaqat: { id: string; name: string; cohortName: string }[];
+  halaqat: HalqaOption[];
   onClose: () => void;
 }) {
   const [state, formAction, pending] = useActionState(saveStudent, initialState);
-  const [halqaId, setHalqaId] = useState(initial?.halqaId ?? "");
+
+  const initialHalqa = halaqat.find((h) => h.id === initial?.halqaId);
+  const [teacherId, setTeacherId] = useState(initialHalqa?.teacherId ?? "");
+  const [cohortId, setCohortId] = useState(initialHalqa?.cohortId ?? "");
 
   useEffect(() => {
     if (state.ok) onClose();
   }, [state.ok, onClose]);
 
-  const selectedCohort = halaqat.find((h) => h.id === halqaId)?.cohortName ?? "—";
-  const todayLabel = new Date().toLocaleDateString("ar-SY");
+  const teachers = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const h of halaqat) if (!byId.has(h.teacherId)) byId.set(h.teacherId, h.teacherName);
+    return Array.from(byId, ([id, name]) => ({ id, name }));
+  }, [halaqat]);
+
+  const cohortsForTeacher = useMemo(() => halaqat.filter((h) => h.teacherId === teacherId), [halaqat, teacherId]);
+  const resolvedHalqa = halaqat.find((h) => h.teacherId === teacherId && h.cohortId === cohortId) ?? null;
+
+  const todayLabel = formatDateAr(today());
 
   return (
     <Drawer
@@ -254,6 +287,7 @@ function StudentForm({
 
       <form id="student-form" action={formAction} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <input type="hidden" name="id" value={initial?.id ?? ""} />
+        <input type="hidden" name="halqaId" value={resolvedHalqa?.id ?? ""} />
 
         <PhotoField name="photo" label="صورة الطالب" existingUrl={initial?.photoUrl} />
 
@@ -265,31 +299,160 @@ function StudentForm({
           <Field label="اسم الطالب" name="name" defaultValue={initial?.name} />
           <Field label="اسم الوالد" name="father" defaultValue={initial?.father} />
           <Field label="اسم الوالدة" name="mother" defaultValue={initial?.mother} />
+          <Field label="النسبة" name="familyName" defaultValue={initial?.familyName} />
           <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} />
           <Field label="عنوان السكن" name="address" defaultValue={initial?.address} />
           <Field label="عمل الوالد الحالي" name="job" defaultValue={initial?.job} />
           <Field label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} />
-          <Field label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} />
+          <Field label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
           <div>
-            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الحلقة</label>
-            <select name="halqaId" value={halqaId} onChange={(e) => setHalqaId(e.target.value)} style={inputStyle()}>
-              <option value="" disabled>
-                تُسحب من الحلقات المنشأة
-              </option>
-              {halaqat.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>المدرس</label>
+            <Select
+              value={teacherId}
+              onChange={(v) => {
+                setTeacherId(v);
+                setCohortId("");
+              }}
+              options={teachers.map((t) => ({ value: t.id, label: t.name }))}
+              placeholder="اختاروا المدرس"
+            />
           </div>
-          <ReadOnly label="الفوج" value={selectedCohort} />
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الفوج</label>
+            <Select
+              value={cohortId}
+              onChange={setCohortId}
+              disabled={!teacherId}
+              options={cohortsForTeacher.map((h) => ({ value: h.cohortId, label: h.cohortName }))}
+              placeholder={teacherId ? "اختاروا الفوج" : "اختاروا المدرس أولًا"}
+            />
+          </div>
+          <ReadOnly label="الحلقة" value={resolvedHalqa?.name ?? "—"} />
         </div>
       </form>
+
+      {initial && <BehaviorSection student={initial} />}
     </Drawer>
+  );
+}
+
+function BehaviorSection({ student }: { student: StudentRow }) {
+  const router = useRouter();
+  const [behavior, setBehavior] = useState(student.behavior);
+  const [log, setLog] = useState(student.behaviorLog);
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(student.behavior);
+  const [note, setNote] = useState("");
+  const [state, formAction, pending] = useActionState(saveBehavior, {} as BehaviorState);
+
+  useEffect(() => {
+    if (state.ok && state.behavior && state.logEntry) {
+      setBehavior(state.behavior);
+      setLog((prev) => [state.logEntry!, ...prev]);
+      setEditing(false);
+      setNote("");
+      router.refresh();
+    }
+  }, [state, router]);
+
+  return (
+    <div style={{ padding: 14, borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>سلوك الطالب</div>
+        <Link href={`/reports/student?student=${student.id}`} style={{ fontSize: 12, color: "var(--ink-2)" }}>
+          فتح تقرير هذا الطالب ←
+        </Link>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span
+          style={{
+            padding: "5px 13px", borderRadius: 999, fontSize: 13, fontWeight: 600,
+            border: `1px solid ${BEHAVIOR_COLORS[behavior] ?? "var(--line)"}`,
+            color: BEHAVIOR_COLORS[behavior] ?? "var(--ink)",
+          }}
+        >
+          {behavior}
+        </span>
+        {!editing && (
+          <button type="button" onClick={() => { setEditing(true); setValue(behavior); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}>
+            تعديل السلوك
+          </button>
+        )}
+      </div>
+
+      {editing && (
+        <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <input type="hidden" name="studentId" value={student.id} />
+          <input type="hidden" name="value" value={value} />
+          {state.error && (
+            <div style={{ padding: "9px 12px", borderRadius: 9, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 12.5 }}>
+              {state.error}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {BEHAVIOR.map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setValue(b)}
+                style={{
+                  padding: "6px 13px", borderRadius: 999, fontSize: 12.5, cursor: "pointer",
+                  border: `1px solid ${value === b ? BEHAVIOR_COLORS[b] : "var(--line)"}`,
+                  background: value === b ? `${BEHAVIOR_COLORS[b]}22` : "transparent",
+                  color: value === b ? BEHAVIOR_COLORS[b] : "var(--ink-2)",
+                  fontWeight: value === b ? 600 : 400,
+                }}
+              >
+                {b}
+              </button>
+            ))}
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>ملاحظة توضّح سبب التغيير — إلزامية</label>
+            <textarea
+              name="note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 13, resize: "vertical" }}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="submit" disabled={pending} style={{ ...primaryButtonStyle, padding: "8px 16px", fontSize: 12.5, opacity: pending ? 0.7 : 1 }}>
+              {pending ? "جارٍ الحفظ…" : "حفظ"}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} style={{ padding: "8px 16px", borderRadius: 9, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 12.5, cursor: "pointer" }}>
+              إلغاء
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div>
+        <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 }}>سجل التغييرات</div>
+        {log.length === 0 ? (
+          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>لم تُغيَّر الدرجة بعد — القيمة الافتراضية «ممتاز».</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {log.map((l, i) => (
+              <div key={i} style={{ padding: "8px 10px", borderRadius: 9, border: "1px solid var(--line-2)", fontSize: 12 }}>
+                <div>
+                  <span style={{ color: BEHAVIOR_COLORS[l.previousValue] ?? "var(--ink-2)" }}>{l.previousValue}</span>
+                  {" ← "}
+                  <span style={{ color: BEHAVIOR_COLORS[l.newValue] ?? "var(--ink-2)", fontWeight: 600 }}>{l.newValue}</span>
+                </div>
+                <div style={{ color: "var(--ink-2)", marginTop: 2 }}>{l.note}</div>
+                <div style={{ color: "var(--ink-3)", fontSize: 11, marginTop: 2 }}>{l.by} · {l.date}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -299,23 +462,31 @@ function Field({
   defaultValue,
   placeholder,
   type = "text",
+  required,
 }: {
   label: string;
   name: string;
   defaultValue?: string;
   placeholder?: string;
   type?: string;
+  required?: boolean;
 }) {
-  const isDate = type === "date";
+  if (type === "date") {
+    return <DateField label={label} name={name} defaultValue={defaultValue} width="100%" />;
+  }
   return (
     <div>
-      <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>{label}</label>
+      <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>
+        {label}
+        {required && <span style={{ color: "#E08A8A" }}> *</span>}
+      </label>
       <input
         name={name}
         type={type}
         defaultValue={defaultValue}
         placeholder={placeholder}
-        style={isDate ? { ...inputStyle(), textAlign: "center", direction: "ltr" } : inputStyle()}
+        required={required}
+        style={inputStyle()}
       />
     </div>
   );

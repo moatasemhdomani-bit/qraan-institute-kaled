@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { login, type LoginState } from "./actions";
-import { inputStyle, primaryButtonStyle } from "@/lib/ui";
+import { primaryButtonStyle } from "@/lib/ui";
 import PasswordField from "@/components/PasswordField";
 
 const initialState: LoginState = {};
@@ -12,32 +12,46 @@ export default function LoginForm() {
 
   return (
     <div className="login-grid" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1.05fr 1fr", alignItems: "stretch" }}>
-      <div className="login-form-panel" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 40px" }}>
+      <div
+        className="login-form-panel"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "52px 44px",
+          background: "linear-gradient(to left, #050d1c 0%, #0A192F 45%, #142c4d 100%)",
+        }}
+      >
         <form action={formAction} style={{ width: "100%", maxWidth: 380 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
             <img src="/logo-mark.png" alt="" width={44} height={44} style={{ display: "block" }} />
-            <div style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.3 }}>
+            <div className="login-brand-text" style={{ color: "var(--ink-2)", lineHeight: 1.3 }}>
               معهد الصحابي الجليل
               <br />
               <strong style={{ color: "var(--ink)", fontWeight: 600 }}>خالد بن الوليد</strong>
             </div>
           </div>
 
-          <h1 style={{ fontSize: 30, fontWeight: 600, margin: "0 0 6px", letterSpacing: "-0.01em" }}>تسجيل الدخول</h1>
-          <p style={{ color: "var(--ink-2)", margin: "0 0 26px", fontSize: 14 }}>
+          <h1 className="login-h1" style={{ fontWeight: 600, margin: 0, letterSpacing: "-0.01em" }}>تسجيل الدخول</h1>
+          <p className="login-lead" style={{ color: "var(--ink-2)", margin: 0 }}>
             ادخل بياناتك للمتابعة إلى لوحة التحكم الخاصة بدورك.
           </p>
 
-          <label style={{ display: "block", fontSize: 13, color: "var(--ink-2)", marginBottom: 6 }}>
+          <label className="login-label" style={{ display: "block", color: "var(--ink-2)" }}>
             اسم المستخدم
           </label>
-          <input name="username" style={{ ...inputStyle(), marginBottom: 14 }} autoComplete="username" />
+          <input
+            name="username"
+            className="login-input"
+            style={{ width: "100%", boxSizing: "border-box", border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)" }}
+            autoComplete="username"
+          />
 
-          <label style={{ display: "block", fontSize: 13, color: "var(--ink-2)", marginBottom: 6 }}>
+          <label className="login-label" style={{ display: "block", color: "var(--ink-2)" }}>
             كلمة المرور
           </label>
           <div style={{ marginBottom: 10 }}>
-            <PasswordField name="password" autoComplete="current-password" />
+            <PasswordField name="password" autoComplete="current-password" className="login-input" hideCopy />
           </div>
 
           {state.error && (
@@ -58,28 +72,19 @@ export default function LoginForm() {
           <button
             type="submit"
             disabled={pending}
-            style={{ ...primaryButtonStyle, width: "100%", fontSize: 15, opacity: pending ? 0.7 : 1, marginTop: 6 }}
+            className="login-btn"
+            style={{ ...primaryButtonStyle, width: "100%", opacity: pending ? 0.7 : 1, marginTop: 6 }}
           >
             {pending ? "جاري الدخول…" : "دخول"}
           </button>
 
-          <div style={{ marginTop: 22, fontSize: 12, color: "var(--ink-3)" }}>
+          <div className="login-foot" style={{ color: "var(--ink-3)" }}>
             التوجيه بعد الدخول يختلف بحسب الدور.
           </div>
         </form>
       </div>
 
-      <div
-        className="login-hero"
-        style={{
-          position: "relative",
-          overflow: "hidden",
-          backgroundImage: "url(/login-bg.png)",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          borderInlineStart: "1px solid var(--line)",
-        }}
-      >
+      <div className="login-hero" style={{ position: "relative", overflow: "hidden", borderInlineStart: "1px solid var(--line)" }}>
         <div
           style={{
             position: "absolute",

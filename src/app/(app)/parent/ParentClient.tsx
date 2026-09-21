@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { chipStyle, inputStyle, cardStyle } from "@/lib/ui";
+import { chipStyle, cardStyle } from "@/lib/ui";
+import DateField from "@/components/DateField";
 
 export default function ParentClient({
   family,
@@ -91,19 +92,9 @@ export default function ParentClient({
         }}
       >
         <span style={{ fontSize: 12, color: "var(--ink-3)" }}>من</span>
-        <input
-          type="date"
-          defaultValue={from}
-          onChange={(e) => e.target.value && go(activeId, e.target.value, to)}
-          style={{ ...inputStyle(), width: 160, minHeight: 40, textAlign: "center", direction: "ltr" }}
-        />
+        <DateField defaultValue={from} onChange={(v) => v && go(activeId, v, to)} width={160} />
         <span style={{ fontSize: 12, color: "var(--ink-3)" }}>إلى</span>
-        <input
-          type="date"
-          defaultValue={to}
-          onChange={(e) => e.target.value && go(activeId, from, e.target.value)}
-          style={{ ...inputStyle(), width: 160, minHeight: 40, textAlign: "center", direction: "ltr" }}
-        />
+        <DateField defaultValue={to} onChange={(v) => v && go(activeId, from, v)} width={160} />
       </div>
 
       <div style={{ ...cardStyle, overflow: "hidden" }}>

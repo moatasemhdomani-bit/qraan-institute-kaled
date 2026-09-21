@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type CSSProperties } from "react";
 import { inputStyle } from "@/lib/ui";
 import { copyToClipboard } from "@/lib/clipboard";
 
@@ -12,6 +12,9 @@ export default function PasswordField({
   placeholder,
   defaultValue,
   readOnly,
+  className,
+  inputStyle: inputStyleOverride,
+  hideCopy,
 }: {
   label?: string;
   name: string;
@@ -19,6 +22,9 @@ export default function PasswordField({
   placeholder?: string;
   defaultValue?: string;
   readOnly?: boolean;
+  className?: string;
+  inputStyle?: CSSProperties;
+  hideCopy?: boolean;
 }) {
   const [shown, setShown] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -62,12 +68,19 @@ export default function PasswordField({
           placeholder={placeholder}
           defaultValue={defaultValue}
           readOnly={readOnly}
-          style={{ ...inputStyle(), paddingInlineEnd: 116 }}
+          className={className}
+          style={
+            className
+              ? { width: "100%", boxSizing: "border-box", border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", paddingInlineEnd: hideCopy ? 66 : 116, ...inputStyleOverride }
+              : { ...inputStyle(), paddingInlineEnd: hideCopy ? 70 : 116, ...inputStyleOverride }
+          }
         />
         <div style={{ position: "absolute", insetInlineEnd: 6, top: "50%", transform: "translateY(-50%)", display: "flex", gap: 4 }}>
-          <button type="button" onClick={handleCopy} aria-label="نسخ كلمة المرور" style={btnStyle}>
-            {copied ? "نُسخت ✓" : "نسخ"}
-          </button>
+          {!hideCopy && (
+            <button type="button" onClick={handleCopy} aria-label="نسخ كلمة المرور" style={btnStyle}>
+              {copied ? "نُسخت ✓" : "نسخ"}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShown((v) => !v)}

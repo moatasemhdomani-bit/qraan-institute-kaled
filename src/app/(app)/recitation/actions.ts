@@ -38,6 +38,13 @@ export async function uploadRecitation(_prev: FormState, formData: FormData): Pr
     return { error: "هذه ليست حلقتك." };
   }
 
+  const maxNewToRows = await prisma.recitation.groupBy({
+    by: ["studentId"],
+    where: { studentId: { in: halqa.students.map((s) => s.id) }, date: { lt: date }, none: false, noNew: false },
+    _max: { newTo: true },
+  });
+  const maxNewToMap = Object.fromEntries(maxNewToRows.map((r) => [r.studentId, r._max.newTo]));
+
   const entries: RecEntry[] = halqa.students.map((st) => ({
     studentId: st.id,
     none: formData.get(`none_${st.id}`) === "1",
@@ -54,7 +61,7 @@ export async function uploadRecitation(_prev: FormState, formData: FormData): Pr
   for (const e of entries) {
     if (e.gradeNew && !GRADES.includes(e.gradeNew as never)) return { error: "تقدير غير معروف." };
     if (e.gradePast && !GRADES.includes(e.gradePast as never)) return { error: "تقدير غير معروف." };
-    const bad = validateEntry(e);
+    const bad = validateEntry(e, maxNewToMap[e.studentId]);
     if (bad) {
       const name = halqa.students.find((s) => s.id === e.studentId)?.name ?? "";
       return { error: `${name}: ${bad}`, focusStudentId: e.studentId };

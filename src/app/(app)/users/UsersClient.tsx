@@ -6,6 +6,7 @@ import { chipStyle, inputStyle, primaryButtonStyle, cardStyle, ROLE_LABELS, type
 import Drawer from "@/components/Drawer";
 import PhotoField from "@/components/PhotoField";
 import PasswordField from "@/components/PasswordField";
+import DateField from "@/components/DateField";
 
 type StaffRow = {
   id: string;
@@ -512,17 +513,13 @@ function Field({
   placeholder?: string;
   type?: string;
 }) {
-  const isDate = type === "date";
+  if (type === "date") {
+    return <DateField label={label} name={name} defaultValue={defaultValue} width="100%" />;
+  }
   return (
     <div>
       <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>{label}</label>
-      <input
-        name={name}
-        type={type}
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        style={isDate ? { ...inputStyle(), textAlign: "center", direction: "ltr" } : inputStyle()}
-      />
+      <input name={name} type={type} defaultValue={defaultValue} placeholder={placeholder} style={inputStyle()} />
     </div>
   );
 }

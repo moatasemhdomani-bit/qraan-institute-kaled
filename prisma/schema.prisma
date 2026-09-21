@@ -50,6 +50,8 @@ model User {
   examsGiven       Exam[]          @relation("ExamsGiven")
   permitsSet       Permit[]        @relation("PermitSetter")
   awqafBatchesMade AwqafBatch[]    @relation("AwqafBatchCreator")
+  behaviorChangesMade StudentBehaviorLog[] @relation("BehaviorActor")
+  reportsIssued    IssuedReport[]  @relation("ReportIssuer")
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
@@ -100,6 +102,7 @@ model Student {
   name          String
   fatherName    String?
   motherName    String?
+  familyName    String? // النسبة: الكنية أو اسم العائلة
   birthDate     String?
   address       String?
   fatherJob     String?
@@ -115,11 +118,17 @@ model Student {
   guardianUserId String? @unique
   guardianUser   User?   @relation("StudentGuardianAccount", fields: [guardianUserId], references: [id])
 
+  // سلوك الطالب — افتراضيًا «ممتاز»، وأي تعديل يستوجب ملاحظة (StudentBehaviorLog) توضّح سببه.
+  behavior String @default("ممتاز")
+
   attendance  Attendance[]
   recitations Recitation[]
   exams       Exam[]
   permits     Permit[]
   awqafResults AwqafResult[]
+  behaviorLog StudentBehaviorLog[]
+  teacherNotes TeacherMonthlyNote[]
+  issuedReports IssuedReport[]
 
   updatedAt DateTime @updatedAt
 }
@@ -345,4 +354,63 @@ model Recitation {
 
   @@unique([studentId, date])
   @@index([halqaId, date])
+}
+
+// ==================== المرحلة ٥: التقارير ====================
+
+// سجل تغييرات سلوك الطالب — كل تغيير عن «ممتاز» (أو عودة إليها) يستوجب ملاحظة.
+model StudentBehaviorLog {
+  id            String   @id @default(cuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  previousValue String
+  newValue      String
+  note          String
+
+  actorId String
+  actor   User   @relation("BehaviorActor", fields: [actorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
+}
+
+// ملاحظة شهرية يكتبها مدرّس الحلقة عن طالب واحد — تصل جاهزة (وقابلة للتعديل) إلى عمود
+// الملاحظات في تقرير تسميع الحلقات عندما يغطّي التقرير هذا الشهر.
+model TeacherMonthlyNote {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  month     String // "YYYY-MM"
+  note      String
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, month])
+}
+
+enum ReportKind {
+  HALAQAT // تقرير تسميع الحلقات
+  TEACHERS // التقرير الشهري للمدرسين
+  STUDENT // تقرير طالب
+}
+
+// سجل التقارير الصادرة — نسخة مجمّدة: يحمل رابط ملف PDF المولَّد وقت الإصدار، لا يُعاد حسابه عند إعادة الفتح.
+model IssuedReport {
+  id       String     @id @default(cuid())
+  kind     ReportKind
+  name     String
+  fromDate String // YYYY-MM-DD
+  toDate   String // YYYY-MM-DD
+  fileUrl  String
+
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id])
+
+  issuedById String
+  issuedBy   User   @relation("ReportIssuer", fields: [issuedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([kind])
 }

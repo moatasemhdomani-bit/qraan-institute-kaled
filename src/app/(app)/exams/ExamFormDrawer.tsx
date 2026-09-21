@@ -4,7 +4,11 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { saveExam, saveTajweedTopic, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
 import { JUZ, MIN_PAGE, MAX_PAGE, NOMINATION_PARTS, LOCAL_KINDS, LOCAL_KIND_LABELS, passFailLabel, type ExamTypeId, type LocalKindId } from "@/lib/exam";
+import { today } from "@/lib/daily";
 import Drawer from "@/components/Drawer";
+import DateField from "@/components/DateField";
+import NumberField from "@/components/NumberField";
+import Select from "@/components/Select";
 
 const initialState: FormState = {};
 
@@ -38,10 +42,7 @@ function PagePicker({ pages, setPages }: { pages: number[]; setPages: (p: number
     <div>
       <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>أرقام الصفحات التي سُبر فيها الطالب</div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", maxWidth: 300 }}>
-        <input
-          type="number"
-          min={MIN_PAGE}
-          max={MAX_PAGE}
+        <NumberField
           value={pageInput}
           onChange={(e) => setPageInput(e.target.value)}
           onKeyDown={(e) => {
@@ -51,7 +52,6 @@ function PagePicker({ pages, setPages }: { pages: number[]; setPages: (p: number
             }
           }}
           placeholder={`${MIN_PAGE} — ${MAX_PAGE}`}
-          style={{ ...inputStyle(), textAlign: "center", direction: "ltr" }}
         />
         <button type="button" onClick={addPage} style={{ ...primaryButtonStyle, flex: "none", padding: "10px 16px", fontSize: 13 }}>
           إضافة صفحة
@@ -102,7 +102,7 @@ export default function ExamFormDrawer({
   const [state, formAction, pending] = useActionState(saveExam, initialState);
 
   const [name, setName] = useState("");
-  const [date, setDate] = useState(existing?.date ?? new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(existing?.date ?? today());
   const [localKind, setLocalKind] = useState<LocalKindId | "">(existing?.localKind ?? "");
   const [juz, setJuz] = useState<number | null>(existing?.juz ?? null);
   const [pages, setPages] = useState<number[]>(existing?.pages ?? []);
@@ -339,14 +339,11 @@ export default function ExamFormDrawer({
             {localKind && (
               <div>
                 <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
+                <NumberField
                   value={resultMark}
                   onChange={(e) => setResultMark(e.target.value)}
                   placeholder="0 — 100"
-                  style={{ width: 120, minHeight: 46, padding: 11, borderRadius: 10, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 17, textAlign: "center", direction: "ltr" }}
+                  style={{ width: 120, minHeight: 46, padding: 11, fontSize: 17 }}
                 />
               </div>
             )}
@@ -401,17 +398,12 @@ export default function ExamFormDrawer({
                         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-grad)" }}>
                           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                             <label style={{ fontSize: 12, color: "var(--ink-2)" }}>الجزء</label>
-                            <select
-                              value={newTopicJuz}
-                              onChange={(e) => setNewTopicJuz(parseInt(e.target.value, 10))}
-                              style={{ ...inputStyle(), width: 90, direction: "ltr" }}
-                            >
-                              {JUZ.map((j) => (
-                                <option key={j} value={j}>
-                                  {j}
-                                </option>
-                              ))}
-                            </select>
+                            <Select
+                              value={String(newTopicJuz)}
+                              onChange={(v) => setNewTopicJuz(parseInt(v, 10))}
+                              options={JUZ.map((j) => ({ value: String(j), label: String(j) }))}
+                              width={90}
+                            />
                           </div>
                           <textarea
                             value={newTopicText}
@@ -439,17 +431,12 @@ export default function ExamFormDrawer({
                             <div key={t.id} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-grad)" }}>
                               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                 <label style={{ fontSize: 12, color: "var(--ink-2)" }}>الجزء</label>
-                                <select
-                                  value={editingTopicJuz}
-                                  onChange={(e) => setEditingTopicJuz(parseInt(e.target.value, 10))}
-                                  style={{ ...inputStyle(), width: 90, direction: "ltr" }}
-                                >
-                                  {JUZ.map((j) => (
-                                    <option key={j} value={j}>
-                                      {j}
-                                    </option>
-                                  ))}
-                                </select>
+                                <Select
+                                  value={String(editingTopicJuz)}
+                                  onChange={(v) => setEditingTopicJuz(parseInt(v, 10))}
+                                  options={JUZ.map((j) => ({ value: String(j), label: String(j) }))}
+                                  width={90}
+                                />
                               </div>
                               <textarea
                                 value={editingTopicText}
@@ -507,14 +494,11 @@ export default function ExamFormDrawer({
         {type === "WAQF_NOMINATION" && (
           <div>
             <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
-            <input
-              type="number"
-              min={0}
-              max={100}
+            <NumberField
               value={resultMark}
               onChange={(e) => setResultMark(e.target.value)}
               placeholder="0 — 100"
-              style={{ width: 120, minHeight: 46, padding: 11, borderRadius: 10, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 17, textAlign: "center", direction: "ltr" }}
+              style={{ width: 120, minHeight: 46, padding: 11, fontSize: 17 }}
             />
           </div>
         )}
@@ -538,10 +522,7 @@ export default function ExamFormDrawer({
         )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>
-          <div>
-            <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>تاريخ السبر</label>
-            <input type="date" name="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle(), textAlign: "center", direction: "ltr" }} />
-          </div>
+          <DateField label="تاريخ السبر" name="date" value={date} onChange={setDate} />
         </div>
 
         <div>

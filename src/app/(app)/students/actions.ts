@@ -35,17 +35,29 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
 
   if (!name) return { error: "اكتبوا اسم الطالب." };
 
+  const guardianPhone = normalizePhone(String(formData.get("guardianPhone") || ""));
+  if (!guardianPhone) return { error: "رقم ولي الأمر حقل إلزامي." };
+
   const data = {
     name,
     fatherName: String(formData.get("father") || "") || null,
     motherName: String(formData.get("mother") || "") || null,
+    familyName: String(formData.get("familyName") || "") || null,
     birthDate: String(formData.get("birth") || "") || null,
     address: String(formData.get("address") || "") || null,
     fatherJob: String(formData.get("job") || "") || null,
     studentPhone: normalizePhone(String(formData.get("phone") || "")),
-    guardianPhone: normalizePhone(String(formData.get("guardianPhone") || "")),
+    guardianPhone,
     halqaId,
   };
+
+  // عند تسجيل طالب جديد: تطابق الاسم واسم الأب والأم والنسبة معًا يعني طالبًا مسجَّلًا بالفعل.
+  if (!id && data.fatherName && data.motherName && data.familyName) {
+    const duplicate = await prisma.student.findFirst({
+      where: { name, fatherName: data.fatherName, motherName: data.motherName, familyName: data.familyName },
+    });
+    if (duplicate) return { error: "الطالب مسجل بالفعل." };
+  }
 
   let studentId = id;
   if (id) {

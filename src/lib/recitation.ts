@@ -15,14 +15,21 @@ export type RecEntry = {
 
 const inRange = (n: number | null) => n != null && n >= MIN_PAGE && n <= MAX_PAGE;
 
-/** يُرجع سبب رفض السطر، أو null إن كان مكتملًا وصحيحًا. */
-export function validateEntry(e: RecEntry): string | null {
+/**
+ * يُرجع سبب رفض السطر، أو null إن كان مكتملًا وصحيحًا.
+ * maxPriorNewTo: أعلى صفحة جديدة سُمِّعت من قبل لهذا الطالب — لا يجوز أن يبدأ التسميع الجديد قبلها
+ * أو منها (لا يُعاد تسميع صفحة سبق حفظها). الماضي مراجعة حرّة، بلا هذا القيد.
+ */
+export function validateEntry(e: RecEntry, maxPriorNewTo?: number | null): string | null {
   if (e.none) return null;
   if (e.noNew && e.noPast) return "لم يسمّع جديدًا ولا ماضيًا — استخدم خيار «لم يسمّع اليوم».";
 
   if (!e.noNew) {
     if (!inRange(e.newFrom) || !inRange(e.newTo)) return `صفحات التسميع الجديد بين ${MIN_PAGE} و${MAX_PAGE} فقط.`;
     if ((e.newTo as number) < (e.newFrom as number)) return "صفحة «إلى» في التسميع الجديد لا تسبق صفحة «من».";
+    if (maxPriorNewTo != null && (e.newFrom as number) <= maxPriorNewTo) {
+      return `لا يجوز إعادة تسميع صفحة سُمِّعت جديدًا من قبل — آخر صفحة محفوظة: ${maxPriorNewTo}.`;
+    }
     if (!e.gradeNew) return "اختر تقدير التسميع الجديد.";
   }
   if (!e.noPast) {

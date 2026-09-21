@@ -1,0 +1,3 @@
+# Chromium لتصدير التقارير PDF (src/lib/pdf.ts) — يُصدَّر إلى المسار عبر PATH وقت التشغيل.
+[phases.setup]
+nixPkgs = ["chromium"]

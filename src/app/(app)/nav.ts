@@ -20,4 +20,6 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[] }[]
   { id: "halaqat", href: "/halaqat", label: "إدارة الحلقات", roles: ["DIRECTOR", "ADMIN"] },
   { id: "schedule", href: "/schedule", label: "الدوام والعطل", roles: ["DIRECTOR", "ADMIN"] },
   { id: "students", href: "/students", label: "الطلاب", roles: ["DIRECTOR", "ADMIN"] },
+  { id: "reports-hub", href: "/reports", label: "مركز التقارير", roles: ["DIRECTOR", "ADMIN"] },
+  { id: "monthly-report", href: "/monthly-report", label: "التقرير الشهري", roles: ["TEACHER"] },
 ];

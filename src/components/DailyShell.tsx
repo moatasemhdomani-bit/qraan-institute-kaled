@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { chipStyle, inputStyle } from "@/lib/ui";
+import { chipStyle } from "@/lib/ui";
+import DateField from "@/components/DateField";
 
 /** الشريط المشترك بين شاشتي الحضور والتسميع: اختيار الحلقة والتاريخ، وإقفال العطلة. */
 export default function DailyShell({
@@ -40,12 +41,7 @@ export default function DailyShell({
         </div>
         <div style={{ marginTop: 16, display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 12, color: "var(--ink-3)" }}>التاريخ</span>
-          <input
-            type="date"
-            defaultValue={date}
-            onChange={(e) => e.target.value && go(activeHalqaId, e.target.value)}
-            style={{ ...inputStyle(), width: 170, textAlign: "center", direction: "ltr" }}
-          />
+          <DateField defaultValue={date} onChange={(v) => v && go(activeHalqaId, v)} />
         </div>
       </div>
     );
@@ -73,12 +69,7 @@ export default function DailyShell({
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginInlineStart: "auto" }}>
         <span style={{ fontSize: 12, color: "var(--ink-3)" }}>التاريخ</span>
-        <input
-          type="date"
-          defaultValue={date}
-          onChange={(e) => e.target.value && go(activeHalqaId, e.target.value)}
-          style={{ ...inputStyle(), width: 170, minHeight: 40, textAlign: "center", direction: "ltr" }}
-        />
+        <DateField defaultValue={date} onChange={(v) => v && go(activeHalqaId, v)} />
       </div>
       {dutyNote && (
         <div style={{ width: "100%", fontSize: 12, color: "var(--ink-2)", display: "flex", gap: 7, alignItems: "flex-start" }}>

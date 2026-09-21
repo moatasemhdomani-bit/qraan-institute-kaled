@@ -34,14 +34,28 @@ export default async function RecitationPage({
   const saved = halqa ? await prisma.recitation.findMany({ where: { halqaId: halqa.id, date } }) : [];
   const savedMap = Object.fromEntries(saved.map((r) => [r.studentId, r]));
 
-  // حقل «من» يُملأ تلقائيًا من نهاية آخر تسميع سابق لكل طالب
+  // حقل «تسميع جديد — من» يُملأ تلقائيًا من أعلى صفحة جديدة سُمِّعت من قبل لكل طالب — ولا يجوز
+  // النزول عنها لاحقًا (لا يُعاد تسميع صفحة سُمِّعت جديدًا من قبل). أمّا «آخر ماضي» فمعلومة إرشادية
+  // فقط — الماضي مراجعة، لا يُشترط أن يكمل من حيث انتهى.
+  const studentIds = students.map((s) => s.id);
+  const [maxNewToRows, lastPastRows] = await Promise.all([
+    prisma.recitation.groupBy({
+      by: ["studentId"],
+      where: { studentId: { in: studentIds }, date: { lt: date }, none: false, noNew: false },
+      _max: { newTo: true },
+    }),
+    prisma.recitation.findMany({
+      where: { studentId: { in: studentIds }, date: { lt: date }, none: false, noPast: false },
+      orderBy: { date: "desc" },
+      distinct: ["studentId"],
+      select: { studentId: true, pastTo: true },
+    }),
+  ]);
+  const maxNewToMap = Object.fromEntries(maxNewToRows.map((r) => [r.studentId, r._max.newTo]));
+  const lastPastMap = Object.fromEntries(lastPastRows.map((r) => [r.studentId, r.pastTo]));
   const lastPages: Record<string, { newTo: number | null; pastTo: number | null }> = {};
   for (const st of students) {
-    const prev = await prisma.recitation.findFirst({
-      where: { studentId: st.id, date: { lt: date }, none: false },
-      orderBy: { date: "desc" },
-    });
-    lastPages[st.id] = { newTo: prev?.newTo ?? null, pastTo: prev?.pastTo ?? null };
+    lastPages[st.id] = { newTo: maxNewToMap[st.id] ?? null, pastTo: lastPastMap[st.id] ?? null };
   }
 
   const slot = halqa ? rotationSlot(halqa.cohort, date) : null;
@@ -69,6 +83,7 @@ export default async function RecitationPage({
       />
       {!lock && halqa && (
         <RecitationClient
+          key={halqa.id + date}
           halqaId={halqa.id}
           date={date}
           students={students.map((s) => ({
