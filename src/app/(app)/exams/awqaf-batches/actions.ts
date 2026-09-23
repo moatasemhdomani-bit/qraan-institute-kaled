@@ -6,9 +6,8 @@ import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { isValidDate } from "@/lib/daily";
 import { awqafPassed, certStepLocked, type CertStep } from "@/lib/awqaf";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import crypto from "crypto";
+import { uploadFile, mimeFromExt } from "@/lib/storage";
 
 export type FormState = { error?: string; ok?: boolean; batchId?: string };
 
@@ -92,10 +91,7 @@ async function saveCertFile(file: File): Promise<string> {
   const bytes = Buffer.from(await file.arrayBuffer());
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
   const filename = `cert-${crypto.randomUUID()}.${ext}`;
-  const dir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), bytes);
-  return `/uploads/${filename}`;
+  return uploadFile(filename, bytes, mimeFromExt(ext));
 }
 
 const STEP_LABELS: Record<CertStep, string> = { arrived: "وصول الشهادة", archived: "أرشفة الشهادة", delivered: "تسليم الشهادة" };

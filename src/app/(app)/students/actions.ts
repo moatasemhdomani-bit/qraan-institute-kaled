@@ -4,11 +4,10 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import crypto from "crypto";
 import { normalizePhone } from "@/lib/phone";
 import { createGuardianAccount, regenerateGuardianPassword } from "@/lib/guardian";
+import { uploadFile, mimeFromExt } from "@/lib/storage";
 
 export type FormState = { error?: string; ok?: boolean };
 export type ResetState = { error?: string; ok?: boolean; password?: string };
@@ -17,10 +16,7 @@ async function savePhoto(file: File): Promise<string> {
   const bytes = Buffer.from(await file.arrayBuffer());
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
   const filename = `student-${crypto.randomUUID()}.${ext}`;
-  const dir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), bytes);
-  return `/uploads/${filename}`;
+  return uploadFile(filename, bytes, mimeFromExt(ext));
 }
 
 export async function saveStudent(_prev: FormState, formData: FormData): Promise<FormState> {

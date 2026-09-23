@@ -7,10 +7,9 @@ import { generatePassword, encryptPassword } from "@/lib/guardian";
 import { logAction } from "@/lib/audit";
 import { ROLE_LABELS } from "@/lib/ui";
 import { revalidatePath } from "next/cache";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import crypto from "crypto";
 import { normalizePhone } from "@/lib/phone";
+import { uploadFile, mimeFromExt } from "@/lib/storage";
 
 export type FormState = { error?: string; ok?: boolean; generatedPassword?: string };
 
@@ -18,10 +17,7 @@ async function savePhoto(file: File, prefix: string): Promise<string> {
   const bytes = Buffer.from(await file.arrayBuffer());
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
   const filename = `${prefix}-${crypto.randomUUID()}.${ext}`;
-  const dir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), bytes);
-  return `/uploads/${filename}`;
+  return uploadFile(filename, bytes, mimeFromExt(ext));
 }
 
 export async function saveStaff(_prev: FormState, formData: FormData): Promise<FormState> {
