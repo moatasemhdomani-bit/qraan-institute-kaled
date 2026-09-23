@@ -33,7 +33,6 @@ export default async function ReportsHubPage() {
     range: `${formatDateAr(r.fromDate)} — ${formatDateAr(r.toDate)}`,
     at: formatDateAr(r.createdAt.toISOString().slice(0, 10)),
     by: r.issuedBy.name,
-    fileUrl: r.fileUrl,
   }));
 
   return (
@@ -47,7 +46,7 @@ export default async function ReportsHubPage() {
           </Link>
         ))}
       </div>
-      <ReportsHubClient issued={issued} />
+      <ReportsHubClient issued={issued} isDirector={session.role === "DIRECTOR"} />
     </>
   );
 }

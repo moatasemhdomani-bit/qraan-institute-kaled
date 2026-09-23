@@ -395,14 +395,14 @@ enum ReportKind {
   STUDENT // تقرير طالب
 }
 
-// سجل التقارير الصادرة — نسخة مجمّدة: يحمل رابط ملف PDF المولَّد وقت الإصدار، لا يُعاد حسابه عند إعادة الفتح.
+// سجل التقارير الصادرة — لا يحمل ملف PDF مخزَّنًا؛ يُعاد توليد التقرير عند الطلب من هذه المعطيات نفسها.
 model IssuedReport {
-  id       String     @id @default(cuid())
-  kind     ReportKind
-  name     String
-  fromDate String // YYYY-MM-DD
-  toDate   String // YYYY-MM-DD
-  fileUrl  String
+  id         String     @id @default(cuid())
+  kind       ReportKind
+  name       String
+  fromDate   String // YYYY-MM-DD
+  toDate     String // YYYY-MM-DD
+  paramsJson String // معطيات خاصة بنوع التقرير (halqaScope + notesJson لتقرير الحلقات، "{}" لغيره)
 
   studentId String?
   student   Student? @relation(fields: [studentId], references: [id])

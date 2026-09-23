@@ -1,3 +1,4 @@
+import { prisma } from "./db";
 import { pageSpan } from "./daily";
 import { passFailLabel } from "./exam";
 import { awqafPassed } from "./awqaf";
@@ -108,4 +109,194 @@ export function monthsInRange(from: string, to: string): string[] {
     if (m > 12) { m = 1; y++; }
   }
   return months;
+}
+
+// ── تجميع بيانات التقارير الثلاثة — مشتركة بين شاشات الإصدار وبين مسار إعادة توليد PDF عند الطلب ──
+
+export type HalaqatPreviewRow = {
+  studentId: string;
+  studentName: string;
+  from: number | null;
+  to: number | null;
+  newTotal: number;
+  pastTotal: number;
+  locPass: number; locFail: number;
+  nomPass: number; nomFail: number;
+  realPass: number; realFail: number;
+  note: string;
+  noteFromTeacher: boolean;
+};
+export type HalaqatPreviewBlock = { halqaId: string; halqaName: string; teacherName: string; rows: HalaqatPreviewRow[] };
+
+export async function buildHalaqatBlocks(from: string, to: string, halqaScope: string): Promise<HalaqatPreviewBlock[]> {
+  const halaqat = await prisma.halqa.findMany({
+    where: halqaScope === "all" ? {} : { id: halqaScope },
+    include: { teacher: { select: { name: true } } },
+    orderBy: { name: "asc" },
+  });
+  const halqaIds = halaqat.map((h) => h.id);
+  if (halqaIds.length === 0) return [];
+
+  const students = await prisma.student.findMany({
+    where: { halqaId: { in: halqaIds } },
+    orderBy: { name: "asc" },
+  });
+  const studentIds = students.map((s) => s.id);
+  const months = monthsInRange(from, to);
+
+  const [recitations, localExams, nomExams, awqafResults, notes] = await Promise.all([
+    prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { gte: from, lte: to } } }),
+    prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "LOCAL", date: { gte: from, lte: to } } }),
+    prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
+    prisma.awqafResult.findMany({ where: { studentId: { in: studentIds }, batch: { date: { gte: from, lte: to } } } }),
+    prisma.teacherMonthlyNote.findMany({ where: { studentId: { in: studentIds }, month: { in: months } } }),
+  ]);
+
+  return halaqat
+    .map((h) => ({
+      halqaId: h.id,
+      halqaName: h.name,
+      teacherName: h.teacher.name,
+      rows: students
+        .filter((s) => s.halqaId === h.id)
+        .map((s) => {
+          const pages = pagesSummary(recitations.filter((r) => r.studentId === s.id));
+          const loc = localSplit(localExams.filter((e) => e.studentId === s.id));
+          const nom = nominationSplit(nomExams.filter((e) => e.studentId === s.id));
+          const real = realAwqafSplit(awqafResults.filter((r) => r.studentId === s.id));
+          const teacherNote = notes
+            .filter((n) => n.studentId === s.id)
+            .map((n) => n.note)
+            .filter(Boolean)
+            .join(" / ");
+          return {
+            studentId: s.id,
+            studentName: s.name,
+            from: pages.from,
+            to: pages.to,
+            newTotal: pages.newTotal,
+            pastTotal: pages.pastTotal,
+            locPass: loc.pass, locFail: loc.fail,
+            nomPass: nom.pass, nomFail: nom.fail,
+            realPass: real.pass, realFail: real.fail,
+            note: teacherNote,
+            noteFromTeacher: !!teacherNote,
+          };
+        }),
+    }))
+    .filter((b) => b.rows.length > 0);
+}
+
+export type TeachersPreviewRow = {
+  teacherId: string;
+  teacherName: string;
+  halqaNames: string;
+  newPages: number;
+  pastPages: number;
+  locPass: number; locFail: number;
+  awqPass: number; awqFail: number;
+  count: number;
+};
+
+export async function buildTeachersRows(from: string, to: string): Promise<TeachersPreviewRow[]> {
+  const teachers = await prisma.user.findMany({
+    where: { role: "TEACHER" },
+    orderBy: { name: "asc" },
+    include: { halaqatTaught: { select: { id: true, name: true } } },
+  });
+
+  const allStudents = await prisma.student.findMany({
+    where: { halqaId: { in: teachers.flatMap((t) => t.halaqatTaught.map((h) => h.id)) } },
+    select: { id: true, halqaId: true },
+  });
+  const studentIds = allStudents.map((s) => s.id);
+
+  const [recitations, localExams, nomExams, awqafResults] = await Promise.all([
+    prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { gte: from, lte: to } } }),
+    prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "LOCAL", date: { gte: from, lte: to } } }),
+    prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
+    prisma.awqafResult.findMany({ where: { studentId: { in: studentIds }, batch: { date: { gte: from, lte: to } } } }),
+  ]);
+
+  return teachers
+    .map((t) => {
+      const halqaIds = new Set(t.halaqatTaught.map((h) => h.id));
+      const studs = allStudents.filter((s) => s.halqaId && halqaIds.has(s.halqaId));
+      let newPages = 0, pastPages = 0, locPass = 0, locFail = 0, awqPass = 0, awqFail = 0;
+      for (const s of studs) {
+        const pages = pagesSummary(recitations.filter((r) => r.studentId === s.id));
+        newPages += pages.newTotal;
+        pastPages += pages.pastTotal;
+        const loc = localSplit(localExams.filter((e) => e.studentId === s.id));
+        locPass += loc.pass; locFail += loc.fail;
+        const nom = nominationSplit(nomExams.filter((e) => e.studentId === s.id));
+        const real = realAwqafSplit(awqafResults.filter((r) => r.studentId === s.id));
+        awqPass += nom.pass + real.pass;
+        awqFail += nom.fail + real.fail;
+      }
+      return {
+        teacherId: t.id,
+        teacherName: t.name,
+        halqaNames: t.halaqatTaught.map((h) => h.name).join("، ") || "—",
+        newPages, pastPages, locPass, locFail, awqPass, awqFail,
+        count: studs.length,
+      };
+    })
+    .filter((r) => r.halqaNames !== "—");
+}
+
+export type StudentPreview = {
+  studentId: string;
+  studentName: string;
+  studentNo: string;
+  halqaName: string;
+  cohortName: string;
+  attendance: { present: number; late: number; excused: number; absent: number };
+  newPages: number;
+  pastPages: number;
+  locPass: number; locFail: number;
+  nomPass: number; nomFail: number;
+  realPass: number; realFail: number;
+  behavior: string;
+};
+
+export async function buildStudentPreview(studentId: string, from: string, to: string): Promise<StudentPreview | null> {
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
+    include: { halqa: { include: { cohort: true } } },
+  });
+  if (!student) return null;
+
+  const [attendance, recitations, localExams, nomExams, awqafResults] = await Promise.all([
+    prisma.attendance.findMany({ where: { studentId, date: { gte: from, lte: to } } }),
+    prisma.recitation.findMany({ where: { studentId, date: { gte: from, lte: to } } }),
+    prisma.exam.findMany({ where: { studentId, type: "LOCAL", date: { gte: from, lte: to } } }),
+    prisma.exam.findMany({ where: { studentId, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
+    prisma.awqafResult.findMany({ where: { studentId, batch: { date: { gte: from, lte: to } } } }),
+  ]);
+
+  const pages = pagesSummary(recitations);
+  const loc = localSplit(localExams);
+  const nom = nominationSplit(nomExams);
+  const real = realAwqafSplit(awqafResults);
+
+  return {
+    studentId: student.id,
+    studentName: student.name,
+    studentNo: String(student.studentNo),
+    halqaName: student.halqa?.name ?? "غير مفروز",
+    cohortName: student.halqa?.cohort.name ?? "—",
+    attendance: {
+      present: attendance.filter((a) => a.status === "PRESENT").length,
+      late: attendance.filter((a) => a.status === "LATE").length,
+      excused: attendance.filter((a) => a.status === "EXCUSED").length,
+      absent: attendance.filter((a) => a.status === "ABSENT").length,
+    },
+    newPages: pages.newTotal,
+    pastPages: pages.pastTotal,
+    locPass: loc.pass, locFail: loc.fail,
+    nomPass: nom.pass, nomFail: nom.fail,
+    realPass: real.pass, realFail: real.fail,
+    behavior: student.behavior,
+  };
 }

@@ -2,27 +2,11 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { today } from "@/lib/daily";
-import { pagesSummary, localSplit, nominationSplit, realAwqafSplit } from "@/lib/reports";
-import { renderPdf, saveReportPdf } from "@/lib/pdf";
-import { studentReportHtml } from "@/lib/reportHtml";
+import { buildStudentPreview, type StudentPreview } from "@/lib/reports";
 
-export type FormState = { error?: string; ok?: boolean; fileUrl?: string };
+export type { StudentPreview } from "@/lib/reports";
 
-export type StudentPreview = {
-  studentId: string;
-  studentName: string;
-  studentNo: string;
-  halqaName: string;
-  cohortName: string;
-  attendance: { present: number; late: number; excused: number; absent: number };
-  newPages: number;
-  pastPages: number;
-  locPass: number; locFail: number;
-  nomPass: number; nomFail: number;
-  realPass: number; realFail: number;
-  behavior: string;
-};
+export type FormState = { error?: string; ok?: boolean; reportId?: string; duplicate?: boolean };
 
 export async function searchStudentsForReport(q: string): Promise<{ id: string; no: string; name: string }[]> {
   const session = await getSession();
@@ -34,47 +18,6 @@ export async function searchStudentsForReport(q: string): Promise<{ id: string; 
     orderBy: { name: "asc" },
   });
   return students.map((s) => ({ id: s.id, no: String(s.studentNo), name: s.name }));
-}
-
-async function buildStudentPreview(studentId: string, from: string, to: string): Promise<StudentPreview | null> {
-  const student = await prisma.student.findUnique({
-    where: { id: studentId },
-    include: { halqa: { include: { cohort: true } } },
-  });
-  if (!student) return null;
-
-  const [attendance, recitations, localExams, nomExams, awqafResults] = await Promise.all([
-    prisma.attendance.findMany({ where: { studentId, date: { gte: from, lte: to } } }),
-    prisma.recitation.findMany({ where: { studentId, date: { gte: from, lte: to } } }),
-    prisma.exam.findMany({ where: { studentId, type: "LOCAL", date: { gte: from, lte: to } } }),
-    prisma.exam.findMany({ where: { studentId, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
-    prisma.awqafResult.findMany({ where: { studentId, batch: { date: { gte: from, lte: to } } } }),
-  ]);
-
-  const pages = pagesSummary(recitations);
-  const loc = localSplit(localExams);
-  const nom = nominationSplit(nomExams);
-  const real = realAwqafSplit(awqafResults);
-
-  return {
-    studentId: student.id,
-    studentName: student.name,
-    studentNo: String(student.studentNo),
-    halqaName: student.halqa?.name ?? "غير مفروز",
-    cohortName: student.halqa?.cohort.name ?? "—",
-    attendance: {
-      present: attendance.filter((a) => a.status === "PRESENT").length,
-      late: attendance.filter((a) => a.status === "LATE").length,
-      excused: attendance.filter((a) => a.status === "EXCUSED").length,
-      absent: attendance.filter((a) => a.status === "ABSENT").length,
-    },
-    newPages: pages.newTotal,
-    pastPages: pages.pastTotal,
-    locPass: loc.pass, locFail: loc.fail,
-    nomPass: nom.pass, nomFail: nom.fail,
-    realPass: real.pass, realFail: real.fail,
-    behavior: student.behavior,
-  };
 }
 
 export async function previewStudentReport(studentId: string, from: string, to: string): Promise<{ preview: StudentPreview } | { error: string }> {
@@ -103,28 +46,16 @@ export async function issueStudentReport(_prev: FormState, formData: FormData): 
   const preview = await buildStudentPreview(studentId, from, to);
   if (!preview) return { error: "لم يُعثر على الطالب." };
 
-  const html = studentReportHtml({
-    name, from, to, issuedBy: session.name, issuedAt: today(),
-    studentName: preview.studentName, studentNo: preview.studentNo,
-    halqaName: preview.halqaName, cohortName: preview.cohortName,
-    attendance: preview.attendance, newPages: preview.newPages, pastPages: preview.pastPages,
-    locPass: preview.locPass, locFail: preview.locFail,
-    nomPass: preview.nomPass, nomFail: preview.nomFail,
-    realPass: preview.realPass, realFail: preview.realFail,
-    behavior: preview.behavior,
+  const paramsJson = "{}";
+
+  const existing = await prisma.issuedReport.findFirst({
+    where: { kind: "STUDENT", name, fromDate: from, toDate: to, studentId, paramsJson },
+  });
+  if (existing) return { ok: true, reportId: existing.id, duplicate: true };
+
+  const created = await prisma.issuedReport.create({
+    data: { kind: "STUDENT", name, fromDate: from, toDate: to, paramsJson, studentId, issuedById: session.userId },
   });
 
-  let fileUrl: string;
-  try {
-    const buf = await renderPdf(html, false);
-    fileUrl = await saveReportPdf(buf);
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "تعذّر توليد ملف PDF." };
-  }
-
-  await prisma.issuedReport.create({
-    data: { kind: "STUDENT", name, fromDate: from, toDate: to, fileUrl, studentId, issuedById: session.userId },
-  });
-
-  return { ok: true, fileUrl };
+  return { ok: true, reportId: created.id };
 }

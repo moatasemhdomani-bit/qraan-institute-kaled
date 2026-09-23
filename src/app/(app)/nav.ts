@@ -23,3 +23,16 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[] }[]
   { id: "reports-hub", href: "/reports", label: "مركز التقارير", roles: ["DIRECTOR", "ADMIN"] },
   { id: "monthly-report", href: "/monthly-report", label: "التقرير الشهري", roles: ["TEACHER"] },
 ];
+
+/**
+ * يُرجع معرّف عنصر التنقّل الأكثر تحديدًا (أطول href مطابق) بدل كل العناصر المطابقة —
+ * وإلا يُظلَّل "السبر" (/exams) مع أي مسار فرعي له مثل /exams/awqaf-batches معًا.
+ */
+export function activeNavId(pathname: string): string | undefined {
+  let best: { id: string; href: string } | undefined;
+  for (const n of NAV) {
+    const on = pathname === n.href || pathname.startsWith(n.href + "/");
+    if (on && (!best || n.href.length > best.href.length)) best = n;
+  }
+  return best?.id;
+}

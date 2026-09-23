@@ -101,8 +101,20 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
             {pending ? "جارٍ الحفظ…" : "حفظ التوقيت"}
           </button>
           {savedFlash && <span style={{ fontSize: 12, color: "var(--ink-2)" }}>تم الحفظ ✓</span>}
-          {state.error && <span style={{ fontSize: 12, color: "var(--danger)" }}>{state.error}</span>}
         </div>
+        {state.error && (
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid var(--notice-line)",
+              background: "var(--notice-soft)",
+              fontSize: 13.5,
+            }}
+          >
+            {state.error}
+          </div>
+        )}
       </form>
 
       <div style={{ marginTop: 14 }}>

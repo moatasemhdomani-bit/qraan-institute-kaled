@@ -43,7 +43,20 @@ export default function ScheduleClient({
             إضافة
           </button>
         </form>
-        {state.error && <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 10 }}>{state.error}</div>}
+        {state.error && (
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid var(--notice-line)",
+              background: "var(--notice-soft)",
+              fontSize: 13.5,
+              marginBottom: 10,
+            }}
+          >
+            {state.error}
+          </div>
+        )}
 
         {holidays.length === 0 ? (
           <div style={{ padding: "28px 12px", textAlign: "center", border: "1px dashed var(--line)", borderRadius: 11, color: "var(--ink-2)", fontSize: 13 }}>

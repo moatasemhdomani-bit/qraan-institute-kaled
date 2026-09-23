@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export default function PhotoField({
   name,
@@ -12,6 +12,15 @@ export default function PhotoField({
   existingUrl?: string | null;
 }) {
   const [preview, setPreview] = useState<string | null>(existingUrl || null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const openPicker = (capture: boolean) => {
+    const input = inputRef.current;
+    if (!input) return;
+    if (capture) input.setAttribute("capture", "environment");
+    else input.removeAttribute("capture");
+    input.click();
+  };
 
   return (
     <div
@@ -51,20 +60,39 @@ export default function PhotoField({
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{label}</div>
         <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 8 }}>JPG أو PNG — حتى 2 ميغابايت</div>
-        <label
-          style={{
-            display: "inline-block",
-            padding: "7px 13px",
-            borderRadius: 9,
-            border: "1px solid var(--line)",
-            background: "var(--btn-soft)",
-            color: "var(--ink)",
-            fontSize: 12,
-            cursor: "pointer",
-          }}
-        >
-          {preview ? "استبدال الصورة" : "رفع صورة"}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => openPicker(false)}
+            style={{
+              padding: "7px 13px",
+              borderRadius: 9,
+              border: "1px solid var(--line)",
+              background: "var(--btn-soft)",
+              color: "var(--ink)",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            {preview ? "استبدال الصورة" : "رفع صورة"}
+          </button>
+          <button
+            type="button"
+            onClick={() => openPicker(true)}
+            style={{
+              padding: "7px 13px",
+              borderRadius: 9,
+              border: "1px solid var(--line)",
+              background: "var(--btn-soft)",
+              color: "var(--ink)",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            التقاط صورة
+          </button>
           <input
+            ref={inputRef}
             type="file"
             name={name}
             accept="image/png,image/jpeg"
@@ -74,7 +102,7 @@ export default function PhotoField({
               if (f) setPreview(URL.createObjectURL(f));
             }}
           />
-        </label>
+        </div>
       </div>
     </div>
   );

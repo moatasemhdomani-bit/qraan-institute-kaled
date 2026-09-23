@@ -267,7 +267,19 @@ function NewBatchDrawer({
           </div>
         )}
 
-        {state.error && <div style={{ fontSize: 12.5, color: "#E08A8A" }}>{state.error}</div>}
+        {state.error && (
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid var(--notice-line)",
+              background: "var(--notice-soft)",
+              fontSize: 13.5,
+            }}
+          >
+            {state.error}
+          </div>
+        )}
         <button type="submit" disabled={pending || selected.size === 0} style={{ ...primaryButtonStyle, width: "100%", minHeight: 48 }}>
           فتح الدفعة ({selected.size})
         </button>

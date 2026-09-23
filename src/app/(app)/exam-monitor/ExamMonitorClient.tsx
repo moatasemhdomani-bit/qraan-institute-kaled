@@ -58,7 +58,7 @@ export default function ExamMonitorClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {(["all", "LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL"] as const).map((t) => (
             <button key={t} onClick={() => setTypeFilter(t)} style={chipStyle(typeFilter === t)}>

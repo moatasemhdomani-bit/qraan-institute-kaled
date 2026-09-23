@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { uploadRecitation, type FormState } from "./actions";
 import { GRADES, MIN_PAGE, MAX_PAGE } from "@/lib/daily";
 import { chipStyle } from "@/lib/ui";
@@ -81,16 +81,28 @@ export default function RecitationClient({
     Object.fromEntries(students.map((s) => [s.id, s.saved ?? blank(s)]))
   );
   const [open, setOpen] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (state.focusStudentId) setOpen(state.focusStudentId);
   }, [state.focusStudentId]);
+
+  useEffect(() => {
+    if (state.error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [state.error]);
 
   const set = (id: string, patch: Partial<Entry>) =>
     setEntries((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
 
   const missing = students.filter((s) => !isDone(entries[s.id]));
   const complete = missing.length === 0 && students.length > 0;
+
+  const guardSubmit = (ev: React.MouseEvent<HTMLButtonElement>) => {
+    if (!complete && missing[0]) {
+      ev.preventDefault();
+      setOpen(missing[0].id);
+    }
+  };
 
   return (
     <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -273,8 +285,9 @@ export default function RecitationClient({
                       </span>
                     </div>
                     <button
-                      type="button"
-                      onClick={() => setOpen(students[idx + 1]?.id ?? null)}
+                      type={students[idx + 1] ? "button" : "submit"}
+                      disabled={!students[idx + 1] && (pending || students.length === 0)}
+                      onClick={students[idx + 1] ? () => setOpen(students[idx + 1]?.id ?? null) : guardSubmit}
                       style={{
                         marginInlineStart: "auto",
                         minHeight: 44,
@@ -287,9 +300,10 @@ export default function RecitationClient({
                         fontWeight: 700,
                         cursor: "pointer",
                         boxShadow: "var(--btn-shadow)",
+                        opacity: !students[idx + 1] && pending ? 0.7 : 1,
                       }}
                     >
-                      {students[idx + 1] ? "التالي" : "إغلاق"}
+                      {students[idx + 1] ? "التالي" : pending ? "جارٍ الحفظ…" : "حفظ"}
                     </button>
                   </div>
                 </div>
@@ -301,6 +315,7 @@ export default function RecitationClient({
 
       {state.error && (
         <div
+          ref={errorRef}
           style={{
             padding: "12px 14px",
             borderRadius: 12,
@@ -330,12 +345,7 @@ export default function RecitationClient({
       <button
         type="submit"
         disabled={pending || students.length === 0}
-        onClick={(ev) => {
-          if (!complete && missing[0]) {
-            ev.preventDefault();
-            setOpen(missing[0].id);
-          }
-        }}
+        onClick={guardSubmit}
         style={{
           width: "100%",
           minHeight: 48,

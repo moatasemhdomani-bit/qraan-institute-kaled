@@ -1,4 +1,18 @@
+import { readFileSync, existsSync } from "fs";
+import path from "path";
 import { formatDateAr } from "./daily";
+
+const LOGO_DATA_URI = (() => {
+  const p = path.join(process.cwd(), "public", "logo-mark.png");
+  if (!existsSync(p)) return null;
+  return `data:image/png;base64,${readFileSync(p).toString("base64")}`;
+})();
+
+const KIND_LABELS: Record<string, string> = {
+  HALAQAT: "تقرير تسميع الحلقات",
+  TEACHERS: "التقرير الشهري للمدرسين",
+  STUDENT: "تقرير طالب",
+};
 
 const BASE_STYLE = `
   @font-face { font-family: "IBM Plex Sans Arabic"; src: local("IBM Plex Sans Arabic"); }
@@ -8,13 +22,16 @@ const BASE_STYLE = `
     font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
     background: #ffffff; color: #0a192f; font-size: 12.5px; line-height: 1.6;
   }
-  .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #d4af37; padding-bottom: 14px; margin-bottom: 18px; }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; border-bottom: 2px solid #d4af37; padding-bottom: 14px; margin-bottom: 18px; }
+  .head .brand { display: flex; align-items: flex-start; gap: 10px; }
+  .head .brand img { width: 40px; height: 40px; object-fit: contain; flex: none; }
   .head h1 { font-size: 19px; margin: 0 0 4px; color: #0a192f; }
   .head .sub { font-size: 12px; color: #555; }
   .head .meta { text-align: start; font-size: 11.5px; color: #555; }
   .head .meta b { color: #0a192f; }
   h2.block { font-size: 14px; background: linear-gradient(90deg, rgba(212,175,55,.18), rgba(212,175,55,.02)); padding: 8px 12px; border-radius: 8px; margin: 18px 0 8px; }
   h2.block span { color: #8a6d1f; font-weight: 400; font-size: 12px; }
+  h3.section { font-size: 12.5px; font-weight: 700; color: #123058; margin: 12px 0 6px; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
   th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
   thead th { background: #123058; color: #fff; font-weight: 600; }
@@ -22,6 +39,9 @@ const BASE_STYLE = `
   td.name { text-align: start; font-weight: 600; }
   .pass { color: #1e7a3d; font-weight: 600; }
   .fail { color: #b23b3b; font-weight: 600; }
+  .notes-block { margin-top: 6px; padding: 10px 12px; border: 1px solid #e3ddc8; border-radius: 8px; background: #fbf9f2; font-size: 11px; }
+  .notes-block .row { padding: 2px 0; }
+  .notes-block .row b { color: #123058; }
   .footer { margin-top: 22px; font-size: 10.5px; color: #888; border-top: 1px solid #ddd; padding-top: 8px; }
 `;
 
@@ -33,10 +53,20 @@ function htmlHead(title: string) {
     <title>${title}</title><style>${BASE_STYLE}</style></head><body>`;
 }
 
-function reportHeader(name: string, from: string, to: string, issuedBy: string, issuedAt: string) {
+function reportHeader(name: string, kind: string, from: string, to: string, issuedBy: string, issuedAt: string) {
+  const kindLabel = KIND_LABELS[kind] ?? kind;
   return `<div class="head">
-    <div><h1>معهد الصحابي الجليل خالد بن الوليد</h1><div class="sub">${escapeHtml(name)}</div></div>
-    <div class="meta"><div><b>الفترة:</b> ${formatDateAr(from)} — ${formatDateAr(to)}</div><div><b>أصدره:</b> ${escapeHtml(issuedBy)}</div><div><b>تاريخ الإصدار:</b> ${formatDateAr(issuedAt)}</div></div>
+    <div class="brand">
+      ${LOGO_DATA_URI ? `<img src="${LOGO_DATA_URI}" alt="" />` : ""}
+      <div><h1>معهد الصحابي الجليل خالد بن الوليد</h1><div class="sub">${escapeHtml(name)}</div></div>
+    </div>
+    <div class="meta">
+      <div><b>اسم التقرير:</b> ${escapeHtml(name)}</div>
+      <div><b>نوع التقرير:</b> ${escapeHtml(kindLabel)}</div>
+      <div><b>الفترة:</b> ${formatDateAr(from)} — ${formatDateAr(to)}</div>
+      <div><b>أصدره:</b> ${escapeHtml(issuedBy)}</div>
+      <div><b>تاريخ الإصدار:</b> ${formatDateAr(issuedAt)}</div>
+    </div>
   </div>`;
 }
 
@@ -44,8 +74,8 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function passFailCell(pass: number, fail: number) {
-  return `<td><span class="pass">${pass}</span> / <span class="fail">${fail}</span></td>`;
+function passFailCells(pass: number, fail: number) {
+  return `<td><span class="pass">${pass}</span></td><td><span class="fail">${fail}</span></td>`;
 }
 
 export type HalaqatReportRow = {
@@ -66,8 +96,9 @@ export function halaqatReportHtml(input: {
   blocks: HalaqatReportBlock[];
 }): string {
   const blocksHtml = input.blocks
-    .map(
-      (b) => `
+    .map((b) => {
+      const notedRows = b.rows.filter((r) => r.note && r.note.trim());
+      return `
     <h2 class="block">${escapeHtml(b.halqaName)} <span>— ${escapeHtml(b.teacherName)}</span></h2>
     <table>
       <thead>
@@ -80,10 +111,9 @@ export function halaqatReportHtml(input: {
           <th colspan="2">اختبار محلي</th>
           <th colspan="2">ترشيح الأوقاف</th>
           <th colspan="2">سبر الأوقاف الفعلي</th>
-          <th rowspan="2">ملاحظات</th>
         </tr>
         <tr>
-          <th>ناجح/راسب</th><th>ناجح/راسب</th><th>ناجح/راسب</th>
+          <th>ناجح</th><th>راسب</th><th>ناجح</th><th>راسب</th><th>ناجح</th><th>راسب</th>
         </tr>
       </thead>
       <tbody>
@@ -95,21 +125,27 @@ export function halaqatReportHtml(input: {
               <td>${r.to ?? "—"}</td>
               <td>${r.newTotal}</td>
               <td>${r.pastTotal}</td>
-              ${passFailCell(r.locPass, r.locFail)}
-              ${passFailCell(r.nomPass, r.nomFail)}
-              ${passFailCell(r.realPass, r.realFail)}
-              <td style="text-align:start">${escapeHtml(r.note || "—")}</td>
+              ${passFailCells(r.locPass, r.locFail)}
+              ${passFailCells(r.nomPass, r.nomFail)}
+              ${passFailCells(r.realPass, r.realFail)}
             </tr>`
           )
           .join("")}
       </tbody>
-    </table>`
-    )
+    </table>
+    ${
+      notedRows.length > 0
+        ? `<div class="notes-block">${notedRows
+            .map((r) => `<div class="row"><b>${escapeHtml(r.studentName)}:</b> ${escapeHtml(r.note)}</div>`)
+            .join("")}</div>`
+        : ""
+    }`;
+    })
     .join("");
 
   return (
     htmlHead(input.name) +
-    reportHeader(input.name, input.from, input.to, input.issuedBy, input.issuedAt) +
+    reportHeader(input.name, "HALAQAT", input.from, input.to, input.issuedBy, input.issuedAt) +
     blocksHtml +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير تسميع الحلقات</div></body></html>`
   );
@@ -145,8 +181,8 @@ export function teachersReportHtml(input: {
               <td>${escapeHtml(r.halqaNames)}</td>
               <td>${r.newPages}</td>
               <td>${r.pastPages}</td>
-              ${passFailCell(r.locPass, r.locFail)}
-              ${passFailCell(r.awqPass, r.awqFail)}
+              <td><span class="pass">${r.locPass}</span> / <span class="fail">${r.locFail}</span></td>
+              <td><span class="pass">${r.awqPass}</span> / <span class="fail">${r.awqFail}</span></td>
               <td>${r.count}</td>
               <td style="text-align:start">${escapeHtml(r.note || "—")}</td>
             </tr>`
@@ -157,7 +193,7 @@ export function teachersReportHtml(input: {
 
   return (
     htmlHead(input.name) +
-    reportHeader(input.name, input.from, input.to, input.issuedBy, input.issuedAt) +
+    reportHeader(input.name, "TEACHERS", input.from, input.to, input.issuedBy, input.issuedAt) +
     table +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — التقرير الشهري للمدرسين</div></body></html>`
   );
@@ -175,27 +211,36 @@ export function studentReportHtml(input: {
   behavior: string;
 }): string {
   const body = `
-    <h2 class="block">${escapeHtml(input.studentName)} <span>#${escapeHtml(input.studentNo)} — ${escapeHtml(input.halqaName)} · ${escapeHtml(input.cohortName)}</span></h2>
+    <h2 class="block">${escapeHtml(input.studentName)} <span>#${escapeHtml(input.studentNo)} — ${escapeHtml(input.halqaName)} · ${escapeHtml(input.cohortName)} · سلوك الطالب: ${escapeHtml(input.behavior)}</span></h2>
+
+    <h3 class="section">حضور الطالب</h3>
     <table>
-      <thead><tr><th>حاضر</th><th>متأخر</th><th>إذن</th><th>غائب</th><th>صفحات جديد</th><th>صفحات ماضٍ</th><th>سلوك الطالب</th></tr></thead>
+      <thead><tr><th>حاضر</th><th>متأخر</th><th>إذن</th><th>غائب</th></tr></thead>
       <tbody><tr>
         <td>${input.attendance.present}</td><td>${input.attendance.late}</td>
         <td>${input.attendance.excused}</td><td>${input.attendance.absent}</td>
-        <td>${input.newPages}</td><td>${input.pastPages}</td><td>${escapeHtml(input.behavior)}</td>
       </tr></tbody>
     </table>
-    <table style="margin-top:14px">
+
+    <h3 class="section">تسميع الطالب</h3>
+    <table>
+      <thead><tr><th>صفحات جديد</th><th>صفحات ماضٍ</th></tr></thead>
+      <tbody><tr><td>${input.newPages}</td><td>${input.pastPages}</td></tr></tbody>
+    </table>
+
+    <h3 class="section">سبر الطالب</h3>
+    <table>
       <thead><tr><th>اختبار محلي</th><th>ترشيح الأوقاف</th><th>سبر الأوقاف الفعلي</th></tr></thead>
       <tbody><tr>
-        ${passFailCell(input.locPass, input.locFail)}
-        ${passFailCell(input.nomPass, input.nomFail)}
-        ${passFailCell(input.realPass, input.realFail)}
+        <td><span class="pass">${input.locPass}</span> / <span class="fail">${input.locFail}</span></td>
+        <td><span class="pass">${input.nomPass}</span> / <span class="fail">${input.nomFail}</span></td>
+        <td><span class="pass">${input.realPass}</span> / <span class="fail">${input.realFail}</span></td>
       </tr></tbody>
     </table>`;
 
   return (
     htmlHead(input.name) +
-    reportHeader(input.name, input.from, input.to, input.issuedBy, input.issuedAt) +
+    reportHeader(input.name, "STUDENT", input.from, input.to, input.issuedBy, input.issuedAt) +
     body +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير طالب</div></body></html>`
   );

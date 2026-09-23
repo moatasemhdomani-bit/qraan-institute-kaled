@@ -1,7 +1,5 @@
 import puppeteer, { type LaunchOptions } from "puppeteer-core";
 import { existsSync } from "fs";
-import crypto from "crypto";
-import { uploadFile } from "./storage";
 
 const CANDIDATE_BROWSERS = [
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -46,10 +44,4 @@ export async function renderPdf(html: string, landscape = false): Promise<Buffer
   } finally {
     await browser.close();
   }
-}
-
-/** يحفظ ملف PDF مولَّد في دلو التخزين ويُرجع رابطه — نسخة مجمّدة لا تُعاد كتابتها. */
-export async function saveReportPdf(buf: Buffer): Promise<string> {
-  const key = `reports/report-${crypto.randomUUID()}.pdf`;
-  return uploadFile(key, buf, "application/pdf");
 }

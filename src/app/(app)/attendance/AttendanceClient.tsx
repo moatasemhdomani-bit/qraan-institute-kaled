@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { uploadAttendance, type FormState } from "./actions";
 import { ATT_STATES } from "@/lib/daily";
 import { chipStyle } from "@/lib/ui";
@@ -25,6 +25,11 @@ export default function AttendanceClient({
   const [state, formAction, pending] = useActionState(uploadAttendance, initialState);
   const [marks, setMarks] = useState<Record<string, string>>(saved);
   const [onlyMissing, setOnlyMissing] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (state.error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [state.error]);
 
   const missing = useMemo(() => students.filter((s) => !marks[s.id]), [students, marks]);
   const done = students.length - missing.length;
@@ -157,6 +162,7 @@ export default function AttendanceClient({
 
       {state.error && (
         <div
+          ref={errorRef}
           style={{
             padding: "12px 14px",
             borderRadius: 12,

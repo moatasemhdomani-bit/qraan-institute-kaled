@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "./actions";
 import type { RoleId } from "@/lib/ui";
-import { NAV } from "./nav";
+import { NAV, activeNavId } from "./nav";
 
 export default function MobileNav({ role, name }: { role: RoleId; name: string }) {
   const pathname = usePathname();
   const items = NAV.filter((n) => n.roles.includes(role));
+  const activeId = activeNavId(pathname);
 
   return (
     <nav
@@ -30,7 +31,7 @@ export default function MobileNav({ role, name }: { role: RoleId; name: string }
       }}
     >
       {items.map((n) => {
-        const on = pathname === n.href || pathname.startsWith(n.href + "/");
+        const on = n.id === activeId;
         return (
           <Link
             key={n.id}

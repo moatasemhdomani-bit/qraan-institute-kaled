@@ -42,7 +42,7 @@ export function weekdayName(date: string): string {
 
 export function formatDateAr(date: string): string {
   const [y, m, d] = date.split("-");
-  return `${d}/${m}/${y}`;
+  return `${y}/${m}/${d}`;
 }
 
 /**
@@ -61,6 +61,8 @@ export function padTime(t: string | null | undefined): string {
  * يُرجع null إن كان اليوم مفتوحًا للتسجيل.
  */
 export async function dayLockReason(date: string): Promise<string | null> {
+  if (date > today()) return "لا يمكن تسجيل حضور أو تسميع ليوم لم يأتِ بعد.";
+
   const [holidays, working] = await Promise.all([
     prisma.holiday.findMany(),
     prisma.workingDays.findUnique({ where: { id: 1 } }),

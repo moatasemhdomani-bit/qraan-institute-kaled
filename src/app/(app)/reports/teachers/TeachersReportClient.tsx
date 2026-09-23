@@ -89,7 +89,8 @@ export default function TeachersReportClient() {
           )}
           {state.ok && (
             <div style={{ padding: "12px 14px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13 }}>
-              صدر التقرير وحُفظ في السجل — <a href={state.fileUrl} target="_blank" rel="noreferrer" style={{ color: "#e8c65a" }}>تنزيل PDF</a>
+              {state.duplicate ? "يوجد تقرير سابق بنفس المعطيات — فُتح بدل إصدار تقرير جديد" : "تم إصدار التقرير وحُفظ في السجل"} —{" "}
+              <a href={`/reports/${state.reportId}/pdf`} target="_blank" rel="noreferrer" style={{ color: "#e8c65a" }}>فتح PDF</a>
             </div>
           )}
 
