@@ -22,5 +22,4 @@ RUN npm run build
 
 ENV NODE_ENV=production
 EXPOSE 3000
-# resolve هنا يزيل أثر محاولة ترحيل فاشلة سابقة على الإنتاج (P3009) — لا يؤثر إن لم توجد، ويُزال هذا السطر بعد نجاح أول نشر تالٍ.
-CMD npx prisma migrate resolve --rolled-back 20260923150507_reports_regen_params; npx prisma migrate deploy && node prisma/seed.mjs && npx next start -p ${PORT:-3000}
+CMD npx prisma migrate deploy && node prisma/seed.mjs && npx next start -p ${PORT:-3000}
