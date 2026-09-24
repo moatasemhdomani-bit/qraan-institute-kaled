@@ -1,10 +1,12 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
 import { today } from "@/lib/daily";
+import type { ReviewInputs } from "@/lib/reports";
+import IssuedNotice from "../IssuedNotice";
 import { previewTeachersReport, issueTeachersReport, type FormState, type PreviewRow } from "./actions";
 
 const initialState: FormState = {};
@@ -17,12 +19,12 @@ function passFailCell(pass: number, fail: number) {
   );
 }
 
-export default function TeachersReportClient() {
-  const [from, setFrom] = useState(today());
-  const [to, setTo] = useState(today());
-  const [name, setName] = useState("");
+export default function TeachersReportClient({ initial }: { initial: ReviewInputs | null }) {
+  const [from, setFrom] = useState(initial?.from ?? today());
+  const [to, setTo] = useState(initial?.to ?? today());
+  const [name, setName] = useState(initial?.name ?? "");
   const [rows, setRows] = useState<PreviewRow[] | null>(null);
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>(initial?.notes ?? {});
   const [previewError, setPreviewError] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -40,6 +42,16 @@ export default function TeachersReportClient() {
       setRows(res.rows);
     });
   }
+
+  // «مراجعة التقرير» من السجل: يُعاد إعداد التقرير فورًا بنفس الفترة والملاحظات السابقة
+  const reviewed = useRef(false);
+  useEffect(() => {
+    if (initial && !reviewed.current) {
+      reviewed.current = true;
+      loadPreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -87,12 +99,7 @@ export default function TeachersReportClient() {
               {state.error}
             </div>
           )}
-          {state.ok && (
-            <div style={{ padding: "12px 14px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13 }}>
-              {state.duplicate ? "يوجد تقرير سابق بنفس المعطيات — فُتح بدل إصدار تقرير جديد" : "تم إصدار التقرير وحُفظ في السجل"} —{" "}
-              <a href={`/reports/${state.reportId}/pdf`} target="_blank" rel="noreferrer" style={{ color: "#e8c65a" }}>فتح PDF</a>
-            </div>
-          )}
+          {state.ok && state.reportId && <IssuedNotice reportId={state.reportId} name={name} duplicate={state.duplicate} />}
 
           <div style={{ ...cardStyle, overflow: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 900 }}>

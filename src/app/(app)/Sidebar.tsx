@@ -27,15 +27,7 @@ export default function Sidebar({ role, name, roleLabel }: { role: RoleId; name:
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 6px" }}>
-        <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 9,
-            background: "var(--btn-grad)",
-            boxShadow: "var(--btn-shadow)",
-          }}
-        />
+        <img src="/logo-mark.png" alt="شعار المعهد" width={48} height={34} style={{ display: "block", flex: "none", objectFit: "contain" }} />
         <div style={{ fontSize: 12, color: "var(--ink-2)", lineHeight: 1.35 }}>
           معهد الصحابي الجليل
           <br />

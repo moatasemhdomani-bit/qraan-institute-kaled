@@ -300,3 +300,33 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     behavior: student.behavior,
   };
 }
+
+export type ReviewInputs = {
+  name: string;
+  from: string;
+  to: string;
+  studentId: string | null;
+  halqaScope: string;
+  notes: Record<string, string>;
+};
+
+/** معطيات تقرير صادر سابقًا من السجل — لإعادة إعداده بنفس المدخلات («مراجعة التقرير»). */
+export async function loadReviewInputs(id: string | undefined, kind: "HALAQAT" | "TEACHERS" | "STUDENT"): Promise<ReviewInputs | null> {
+  if (!id) return null;
+  const r = await prisma.issuedReport.findUnique({ where: { id } });
+  if (!r || r.kind !== kind) return null;
+  let p: Record<string, unknown> = {};
+  try {
+    p = JSON.parse(r.paramsJson);
+  } catch {
+    p = {};
+  }
+  return {
+    name: r.name,
+    from: r.fromDate,
+    to: r.toDate,
+    studentId: r.studentId,
+    halqaScope: typeof p.halqaScope === "string" ? p.halqaScope : "all",
+    notes: p.notes && typeof p.notes === "object" ? (p.notes as Record<string, string>) : {},
+  };
+}

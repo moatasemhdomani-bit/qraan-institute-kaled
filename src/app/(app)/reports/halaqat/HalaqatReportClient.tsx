@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState, useMemo, useState, useTransition } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
 import { today } from "@/lib/daily";
+import type { ReviewInputs } from "@/lib/reports";
+import IssuedNotice from "../IssuedNotice";
 import { previewHalaqatReport, issueHalaqatReport, type FormState, type PreviewBlock } from "./actions";
 
 const initialState: FormState = {};
@@ -18,11 +20,17 @@ function passFailCell(pass: number, fail: number) {
   );
 }
 
-export default function HalaqatReportClient({ halaqat }: { halaqat: { id: string; name: string }[] }) {
-  const [from, setFrom] = useState(today());
-  const [to, setTo] = useState(today());
-  const [halqaScope, setHalqaScope] = useState("all");
-  const [name, setName] = useState("");
+export default function HalaqatReportClient({
+  halaqat,
+  initial,
+}: {
+  halaqat: { id: string; name: string }[];
+  initial: ReviewInputs | null;
+}) {
+  const [from, setFrom] = useState(initial?.from ?? today());
+  const [to, setTo] = useState(initial?.to ?? today());
+  const [halqaScope, setHalqaScope] = useState(initial?.halqaScope ?? "all");
+  const [name, setName] = useState(initial?.name ?? "");
   const [blocks, setBlocks] = useState<PreviewBlock[] | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [previewError, setPreviewError] = useState("");
@@ -35,7 +43,7 @@ export default function HalaqatReportClient({ halaqat }: { halaqat: { id: string
     [halaqat]
   );
 
-  function loadPreview() {
+  function loadPreview(savedNotes?: Record<string, string>) {
     setPreviewError("");
     startTransition(async () => {
       const res = await previewHalaqatReport(from, to, halqaScope);
@@ -46,10 +54,20 @@ export default function HalaqatReportClient({ halaqat }: { halaqat: { id: string
       }
       setBlocks(res.blocks);
       const nextNotes: Record<string, string> = {};
-      for (const b of res.blocks) for (const r of b.rows) nextNotes[r.studentId] = r.note;
+      for (const b of res.blocks) for (const r of b.rows) nextNotes[r.studentId] = savedNotes?.[r.studentId] ?? r.note;
       setNotes(nextNotes);
     });
   }
+
+  // «مراجعة التقرير» من السجل: يُعاد إعداد التقرير فورًا بنفس المدخلات السابقة (الفترة والنطاق والملاحظات)
+  const reviewed = useRef(false);
+  useEffect(() => {
+    if (initial && !reviewed.current) {
+      reviewed.current = true;
+      loadPreview(initial.notes);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -69,7 +87,7 @@ export default function HalaqatReportClient({ halaqat }: { halaqat: { id: string
           <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle()} placeholder="مثلاً: تسميع الحلقات — أيلول" />
         </div>
         <div style={{ display: "flex", alignItems: "flex-end" }}>
-          <button type="button" onClick={loadPreview} disabled={pending} style={{ ...primaryButtonStyle, opacity: pending ? 0.7 : 1, width: "100%" }}>
+          <button type="button" onClick={() => loadPreview()} disabled={pending} style={{ ...primaryButtonStyle, opacity: pending ? 0.7 : 1, width: "100%" }}>
             {pending ? "جارٍ التحميل…" : "معاينة"}
           </button>
         </div>
@@ -102,17 +120,19 @@ export default function HalaqatReportClient({ halaqat }: { halaqat: { id: string
               {state.error}
             </div>
           )}
-          {state.ok && (
-            <div style={{ padding: "12px 14px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13 }}>
-              {state.duplicate ? "يوجد تقرير سابق بنفس المعطيات — فُتح بدل إصدار تقرير جديد" : "تم إصدار التقرير وحُفظ في السجل"} —{" "}
-              <a href={`/reports/${state.reportId}/pdf`} target="_blank" rel="noreferrer" style={{ color: "var(--gold-light, #e8c65a)" }}>فتح PDF</a>
-            </div>
-          )}
+          {state.ok && state.reportId && <IssuedNotice reportId={state.reportId} name={name} duplicate={state.duplicate} />}
 
           {blocks.map((b) => (
             <div key={b.halqaId} style={{ ...cardStyle, overflow: "auto" }}>
-              <div style={{ padding: "12px 16px", background: "var(--head-grad)", fontWeight: 700, fontSize: 14.5 }}>
-                {b.halqaName} <span style={{ fontWeight: 400, color: "var(--ink-2)", fontSize: 12.5 }}>— {b.teacherName}</span>
+              <div style={{ padding: "12px 16px", background: "var(--head-grad)", fontWeight: 700, fontSize: 14.5, display: "flex", gap: 18, flexWrap: "wrap" }}>
+                <span>
+                  <span style={{ fontWeight: 400, color: "var(--ink-2)" }}>الحلقة: </span>
+                  {b.halqaName}
+                </span>
+                <span>
+                  <span style={{ fontWeight: 400, color: "var(--ink-2)" }}>المدرس: </span>
+                  {b.teacherName}
+                </span>
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 900 }}>
                 <thead>

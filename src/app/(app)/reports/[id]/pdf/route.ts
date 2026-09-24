@@ -7,13 +7,14 @@ import { renderPdf } from "@/lib/pdf";
 import { halaqatReportHtml, teachersReportHtml, studentReportHtml } from "@/lib/reportHtml";
 
 /** يُعيد توليد PDF تقرير سابق من معطياته المحفوظة عند الطلب — لا يُخزَّن أي ملف. */
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) {
     return new NextResponse("غير مصرَّح لك بهذا الإجراء.", { status: 403 });
   }
 
   const { id } = await params;
+  const download = new URL(req.url).searchParams.get("download") === "1";
   const report = await prisma.issuedReport.findUnique({
     where: { id },
     include: { issuedBy: { select: { name: true } } },
@@ -57,7 +58,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${encodeURIComponent(report.name)}.pdf"`,
+        "Content-Disposition": `${download ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(report.name)}.pdf`,
       },
     });
   } catch (e) {

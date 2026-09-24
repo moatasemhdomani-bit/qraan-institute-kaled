@@ -1,12 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { uploadRecitation, type FormState } from "./actions";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { saveStudentRecitation } from "./actions";
 import { GRADES, MIN_PAGE, MAX_PAGE } from "@/lib/daily";
+import { validateEntry } from "@/lib/recitation";
 import { chipStyle } from "@/lib/ui";
 import NumberField from "@/components/NumberField";
-
-const initialState: FormState = {};
 
 type Entry = {
   none: boolean;
@@ -53,78 +52,115 @@ const span = (a: string, b: string) => {
   return x >= MIN_PAGE && y <= MAX_PAGE && y >= x ? y - x + 1 : 0;
 };
 
-function isDone(e: Entry): boolean {
-  if (e.none) return true;
-  if (e.noNew && e.noPast) return false;
-  const ok = (v: string) => {
-    const n = parseInt(v, 10);
-    return n >= MIN_PAGE && n <= MAX_PAGE;
-  };
-  const newOk = e.noNew || (ok(e.nf) && ok(e.nt) && parseInt(e.nt, 10) >= parseInt(e.nf, 10) && !!e.gradeNew);
-  const pastOk = e.noPast || (ok(e.rf) && ok(e.rt) && parseInt(e.rt, 10) >= parseInt(e.rf, 10) && !!e.gradePast);
-  return newOk && pastOk;
+const pageNum = (v: string): number | null => {
+  const n = parseInt(v, 10);
+  return Number.isNaN(n) ? null : n;
+};
+
+const sameEntry = (a: Entry | undefined, b: Entry) =>
+  !!a && (Object.keys(b) as (keyof Entry)[]).every((k) => a[k] === b[k]);
+
+/** سبب رفض سطر الطالب (نفس قواعد الخادم تمامًا)، أو null إن كان جاهزًا للحفظ. */
+function entryProblem(s: Student, e: Entry): string | null {
+  return validateEntry(
+    {
+      studentId: s.id,
+      none: e.none,
+      noNew: e.noNew,
+      noPast: e.noPast,
+      newFrom: pageNum(e.nf),
+      newTo: pageNum(e.nt),
+      pastFrom: pageNum(e.rf),
+      pastTo: pageNum(e.rt),
+      gradeNew: e.gradeNew || null,
+      gradePast: e.gradePast || null,
+    },
+    s.lastNewTo
+  );
 }
 
+function summaryOf(e: Entry): string {
+  if (e.none) return "لم يسمّع اليوم";
+  const newPart = e.noNew ? "لم يسمّع جديدًا" : `تسميع جديد ${e.nf}→${e.nt} (${e.gradeNew})`;
+  const pastPart = e.noPast ? "لم يقرأ ماضي" : `ماضي ${e.rf}→${e.rt} (${e.gradePast})`;
+  return `${newPart} · ${pastPart}`;
+}
+
+/**
+ * كل طالب يُحفظ وحده بزر «حفظ» في بطاقته. لا يُفحص الإدخال ولا تظهر رسالة خطأ إلا عند الضغط على الزر؛
+ * والرسالة تبقى كما هي حتى الضغطة التالية.
+ */
 export default function RecitationClient({
   halqaId,
   date,
   students,
-  alreadyUploaded,
 }: {
   halqaId: string;
   date: string;
   students: Student[];
   alreadyUploaded: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(uploadRecitation, initialState);
   const [entries, setEntries] = useState<Record<string, Entry>>(() =>
     Object.fromEntries(students.map((s) => [s.id, s.saved ?? blank(s)]))
   );
+  // آخر نسخة محفوظة فعلًا على الخادم لكل طالب
+  const [savedEntries, setSavedEntries] = useState<Record<string, Entry>>(() =>
+    Object.fromEntries(students.filter((s) => s.saved).map((s) => [s.id, s.saved as Entry]))
+  );
   const [open, setOpen] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [justSaved, setJustSaved] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  const [errorTick, setErrorTick] = useState(0);
   const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (state.focusStudentId) setOpen(state.focusStudentId);
-  }, [state.focusStudentId]);
-
-  useEffect(() => {
-    if (state.error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [state.error]);
+    if (errorTick) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [errorTick]);
 
   const set = (id: string, patch: Partial<Entry>) =>
     setEntries((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
 
-  const missing = students.filter((s) => !isDone(entries[s.id]));
-  const complete = missing.length === 0 && students.length > 0;
+  const isSaved = (id: string) => sameEntry(savedEntries[id], entries[id]);
+  const savedCount = students.filter((s) => isSaved(s.id)).length;
 
-  const guardSubmit = (ev: React.MouseEvent<HTMLButtonElement>) => {
-    if (!complete && missing[0]) {
-      ev.preventDefault();
-      setOpen(missing[0].id);
+  function fail(id: string, message: string) {
+    setErrors((prev) => ({ ...prev, [id]: message }));
+    setErrorTick((t) => t + 1);
+  }
+
+  function save(s: Student, idx: number) {
+    const e = entries[s.id];
+    setJustSaved(null);
+    const problem = entryProblem(s, e);
+    if (problem) {
+      fail(s.id, problem);
+      return;
     }
-  };
+    setSavingId(s.id);
+    startTransition(async () => {
+      const res = await saveStudentRecitation({ halqaId, date, studentId: s.id, ...e });
+      setSavingId(null);
+      if (res.error) {
+        fail(s.id, res.error);
+        return;
+      }
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[s.id];
+        return next;
+      });
+      setSavedEntries((prev) => ({ ...prev, [s.id]: e }));
+      setJustSaved(s.id);
+      // الانتقال إلى أول طالب بعده لم يُحفظ بعد
+      const nextStudent = students.slice(idx + 1).find((x) => !sameEntry(savedEntries[x.id], entries[x.id]));
+      setOpen(nextStudent?.id ?? null);
+    });
+  }
 
   return (
-    <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <input type="hidden" name="halqaId" value={halqaId} />
-      <input type="hidden" name="date" value={date} />
-      {students.map((s) => {
-        const e = entries[s.id];
-        return (
-          <div key={"h-" + s.id}>
-            <input type="hidden" name={"none_" + s.id} value={e.none ? "1" : "0"} />
-            <input type="hidden" name={"noNew_" + s.id} value={e.noNew ? "1" : "0"} />
-            <input type="hidden" name={"noPast_" + s.id} value={e.noPast ? "1" : "0"} />
-            <input type="hidden" name={"nf_" + s.id} value={e.nf} />
-            <input type="hidden" name={"nt_" + s.id} value={e.nt} />
-            <input type="hidden" name={"rf_" + s.id} value={e.rf} />
-            <input type="hidden" name={"rt_" + s.id} value={e.rt} />
-            <input type="hidden" name={"gn_" + s.id} value={e.gradeNew} />
-            <input type="hidden" name={"gp_" + s.id} value={e.gradePast} />
-          </div>
-        );
-      })}
-
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div
         style={{
           borderRadius: 14,
@@ -142,12 +178,14 @@ export default function RecitationClient({
 
         {students.map((s, idx) => {
           const e = entries[s.id];
-          const done = isDone(e);
+          const saved = isSaved(s.id);
           const isOpen = open === s.id;
-
-          const newPart = e.noNew ? "لم يسمّع جديدًا" : "تسميع جديد " + e.nf + "→" + e.nt + " (" + e.gradeNew + ")";
-          const pastPart = e.noPast ? "لم يقرأ ماضي" : "ماضي " + e.rf + "→" + e.rt + " (" + e.gradePast + ")";
-          const summary = e.none ? "لم يسمّع اليوم" : done ? newPart + " · " + pastPart : "لم يُسجّل بعد";
+          const savedEntry = savedEntries[s.id];
+          const summary = saved
+            ? summaryOf(e)
+            : savedEntry
+              ? "عُدّل ولم يُحفظ التعديل بعد"
+              : "لم يُحفظ بعد";
 
           return (
             <div key={s.id}>
@@ -166,17 +204,18 @@ export default function RecitationClient({
                   cursor: "pointer",
                   background: isOpen
                     ? "var(--chip)"
-                    : done
+                    : saved
                       ? "transparent"
                       : "linear-gradient(90deg, rgba(224,138,138,0.10), transparent 60%)",
                 }}
               >
-                <span
-                  style={{ width: 9, height: 9, borderRadius: 99, flex: "none", background: done ? "#6FBF8B" : "#E08A8A" }}
-                />
+                <span style={{ width: 9, height: 9, borderRadius: 99, flex: "none", background: saved ? "#6FBF8B" : "#E08A8A" }} />
                 <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
                   <span style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{s.name}</span>
-                  <span style={{ fontSize: 12.5, color: done ? "var(--ink-2)" : "#E8A0A0" }}>{summary}</span>
+                  <span style={{ fontSize: 12.5, color: saved ? "var(--ink-2)" : "#E8A0A0" }}>
+                    {summary}
+                    {justSaved === s.id && saved ? " — تم الحفظ ✓" : ""}
+                  </span>
                 </span>
               </button>
 
@@ -275,6 +314,23 @@ export default function RecitationClient({
                     </>
                   )}
 
+                  {errors[s.id] && (
+                    <div
+                      ref={errorRef}
+                      role="alert"
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid var(--notice-line)",
+                        background: "var(--notice-soft)",
+                        fontSize: 13,
+                        fontWeight: 600,
+                      }}
+                    >
+                      لم يتم الحفظ — {errors[s.id]}
+                    </div>
+                  )}
+
                   <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
@@ -285,25 +341,26 @@ export default function RecitationClient({
                       </span>
                     </div>
                     <button
-                      type={students[idx + 1] ? "button" : "submit"}
-                      disabled={!students[idx + 1] && (pending || students.length === 0)}
-                      onClick={students[idx + 1] ? () => setOpen(students[idx + 1]?.id ?? null) : guardSubmit}
+                      type="button"
+                      disabled={savingId !== null}
+                      onClick={() => save(s, idx)}
                       style={{
                         marginInlineStart: "auto",
                         minHeight: 44,
-                        padding: "10px 18px",
+                        padding: "10px 22px",
                         borderRadius: 10,
                         border: "1px solid var(--btn-border)",
                         background: "var(--btn-grad)",
                         color: "var(--on-accent)",
                         fontSize: 14,
                         fontWeight: 700,
+                        fontFamily: "inherit",
                         cursor: "pointer",
                         boxShadow: "var(--btn-shadow)",
-                        opacity: !students[idx + 1] && pending ? 0.7 : 1,
+                        opacity: savingId === s.id ? 0.7 : 1,
                       }}
                     >
-                      {students[idx + 1] ? "التالي" : pending ? "جارٍ الحفظ…" : "حفظ"}
+                      {savingId === s.id ? "جارٍ الحفظ…" : "حفظ"}
                     </button>
                   </div>
                 </div>
@@ -313,56 +370,25 @@ export default function RecitationClient({
         })}
       </div>
 
-      {state.error && (
-        <div
-          ref={errorRef}
-          style={{
-            padding: "12px 14px",
-            borderRadius: 12,
-            border: "1px solid var(--notice-line)",
-            background: "var(--notice-soft)",
-            fontSize: 13.5,
-          }}
-        >
-          {state.error}
-        </div>
-      )}
-
-      {(state.ok || (alreadyUploaded && !state.error)) && (
+      {students.length > 0 && (
         <div
           style={{
             padding: 14,
             borderRadius: 12,
-            border: "1px solid rgba(111,191,139,0.5)",
-            background: "linear-gradient(135deg, rgba(111,191,139,0.16), rgba(111,191,139,0.03))",
             fontSize: 13.5,
+            border: savedCount === students.length ? "1px solid rgba(111,191,139,0.5)" : "1px dashed var(--line)",
+            background:
+              savedCount === students.length
+                ? "linear-gradient(135deg, rgba(111,191,139,0.16), rgba(111,191,139,0.03))"
+                : "var(--btn-soft)",
+            color: savedCount === students.length ? "var(--ink)" : "var(--ink-2)",
           }}
         >
-          تسميع هذا اليوم مرفوع — ظهر لأولياء الأمور.
+          {savedCount === students.length
+            ? "تسميع هذا اليوم محفوظ لكل الطلاب — ظهر لأولياء الأمور."
+            : `حُفظ تسميع ${savedCount} من ${students.length} طالبًا — افتح بطاقة كل طالب واضغط «حفظ».`}
         </div>
       )}
-
-      <button
-        type="submit"
-        disabled={pending || students.length === 0}
-        onClick={guardSubmit}
-        style={{
-          width: "100%",
-          minHeight: 48,
-          padding: 12,
-          borderRadius: 11,
-          fontSize: 15,
-          fontWeight: 700,
-          cursor: "pointer",
-          border: complete ? "1px solid var(--btn-border)" : "1px dashed var(--line)",
-          background: complete ? "var(--btn-grad)" : "var(--btn-soft)",
-          color: complete ? "var(--on-accent)" : "var(--ink-3)",
-          boxShadow: complete ? "var(--btn-shadow)" : undefined,
-          opacity: pending ? 0.7 : 1,
-        }}
-      >
-        {pending ? "جارٍ الرفع…" : complete ? "رفع التسميع" : "رفع التسميع (" + missing.length + " ناقص)"}
-      </button>
-    </form>
+    </div>
   );
 }

@@ -8,7 +8,7 @@ const QUICK_LINKS: Record<string, { href: string; label: string; note: string }>
   users: { href: "/users", label: "إدارة المستخدمين", note: "قائمة العاملين وتسجيل عامل جديد" },
   audit: { href: "/audit", label: "سجل التدقيق", note: "من عدّل ماذا ومتى" },
   monitor: { href: "/monitor", label: "متابعة الحضور", note: "حضور كل الحلقات اليوم" },
-  cohorts: { href: "/cohorts", label: "إدارة الأفواج", note: "توقيت الأفواج الخمسة" },
+  cohorts: { href: "/cohorts", label: "إدارة الأفواج", note: "توقيت الأفواج وإضافتها" },
   halaqat: { href: "/halaqat", label: "إدارة الحلقات", note: "إنشاء حلقة وإسناد مدرّسها" },
   schedule: { href: "/schedule", label: "الدوام والعطل", note: "أيام الدوام وقائمة العطل" },
   students: { href: "/students", label: "الطلاب", note: "قائمة الطلاب وفرزهم" },

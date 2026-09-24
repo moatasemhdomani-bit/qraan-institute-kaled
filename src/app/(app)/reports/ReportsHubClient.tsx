@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { cardStyle, chipStyle, inputStyle } from "@/lib/ui";
 import { deleteIssuedReport, renameIssuedReport, type FormState } from "./actions";
 
@@ -13,6 +14,13 @@ type IssuedRow = {
   range: string;
   at: string;
   by: string;
+};
+
+// «مراجعة التقرير» يعيد فتح شاشة إعداد التقرير بنفس المدخلات المحفوظة — لا يُخزَّن محتوى التقرير نفسه
+const REVIEW_PATHS: Record<string, string> = {
+  HALAQAT: "/reports/halaqat",
+  TEACHERS: "/reports/teachers",
+  STUDENT: "/reports/student",
 };
 
 const FILTERS = [
@@ -125,14 +133,12 @@ export default function ReportsHubClient({ issued, isDirector }: { issued: Issue
                 {r.kindLabel} · {r.range} · أصدره {r.by} بتاريخ {r.at}
               </div>
             </div>
-            <a
-              href={`/reports/${r.id}/pdf`}
-              target="_blank"
-              rel="noreferrer"
+            <Link
+              href={`${REVIEW_PATHS[r.kind] ?? "/reports"}?review=${r.id}`}
               style={{ padding: "8px 16px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12.5, textDecoration: "none" }}
             >
-              فتح PDF
-            </a>
+              مراجعة التقرير
+            </Link>
             {isDirector && (
               <>
                 <RenameControl id={r.id} name={r.name} />

@@ -1,10 +1,12 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
 import { today } from "@/lib/daily";
+import type { ReviewInputs } from "@/lib/reports";
+import IssuedNotice from "../IssuedNotice";
 import { searchStudentsForReport, previewStudentReport, issueStudentReport, type FormState, type StudentPreview } from "./actions";
 
 const initialState: FormState = {};
@@ -19,13 +21,19 @@ function passFailCell(pass: number, fail: number) {
 
 type PickedStudent = { id: string; no: string; name: string };
 
-export default function StudentReportClient({ preselected }: { preselected: PickedStudent | null }) {
+export default function StudentReportClient({
+  preselected,
+  initial,
+}: {
+  preselected: PickedStudent | null;
+  initial: ReviewInputs | null;
+}) {
   const [picked, setPicked] = useState<PickedStudent | null>(preselected);
   const [search, setSearch] = useState("");
   const [hits, setHits] = useState<PickedStudent[]>([]);
-  const [from, setFrom] = useState(today());
-  const [to, setTo] = useState(today());
-  const [name, setName] = useState(preselected ? `تقرير ${preselected.name}` : "");
+  const [from, setFrom] = useState(initial?.from ?? today());
+  const [to, setTo] = useState(initial?.to ?? today());
+  const [name, setName] = useState(initial?.name ?? (preselected ? `تقرير ${preselected.name}` : ""));
   const [preview, setPreview] = useState<StudentPreview | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [pending, startTransition] = useTransition();
@@ -62,6 +70,16 @@ export default function StudentReportClient({ preselected }: { preselected: Pick
       setPreview(res.preview);
     });
   }
+
+  // «مراجعة التقرير» من السجل: يُعاد إعداد تقرير الطالب فورًا بنفس الفترة السابقة
+  const reviewed = useRef(false);
+  useEffect(() => {
+    if (initial && !reviewed.current) {
+      reviewed.current = true;
+      loadPreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -136,12 +154,7 @@ export default function StudentReportClient({ preselected }: { preselected: Pick
               {state.error}
             </div>
           )}
-          {state.ok && (
-            <div style={{ padding: "12px 14px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13 }}>
-              {state.duplicate ? "يوجد تقرير سابق بنفس المعطيات — فُتح بدل إصدار تقرير جديد" : "تم إصدار التقرير وحُفظ في السجل"} —{" "}
-              <a href={`/reports/${state.reportId}/pdf`} target="_blank" rel="noreferrer" style={{ color: "#e8c65a" }}>فتح PDF</a>
-            </div>
-          )}
+          {state.ok && state.reportId && <IssuedNotice reportId={state.reportId} name={name} duplicate={state.duplicate} />}
 
           <div style={{ ...cardStyle, padding: 18 }}>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{preview.studentName}</div>

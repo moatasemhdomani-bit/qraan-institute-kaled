@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useActionState } from "react";
+import { useCallback, useEffect, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { saveHalqa, type FormState } from "./actions";
 import { inputStyle, primaryButtonStyle, cardStyle } from "@/lib/ui";
@@ -8,7 +8,17 @@ import Drawer from "@/components/Drawer";
 import Select from "@/components/Select";
 
 type HalqaRow = { id: string; name: string; teacherId: string; teacherName: string; cohortId: string; cohortName: string; count: number };
+type CohortRow = { id: string; name: string; isRotating: boolean };
 const initialState: FormState = {};
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={{ padding: "8px 14px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", alignItems: "baseline", gap: 7 }}>
+      <span style={{ fontSize: 18, fontWeight: 700 }}>{value}</span>
+      <span style={{ fontSize: 12, color: "var(--ink-2)" }}>{label}</span>
+    </div>
+  );
+}
 
 export default function HalaqatClient({
   halaqat,
@@ -17,131 +27,124 @@ export default function HalaqatClient({
 }: {
   halaqat: HalqaRow[];
   teachers: { id: string; name: string }[];
-  cohorts: { id: string; name: string }[];
+  cohorts: CohortRow[];
 }) {
   const router = useRouter();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editing, setEditing] = useState<HalqaRow | null>(null);
+  // null = مغلق؛ وإلا: الحلقة المعدَّلة أو قيم ابتدائية لحلقة جديدة
+  const [halqaDrawer, setHalqaDrawer] = useState<{ editing: HalqaRow | null; cohortId?: string } | null>(null);
+  const closeHalqa = useCallback(() => setHalqaDrawer(null), []);
 
-  function openNew() {
-    setEditing(null);
-    setDrawerOpen(true);
-  }
+  const totalStudents = halaqat.reduce((sum, h) => sum + h.count, 0);
+  const canCreateHalqa = teachers.length > 0 && cohorts.length > 0;
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        {teachers.length > 0 && (
-          <button onClick={openNew} style={primaryButtonStyle}>
-            إنشاء حلقة
-          </button>
-        )}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <Stat label="حلقة" value={halaqat.length} />
+        <Stat label="فوج" value={cohorts.length} />
+        <Stat label="طالبًا" value={totalStudents} />
+        <div style={{ marginInlineStart: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {canCreateHalqa && (
+            <button type="button" onClick={() => setHalqaDrawer({ editing: null })} style={primaryButtonStyle}>
+              + إنشاء حلقة
+            </button>
+          )}
+        </div>
       </div>
 
-      <div style={{ ...cardStyle, overflow: "auto" }}>
-        {halaqat.length === 0 ? (
-          <div style={{ padding: "56px 24px", textAlign: "center" }}>
-            <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 6 }}>لا توجد حلقات بعد</div>
-            <div style={{ color: "var(--ink-2)", fontSize: 13, marginBottom: 16 }}>
-              الحلقة تُسند إلى مدرّس وفوج — {teachers.length === 0 ? "أضف مدرّسًا أولًا." : "أنشئ أول حلقة الآن."}
-            </div>
-            <button
-              onClick={() => (teachers.length === 0 ? router.push("/users") : openNew())}
-              style={primaryButtonStyle}
-            >
-              {teachers.length === 0 ? "أضف مدرّسًا أولًا" : "إنشاء حلقة"}
-            </button>
-          </div>
-        ) : (
-          <>
-          <div className="list-table-wrap">
+      {teachers.length === 0 && (
+        <div style={{ ...cardStyle, padding: "32px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>لا يوجد مدرّسون بعد</div>
+          <div style={{ color: "var(--ink-2)", fontSize: 13, marginBottom: 14 }}>الحلقة تُسند إلى مدرّس وفوج — أضف مدرّسًا أولًا.</div>
+          <button type="button" onClick={() => router.push("/users")} style={primaryButtonStyle}>
+            أضف مدرّسًا
+          </button>
+        </div>
+      )}
+
+      {cohorts.map((c) => {
+        const list = halaqat.filter((h) => h.cohortId === c.id);
+        const students = list.reduce((sum, h) => sum + h.count, 0);
+        return (
+          <section key={c.id} style={{ ...cardStyle, overflow: "hidden" }}>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1.1fr 1.1fr 1.5fr 0.6fr 90px",
-                gap: 12,
-                padding: "11px 16px",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                padding: "12px 16px",
                 background: "var(--head-grad)",
-                fontSize: 12,
-                color: "var(--ink-2)",
-                fontWeight: 600,
-                minWidth: 620,
+                borderBottom: "1px solid var(--line-2)",
               }}
             >
-              <div>اسم الحلقة</div>
-              <div>المدرس المسؤول</div>
-              <div>الفوج</div>
-              <div>عدد الطلاب</div>
-              <div />
-            </div>
-            {halaqat.map((h) => (
-              <div
-                key={h.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1.1fr 1.1fr 1.5fr 0.6fr 90px",
-                  gap: 12,
-                  padding: "13px 16px",
-                  borderTop: "1px solid var(--line-2)",
-                  alignItems: "center",
-                  fontSize: 14,
-                  minWidth: 620,
-                }}
-              >
-                <div style={{ fontWeight: 600 }}>{h.name}</div>
-                <div style={{ color: "var(--ink-2)", fontSize: 13 }}>{h.teacherName}</div>
-                <div>
-                  <span style={{ padding: "4px 10px", borderRadius: 999, background: "var(--chip)", border: "1px solid var(--line)", fontSize: 12 }}>
-                    {h.cohortName}
-                  </span>
-                </div>
-                <div style={{ color: "var(--ink-2)", fontSize: 13 }}>{h.count}</div>
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>{c.name.startsWith("فوج") ? c.name : `فوج ${c.name}`}</div>
+              <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, border: "1px solid var(--line)", background: "var(--chip)", color: "var(--ink-2)" }}>
+                {c.isRotating ? "قلّاب" : "ثابت"}
+              </span>
+              <span style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                {list.length} حلقة · {students} طالبًا
+              </span>
+              <div style={{ marginInlineStart: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {teachers.length > 0 && (
                   <button
-                    onClick={() => {
-                      setEditing(h);
-                      setDrawerOpen(true);
-                    }}
-                    style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}
+                    type="button"
+                    onClick={() => setHalqaDrawer({ editing: null, cohortId: c.id })}
+                    style={{ padding: "6px 12px", borderRadius: 9, border: "1px dashed var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 12, fontFamily: "inherit", cursor: "pointer" }}
                   >
-                    تعديل
+                    + حلقة في هذا الفوج
                   </button>
-                </div>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
 
-          <div className="list-cards">
-            {halaqat.map((h) => (
-              <div key={h.id} style={{ padding: "13px 14px", borderTop: "1px solid var(--line-2)", display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600 }}>{h.name}</div>
-                  <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{h.teacherName}</div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ padding: "4px 10px", borderRadius: 999, background: "var(--chip)", border: "1px solid var(--line)", fontSize: 12 }}>
-                      {h.cohortName}
-                    </span>
-                    <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{h.count} طالبًا</span>
+            {list.length === 0 ? (
+              <div style={{ padding: "18px 16px", fontSize: 13, color: "var(--ink-3)" }}>لا حلقات في هذا الفوج بعد.</div>
+            ) : (
+              <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 10 }}>
+                {list.map((h) => (
+                  <div
+                    key={h.id}
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "1px solid var(--line-2)",
+                      background: "var(--card-2-grad)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, overflowWrap: "anywhere" }}>{h.name}</div>
+                      <div style={{ fontSize: 12.5, color: "var(--ink-2)", overflowWrap: "anywhere" }}>المدرس: {h.teacherName}</div>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{h.count} طالبًا</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setHalqaDrawer({ editing: h })}
+                      style={{ flex: "none", padding: "7px 13px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", cursor: "pointer" }}
+                    >
+                      تعديل
+                    </button>
                   </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setEditing(h);
-                    setDrawerOpen(true);
-                  }}
-                  style={{ flex: "none", padding: "8px 14px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}
-                >
-                  تعديل
-                </button>
+                ))}
               </div>
-            ))}
-          </div>
-          </>
-        )}
-      </div>
+            )}
+          </section>
+        );
+      })}
 
-      {drawerOpen && (
-        <HalqaForm key={editing?.id ?? "new"} initial={editing} teachers={teachers} cohorts={cohorts} onClose={() => setDrawerOpen(false)} />
+      {halqaDrawer && (
+        <HalqaForm
+          key={halqaDrawer.editing?.id ?? "new-" + (halqaDrawer.cohortId ?? "")}
+          initial={halqaDrawer.editing}
+          initialCohortId={halqaDrawer.cohortId}
+          teachers={teachers}
+          cohorts={cohorts}
+          onClose={closeHalqa}
+        />
       )}
     </>
   );
@@ -149,18 +152,20 @@ export default function HalaqatClient({
 
 function HalqaForm({
   initial,
+  initialCohortId,
   teachers,
   cohorts,
   onClose,
 }: {
   initial: HalqaRow | null;
+  initialCohortId?: string;
   teachers: { id: string; name: string }[];
-  cohorts: { id: string; name: string }[];
+  cohorts: CohortRow[];
   onClose: () => void;
 }) {
   const [state, formAction, pending] = useActionState(saveHalqa, initialState);
   const [teacherId, setTeacherId] = useState(initial?.teacherId ?? "");
-  const [cohortId, setCohortId] = useState(initial?.cohortId ?? "");
+  const [cohortId, setCohortId] = useState(initial?.cohortId ?? initialCohortId ?? "");
 
   useEffect(() => {
     if (state.ok) onClose();
@@ -171,7 +176,7 @@ function HalqaForm({
       open
       onClose={onClose}
       title={initial ? "تعديل حلقة" : "إنشاء حلقة"}
-      subtitle="نموذج الإنشاء/التعديل — إدارة الحلقات"
+      subtitle="اسم الحلقة ومدرّسها وفوجها"
       footer={
         <>
           <button form="halqa-form" type="submit" disabled={pending} style={{ ...primaryButtonStyle, opacity: pending ? 0.7 : 1 }}>
@@ -188,7 +193,7 @@ function HalqaForm({
           {state.error}
         </div>
       )}
-      <form id="halqa-form" action={formAction} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+      <form id="halqa-form" action={formAction} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <input type="hidden" name="id" value={initial?.id ?? ""} />
         <div>
           <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>اسم الحلقة</label>
@@ -210,8 +215,8 @@ function HalqaForm({
             name="cohortId"
             value={cohortId}
             onChange={setCohortId}
-            options={cohorts.map((c) => ({ value: c.id, label: c.name }))}
-            placeholder="من الأفواج الخمسة"
+            options={cohorts.map((c) => ({ value: c.id, label: `${c.name} — ${c.isRotating ? "قلّاب" : "ثابت"}` }))}
+            placeholder="اختر الفوج"
           />
         </div>
       </form>

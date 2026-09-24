@@ -100,7 +100,7 @@ export default function Select({
             overflowY: "auto",
             borderRadius: 12,
             border: "1px solid var(--line)",
-            background: "var(--card-grad)",
+            background: "var(--card-grad), var(--panel-solid)",
             boxShadow: "var(--glow)",
             padding: 6,
           }}

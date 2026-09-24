@@ -51,6 +51,8 @@ a:hover {
     linear-gradient(205deg, #123058 0%, #0a192f 52%, #06111f 100%);
   --card-grad: linear-gradient(152deg, rgba(212, 175, 55, 0.14) 0%, rgba(16, 38, 68, 0.95) 44%, rgba(10, 25, 47, 0.97) 100%);
   --card-2-grad: linear-gradient(152deg, rgba(212, 175, 55, 0.07) 0%, rgba(13, 32, 58, 0.9) 60%);
+  /* قاعدة معتمة تحت الطبقات العائمة (درج، قوائم منسدلة) كي لا يظهر محتوى الصفحة من خلفها */
+  --panel-solid: #0c1d36;
   --head-grad: linear-gradient(90deg, rgba(212, 175, 55, 0.18), rgba(212, 175, 55, 0.02));
   --btn-grad: linear-gradient(135deg, #b8912b 0%, #e8c65a 100%);
   --btn-soft: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.06));

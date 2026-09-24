@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useActionState, useTransition } from "react";
+import { useCallback, useEffect, useState, useActionState, useTransition } from "react";
 import { updateCohortTiming, addTeacherToCohort, removeTeacherFromCohort, type FormState } from "./actions";
-import { cardStyle } from "@/lib/ui";
+import { cardStyle, primaryButtonStyle } from "@/lib/ui";
 import TimeField from "@/components/TimeField";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
+import CohortForm, { DeleteCohortButton } from "./CohortForm";
 
 type Cohort = {
   id: string;
@@ -16,20 +17,45 @@ type Cohort = {
   time2Start: string;
   time2End: string;
   rotationStart: string;
+  halaqatCount: number;
   teachers: { id: string; name: string }[];
 };
 
 const initialState: FormState = {};
 
+/** «من» ثم الوقت في سطر، و«إلى» ثم الوقت في السطر التالي. */
+function TimeRange({ startName, endName, start, end }: { startName: string; endName: string; start: string; end: string }) {
+  const label: React.CSSProperties = { width: 28, flex: "none", color: "var(--ink-2)", fontSize: 13 };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={label}>من</span>
+        <TimeField name={startName} defaultValue={start} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={label}>إلى</span>
+        <TimeField name={endName} defaultValue={end} />
+      </div>
+    </div>
+  );
+}
+
 export default function CohortsClient({ cohorts, allTeachers }: { cohorts: Cohort[]; allTeachers: { id: string; name: string }[] }) {
+  const [adding, setAdding] = useState(false);
+  const closeAdding = useCallback(() => setAdding(false), []);
   return (
     <>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button type="button" onClick={() => setAdding(true)} style={primaryButtonStyle}>
+          + إضافة فوج
+        </button>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14 }}>
         {cohorts.map((c) => (
           <CohortCard key={c.id} cohort={c} allTeachers={allTeachers} />
         ))}
       </div>
-      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>الأفواج الخمسة ثابتة الأسماء: لا تُضاف ولا تُحذف — يُحدَّد توقيتها فقط.</div>
+      {adding && <CohortForm onClose={closeAdding} />}
     </>
   );
 }
@@ -52,11 +78,14 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
 
   return (
     <div style={{ ...cardStyle, padding: "16px 18px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         <div style={{ fontSize: 17, fontWeight: 600 }}>{cohort.name}</div>
         <span style={{ padding: "3px 9px", borderRadius: 999, fontSize: 11, border: "1px solid var(--line)", background: "var(--chip)", color: "var(--ink-2)" }}>
           {cohort.isRotating ? "قلّاب" : "ثابت"}
         </span>
+        <div style={{ marginInlineStart: "auto" }}>
+          <DeleteCohortButton id={cohort.id} name={cohort.name} halaqatCount={cohort.halaqatCount} />
+        </div>
       </div>
 
       <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -65,21 +94,13 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
           <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 5 }}>
             {cohort.isRotating ? "الوقت الأول — بداية ونهاية" : "وقت الدوام — بداية ونهاية"}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <TimeField name="time1Start" defaultValue={cohort.time1Start} />
-            <span style={{ color: "var(--ink-3)", fontSize: 12 }}>إلى</span>
-            <TimeField name="time1End" defaultValue={cohort.time1End} />
-          </div>
+          <TimeRange startName="time1Start" endName="time1End" start={cohort.time1Start} end={cohort.time1End} />
         </div>
 
         {cohort.isRotating && (
           <div>
             <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 5 }}>الوقت الثاني — بداية ونهاية (يتبادل مع الأول أسبوعًا بأسبوع)</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <TimeField name="time2Start" defaultValue={cohort.time2Start} />
-              <span style={{ color: "var(--ink-3)", fontSize: 12 }}>إلى</span>
-              <TimeField name="time2End" defaultValue={cohort.time2End} />
-            </div>
+            <TimeRange startName="time2Start" endName="time2End" start={cohort.time2Start} end={cohort.time2End} />
           </div>
         )}
 
@@ -92,7 +113,7 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button
             type="submit"
             disabled={pending}

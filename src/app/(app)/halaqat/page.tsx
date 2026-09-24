@@ -15,7 +15,7 @@ export default async function HalaqatPage() {
       orderBy: { createdAt: "asc" },
     }),
     prisma.user.findMany({ where: { role: "TEACHER" }, orderBy: { name: "asc" } }),
-    prisma.cohort.findMany({ orderBy: { id: "asc" } }),
+    prisma.cohort.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   const halaqat = halaqatRaw.map((h) => ({
@@ -30,11 +30,11 @@ export default async function HalaqatPage() {
 
   return (
     <>
-      <PageHeader title="إدارة الحلقات" subtitle="إنشاء حلقة وإسناد مدرّسها وفوجها." />
+      <PageHeader title="إدارة الحلقات" subtitle="الحلقات مجمّعة حسب الفوج — الأفواج نفسها تُدار من «إدارة الأفواج»." />
       <HalaqatClient
         halaqat={halaqat}
         teachers={teachers.map((t) => ({ id: t.id, name: t.name }))}
-        cohorts={cohorts.map((c) => ({ id: c.id, name: c.name }))}
+        cohorts={cohorts.map((c) => ({ id: c.id, name: c.name, isRotating: c.isRotating }))}
       />
     </>
   );

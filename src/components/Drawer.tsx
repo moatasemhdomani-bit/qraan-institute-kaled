@@ -24,7 +24,7 @@ export default function Drawer({
         position: "fixed",
         inset: 0,
         zIndex: 40,
-        background: "rgba(10,11,20,0.62)",
+        background: "rgba(6,12,24,0.72)",
         backdropFilter: "blur(3px)",
         display: "flex",
         justifyContent: "flex-start",
@@ -36,7 +36,7 @@ export default function Drawer({
           width: "min(560px,100%)",
           height: "100%",
           overflow: "auto",
-          background: "var(--card-grad)",
+          background: "var(--card-grad), var(--panel-solid)",
           borderInlineEnd: "1px solid var(--line)",
           boxShadow: "var(--glow)",
           display: "flex",
@@ -53,7 +53,7 @@ export default function Drawer({
             gap: 12,
             padding: "16px 20px",
             borderBottom: "1px solid var(--line)",
-            background: "var(--head-grad)",
+            background: "var(--head-grad), var(--panel-solid)",
             backdropFilter: "blur(14px)",
           }}
         >
@@ -91,7 +91,7 @@ export default function Drawer({
               gap: 10,
               padding: "16px 20px",
               borderTop: "1px solid var(--line)",
-              background: "var(--head-grad)",
+              background: "var(--head-grad), var(--panel-solid)",
               backdropFilter: "blur(14px)",
             }}
           >

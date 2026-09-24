@@ -23,10 +23,11 @@ const BASE_STYLE = `
     background: #ffffff; color: #0a192f; font-size: 12.5px; line-height: 1.6;
   }
   .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; border-bottom: 2px solid #d4af37; padding-bottom: 14px; margin-bottom: 18px; }
-  .head .brand { display: flex; align-items: flex-start; gap: 10px; }
-  .head .brand img { width: 40px; height: 40px; object-fit: contain; flex: none; }
-  .head h1 { font-size: 19px; margin: 0 0 4px; color: #0a192f; }
-  .head .sub { font-size: 12px; color: #555; }
+  .head .brand { display: flex; align-items: center; gap: 12px; }
+  .head .brand img { width: 80px; height: 80px; object-fit: contain; flex: none; }
+  .head h1 { font-size: 19px; margin: 0; color: #0a192f; line-height: 1.45; }
+  .head h1 .l1 { display: block; font-size: 15px; font-weight: 600; color: #555; }
+  .head h1 .l2 { display: block; }
   .head .meta { text-align: start; font-size: 11.5px; color: #555; }
   .head .meta b { color: #0a192f; }
   h2.block { font-size: 14px; background: linear-gradient(90deg, rgba(212,175,55,.18), rgba(212,175,55,.02)); padding: 8px 12px; border-radius: 8px; margin: 18px 0 8px; }
@@ -39,9 +40,7 @@ const BASE_STYLE = `
   td.name { text-align: start; font-weight: 600; }
   .pass { color: #1e7a3d; font-weight: 600; }
   .fail { color: #b23b3b; font-weight: 600; }
-  .notes-block { margin-top: 6px; padding: 10px 12px; border: 1px solid #e3ddc8; border-radius: 8px; background: #fbf9f2; font-size: 11px; }
-  .notes-block .row { padding: 2px 0; }
-  .notes-block .row b { color: #123058; }
+  td.note { text-align: start; min-width: 150px; }
   .footer { margin-top: 22px; font-size: 10.5px; color: #888; border-top: 1px solid #ddd; padding-top: 8px; }
 `;
 
@@ -58,7 +57,7 @@ function reportHeader(name: string, kind: string, from: string, to: string, issu
   return `<div class="head">
     <div class="brand">
       ${LOGO_DATA_URI ? `<img src="${LOGO_DATA_URI}" alt="" />` : ""}
-      <div><h1>معهد الصحابي الجليل خالد بن الوليد</h1><div class="sub">${escapeHtml(name)}</div></div>
+      <h1><span class="l1">معهد الصحابي الجليل</span><span class="l2">خالد بن الوليد</span></h1>
     </div>
     <div class="meta">
       <div><b>اسم التقرير:</b> ${escapeHtml(name)}</div>
@@ -97,9 +96,8 @@ export function halaqatReportHtml(input: {
 }): string {
   const blocksHtml = input.blocks
     .map((b) => {
-      const notedRows = b.rows.filter((r) => r.note && r.note.trim());
       return `
-    <h2 class="block">${escapeHtml(b.halqaName)} <span>— ${escapeHtml(b.teacherName)}</span></h2>
+    <h2 class="block">الحلقة: ${escapeHtml(b.halqaName)} &nbsp;&nbsp; المدرس: ${escapeHtml(b.teacherName)}</h2>
     <table>
       <thead>
         <tr>
@@ -111,6 +109,7 @@ export function halaqatReportHtml(input: {
           <th colspan="2">اختبار محلي</th>
           <th colspan="2">ترشيح الأوقاف</th>
           <th colspan="2">سبر الأوقاف الفعلي</th>
+          <th rowspan="2">ملاحظات</th>
         </tr>
         <tr>
           <th>ناجح</th><th>راسب</th><th>ناجح</th><th>راسب</th><th>ناجح</th><th>راسب</th>
@@ -128,18 +127,12 @@ export function halaqatReportHtml(input: {
               ${passFailCells(r.locPass, r.locFail)}
               ${passFailCells(r.nomPass, r.nomFail)}
               ${passFailCells(r.realPass, r.realFail)}
+              <td class="note">${escapeHtml(r.note?.trim() || "—")}</td>
             </tr>`
           )
           .join("")}
       </tbody>
-    </table>
-    ${
-      notedRows.length > 0
-        ? `<div class="notes-block">${notedRows
-            .map((r) => `<div class="row"><b>${escapeHtml(r.studentName)}:</b> ${escapeHtml(r.note)}</div>`)
-            .join("")}</div>`
-        : ""
-    }`;
+    </table>`;
     })
     .join("");
 

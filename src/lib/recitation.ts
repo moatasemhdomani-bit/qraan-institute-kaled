@@ -25,17 +25,23 @@ export function validateEntry(e: RecEntry, maxPriorNewTo?: number | null): strin
   if (e.noNew && e.noPast) return "لم يسمّع جديدًا ولا ماضيًا — استخدم خيار «لم يسمّع اليوم».";
 
   if (!e.noNew) {
+    if (e.newFrom == null || e.newTo == null) return "لم يتم تحديد صفحات التسميع الجديد (من صفحة / إلى صفحة).";
     if (!inRange(e.newFrom) || !inRange(e.newTo)) return `صفحات التسميع الجديد بين ${MIN_PAGE} و${MAX_PAGE} فقط.`;
-    if ((e.newTo as number) < (e.newFrom as number)) return "صفحة «إلى» في التسميع الجديد لا تسبق صفحة «من».";
-    if (maxPriorNewTo != null && (e.newFrom as number) <= maxPriorNewTo) {
-      return `لا يجوز إعادة تسميع صفحة سُمِّعت جديدًا من قبل — آخر صفحة محفوظة: ${maxPriorNewTo}.`;
+    if (e.newTo < e.newFrom) {
+      return `إدخال التسميع الجديد غير صحيح — «إلى صفحة» (${e.newTo}) أصغر من «من صفحة» (${e.newFrom}).`;
     }
-    if (!e.gradeNew) return "اختر تقدير التسميع الجديد.";
+    if (maxPriorNewTo != null && e.newFrom <= maxPriorNewTo) {
+      return `لا يمكن تسميع صفحة مسمَّعة مسبقًا — آخر صفحة سُمِّعت جديدًا: ${maxPriorNewTo}، فابدأ من ${maxPriorNewTo + 1}.`;
+    }
+    if (!e.gradeNew) return "لم يتم تحديد تقييم التسميع الجديد.";
   }
   if (!e.noPast) {
+    if (e.pastFrom == null || e.pastTo == null) return "لم يتم تحديد صفحات الماضي (من صفحة / إلى صفحة).";
     if (!inRange(e.pastFrom) || !inRange(e.pastTo)) return `صفحات الماضي بين ${MIN_PAGE} و${MAX_PAGE} فقط.`;
-    if ((e.pastTo as number) < (e.pastFrom as number)) return "صفحة «إلى» في الماضي لا تسبق صفحة «من».";
-    if (!e.gradePast) return "اختر تقدير الماضي.";
+    if (e.pastTo < e.pastFrom) {
+      return `إدخال الماضي غير صحيح — «إلى صفحة» (${e.pastTo}) أصغر من «من صفحة» (${e.pastFrom}).`;
+    }
+    if (!e.gradePast) return "لم يتم تحديد تقييم الماضي.";
   }
   return null;
 }
