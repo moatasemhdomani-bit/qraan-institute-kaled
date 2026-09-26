@@ -22,8 +22,8 @@ async function savePhoto(file: File, prefix: string): Promise<string> {
 
 export async function saveStaff(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();
-  if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) {
-    return { error: "غير مصرَّح لك بهذا الإجراء." };
+  if (!session || session.role !== "DIRECTOR") {
+    return { error: "إدارة المستخدمين من صلاحية مدير المعهد فقط." };
   }
 
   const id = String(formData.get("id") || "") || null;

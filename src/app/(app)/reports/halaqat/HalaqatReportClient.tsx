@@ -133,6 +133,10 @@ export default function HalaqatReportClient({
                   <span style={{ fontWeight: 400, color: "var(--ink-2)" }}>المدرس: </span>
                   {b.teacherName}
                 </span>
+                <span>
+                  <span style={{ fontWeight: 400, color: "var(--ink-2)" }}>الفوج: </span>
+                  {b.cohortName}
+                </span>
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 900 }}>
                 <thead>

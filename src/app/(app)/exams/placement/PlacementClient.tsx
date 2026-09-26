@@ -40,7 +40,7 @@ export default function PlacementClient({
               <div key={r.id} style={{ display: "flex", alignItems: "flex-start", flexDirection: "column", gap: 6, padding: "13px 16px", borderTop: "1px solid var(--line-2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", width: "100%" }}>
                   <span style={{ fontSize: 14.5, fontWeight: 600 }}>{r.studentName}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{resultLabel({ type: "PLACEMENT", juz: r.juz })}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{resultLabel({ type: "PLACEMENT", juz: r.juz, nominationPresent: r.nominationPresent })}</span>
                   {canEdit && (
                     <button
                       onClick={() => setEditing(r)}

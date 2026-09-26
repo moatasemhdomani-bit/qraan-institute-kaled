@@ -12,6 +12,7 @@ const KIND_LABELS: Record<string, string> = {
   HALAQAT: "تقرير تسميع الحلقات",
   TEACHERS: "التقرير الشهري للمدرسين",
   STUDENT: "تقرير طالب",
+  AWQAF_MARKS: "علامات سبر الأوقاف",
 };
 
 const BASE_STYLE = `
@@ -62,7 +63,11 @@ function reportHeader(name: string, kind: string, from: string, to: string, issu
     <div class="meta">
       <div><b>اسم التقرير:</b> ${escapeHtml(name)}</div>
       <div><b>نوع التقرير:</b> ${escapeHtml(kindLabel)}</div>
-      <div><b>الفترة:</b> ${formatDateAr(from)} — ${formatDateAr(to)}</div>
+      ${
+        kind === "AWQAF_MARKS"
+          ? `<div><b>تاريخ الدفعة:</b> ${formatDateAr(from)}</div>`
+          : `<div><b>الفترة:</b> ${formatDateAr(from)} — ${formatDateAr(to)}</div>`
+      }
       <div><b>أصدره:</b> ${escapeHtml(issuedBy)}</div>
       <div><b>تاريخ الإصدار:</b> ${formatDateAr(issuedAt)}</div>
     </div>
@@ -88,7 +93,7 @@ export type HalaqatReportRow = {
   realPass: number; realFail: number;
   note: string;
 };
-export type HalaqatReportBlock = { halqaName: string; teacherName: string; rows: HalaqatReportRow[] };
+export type HalaqatReportBlock = { halqaName: string; teacherName: string; cohortName: string; rows: HalaqatReportRow[] };
 
 export function halaqatReportHtml(input: {
   name: string; from: string; to: string; issuedBy: string; issuedAt: string;
@@ -97,7 +102,7 @@ export function halaqatReportHtml(input: {
   const blocksHtml = input.blocks
     .map((b) => {
       return `
-    <h2 class="block">الحلقة: ${escapeHtml(b.halqaName)} &nbsp;&nbsp; المدرس: ${escapeHtml(b.teacherName)}</h2>
+    <h2 class="block">الحلقة: ${escapeHtml(b.halqaName)} &nbsp;&nbsp; المدرس: ${escapeHtml(b.teacherName)} &nbsp;&nbsp; الفوج: ${escapeHtml(b.cohortName)}</h2>
     <table>
       <thead>
         <tr>
@@ -236,5 +241,53 @@ export function studentReportHtml(input: {
     reportHeader(input.name, "STUDENT", input.from, input.to, input.issuedBy, input.issuedAt) +
     body +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير طالب</div></body></html>`
+  );
+}
+
+export type AwqafMarksReportRow = {
+  fullName: string;
+  studentNo: number;
+  examLabel: string;
+  teacherName: string;
+  halqaName: string;
+  cohortName: string;
+  score: number | null;
+  passed: boolean | null;
+};
+
+export function awqafMarksReportHtml(input: {
+  name: string; batchDate: string; issuedBy: string; issuedAt: string;
+  rows: AwqafMarksReportRow[];
+}): string {
+  const table = `
+    <table>
+      <thead><tr>
+        <th>#</th><th>اسم الطالب الكامل</th><th>رقم الطالب</th><th>نوع السبر</th>
+        <th>المدرس</th><th>الحلقة</th><th>الفوج</th><th>العلامة</th><th>النتيجة</th>
+      </tr></thead>
+      <tbody>
+        ${input.rows
+          .map(
+            (r, i) => `<tr>
+              <td>${i + 1}</td>
+              <td class="name">${escapeHtml(r.fullName)}</td>
+              <td>${r.studentNo}</td>
+              <td>${escapeHtml(r.examLabel)}</td>
+              <td>${escapeHtml(r.teacherName)}</td>
+              <td>${escapeHtml(r.halqaName)}</td>
+              <td>${escapeHtml(r.cohortName)}</td>
+              <td>${r.score ?? "—"}</td>
+              <td>${r.passed == null ? "—" : r.passed ? `<span class="pass">ناجح</span>` : `<span class="fail">راسب</span>`}</td>
+            </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>`;
+
+  return (
+    htmlHead(input.name) +
+    reportHeader(input.name, "AWQAF_MARKS", input.batchDate, input.batchDate, input.issuedBy, input.issuedAt) +
+    table +
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — علامات سبر الأوقاف</div></body></html>`
   );
 }

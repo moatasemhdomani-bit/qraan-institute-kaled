@@ -4,7 +4,7 @@ import { useActionState, useRef } from "react";
 import { cardStyle, softButtonStyle } from "@/lib/ui";
 import NumberField from "@/components/NumberField";
 import { awqafPassed, certStepLocked, type CertStep } from "@/lib/awqaf";
-import { saveAwqafScore, setCertStep, bulkSetCertStep, type FormState } from "../actions";
+import { saveAwqafScore, setCertStep, bulkSetCertStep, archiveBatchCerts, type FormState } from "../actions";
 
 type Result = {
   id: string;
@@ -19,16 +19,16 @@ type Result = {
 
 const STEP_TITLES: Record<CertStep, string> = { arrived: "وصول الشهادة", archived: "أرشفة الشهادة", delivered: "تسليم الشهادة" };
 
-export default function BatchDetailClient({ batchId, results }: { batchId: string; results: Result[] }) {
+export default function BatchDetailClient({ batchId, batchFileUrl, results }: { batchId: string; batchFileUrl: string | null; results: Result[] }) {
   const passedResults = results.filter((r) => awqafPassed(r.score, r.nominationPresent) === true);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <BatchArchive batchId={batchId} fileUrl={batchFileUrl} passedCount={passedResults.length} />
       {passedResults.length > 0 && (
         <div style={{ ...cardStyle, padding: "13px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>أزرار جماعية — تُطبَّق على الناجحين المؤهَّلين فقط:</span>
           <BulkButton batchId={batchId} step="arrived" label="تأكيد وصول الكل" />
-          <BulkButton batchId={batchId} step="archived" label="أرشفة الكل" disabledHint="يحتاج ملفًا مرفوعًا لكل طالب أولًا" />
           <BulkButton batchId={batchId} step="delivered" label="تسليم الكل" />
         </div>
       )}
@@ -36,6 +36,47 @@ export default function BatchDetailClient({ batchId, results }: { batchId: strin
       {results.map((r) => (
         <ResultRow key={r.id} result={r} />
       ))}
+    </div>
+  );
+}
+
+/** «أرشفة الشهادات»: ملف واحد (PDF أو صورة) لكل الدفعة — يُعدّ به كل ناجح وصلت شهادته وأُرشفت. */
+function BatchArchive({ batchId, fileUrl, passedCount }: { batchId: string; fileUrl: string | null; passedCount: number }) {
+  const [state, formAction, pending] = useActionState<FormState, FormData>(archiveBatchCerts, {});
+  const formRef = useRef<HTMLFormElement>(null);
+
+  return (
+    <div style={{ ...cardStyle, padding: "14px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <div style={{ flex: "1 1 240px" }}>
+        <div style={{ fontSize: 14.5, fontWeight: 700 }}>أرشفة شهادات الدفعة</div>
+        <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 3 }}>
+          {fileUrl
+            ? "أُرشفت شهادات الدفعة بملف واحد — يمكن استبداله."
+            : `ملف واحد ممسوح لكل شهادات الدفعة — يُعدّ به الناجحون (${passedCount}) مؤرشَفين.`}
+        </div>
+      </div>
+      {fileUrl && (
+        <a href={fileUrl} target="_blank" rel="noreferrer" style={{ ...softButtonStyle, textDecoration: "none" }}>
+          عرض ملف الأرشفة
+        </a>
+      )}
+      <form ref={formRef} action={formAction}>
+        <input type="hidden" name="batchId" value={batchId} />
+        <label style={{ ...softButtonStyle, cursor: pending ? "wait" : "pointer", display: "inline-block", opacity: pending ? 0.7 : 1 }}>
+          {pending ? "جارٍ الرفع…" : fileUrl ? "استبدال ملف الأرشفة" : "أرشفة الشهادات"}
+          <input
+            type="file"
+            name="file"
+            accept="image/png,image/jpeg,application/pdf"
+            style={{ display: "none" }}
+            disabled={pending}
+            onChange={(e) => {
+              if (e.target.files?.[0]) formRef.current?.requestSubmit();
+            }}
+          />
+        </label>
+      </form>
+      {state.error && <span style={{ width: "100%", fontSize: 12, color: "#E08A8A" }}>{state.error}</span>}
     </div>
   );
 }

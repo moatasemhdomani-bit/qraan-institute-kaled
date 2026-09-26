@@ -32,11 +32,16 @@ type ExamResultShape = {
   localKind?: LocalKindId | null;
   resultMark?: number | null;
   juz?: number | null;
+  nominationPresent?: boolean | null;
 };
 
 /** نص نتيجة موحّد للعرض. */
 export function resultLabel(exam: ExamResultShape): string {
-  if (exam.type === "PLACEMENT") return exam.juz != null ? `يبدأ من الجزء ${exam.juz}` : "—";
+  if (exam.type === "PLACEMENT") {
+    if (exam.juz == null) return "—";
+    const mode = exam.nominationPresent == null ? "" : exam.nominationPresent ? " — حاضرًا" : " — غيبًا";
+    return `يبدأ من الجزء ${exam.juz}${mode}`;
+  }
   return exam.resultMark != null ? `${exam.resultMark} / 100` : "—";
 }
 
@@ -77,7 +82,9 @@ export function validateExam(input: {
   studentName?: string;
 }): string | null {
   if (input.type === "PLACEMENT") {
-    if (!input.studentName?.trim()) return "اكتبوا اسم الطالب.";
+    // الاسم يُطلب فقط عند تسجيل طالب جديد — عند تعديل سبر قائم لا يُمرَّر الاسم أصلًا
+    if (input.studentName !== undefined && !input.studentName.trim()) return "اكتبوا اسم الطالب.";
+    if (input.nominationPresent == null) return "اختاروا حاضرًا أو غيبًا.";
     if (!input.juz || input.juz < 1 || input.juz > 30) return "اختاروا الجزء الذي يبدأ منه الطالب.";
   }
 

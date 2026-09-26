@@ -105,13 +105,13 @@ export async function setCertStep(_prev: FormState, formData: FormData): Promise
   const value = String(formData.get("value") || "") === "1";
   const file = formData.get("file");
 
-  const result = await prisma.awqafResult.findUnique({ where: { id }, include: { student: true } });
+  const result = await prisma.awqafResult.findUnique({ where: { id }, include: { student: true, batch: { select: { certFileUrl: true } } } });
   if (!result) return { error: "السجل غير موجود." };
 
   if (value && certStepLocked(step, result)) {
     return { error: `${STEP_LABELS[step]} مقفلة حتى تتحقق الخطوة السابقة.` };
   }
-  if (step === "archived" && value && !(file instanceof File && file.size > 0) && !result.certFileUrl) {
+  if (step === "archived" && value && !(file instanceof File && file.size > 0) && !result.certFileUrl && !result.batch.certFileUrl) {
     return { error: "ارفعوا ملف الشهادة الممسوحة لإتمام الأرشفة." };
   }
 
@@ -141,7 +141,10 @@ export async function bulkSetCertStep(_prev: FormState, formData: FormData): Pro
   const batchId = String(formData.get("batchId") || "");
   const step = String(formData.get("step") || "") as CertStep;
 
-  const results = await prisma.awqafResult.findMany({ where: { batchId } });
+  const [results, batch] = await Promise.all([
+    prisma.awqafResult.findMany({ where: { batchId } }),
+    prisma.awqafBatch.findUnique({ where: { id: batchId }, select: { certFileUrl: true } }),
+  ]);
   const eligible = results.filter((r) => {
     if (awqafPassed(r.score, r.nominationPresent) !== true) return false;
     if (step === "arrived") return !r.certArrived;
@@ -150,7 +153,7 @@ export async function bulkSetCertStep(_prev: FormState, formData: FormData): Pro
   });
 
   if (eligible.length === 0) return { error: "لا يوجد أحد مؤهَّل لهذه الخطوة الآن." };
-  if (step === "archived" && eligible.some((r) => !r.certFileUrl)) {
+  if (step === "archived" && !batch?.certFileUrl && eligible.some((r) => !r.certFileUrl)) {
     return { error: "بعض الطلاب بلا ملف شهادة مرفوع — ارفعوا الملف لكل طالب أولًا." };
   }
 
@@ -161,5 +164,33 @@ export async function bulkSetCertStep(_prev: FormState, formData: FormData): Pro
 
   await logAction(session.userId, `طبّق ${STEP_LABELS[step]} جماعيًا على ${eligible.length} طالبًا`);
   revalidateAwqafPaths();
+  return { ok: true };
+}
+
+/** أرشفة شهادات الدفعة كلها بملف واحد — يُعدّ كل ناجح فيها «وصلت شهادته وأُرشفت». */
+export async function archiveBatchCerts(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await getSession();
+  if (!canManage(session)) return { error: "غير مصرَّح لك بهذا الإجراء." };
+
+  const batchId = String(formData.get("batchId") || "");
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "اختاروا ملف الشهادات الممسوحة (PDF أو صورة)." };
+
+  const batch = await prisma.awqafBatch.findUnique({ where: { id: batchId }, include: { results: true } });
+  if (!batch) return { error: "الدفعة غير موجودة." };
+
+  const passedIds = batch.results.filter((r) => awqafPassed(r.score, r.nominationPresent) === true).map((r) => r.id);
+  if (passedIds.length === 0) return { error: "لا ناجحين في هذه الدفعة بعد — أدخلوا العلامات أولًا." };
+
+  const certFileUrl = await saveCertFile(file);
+  await prisma.$transaction([
+    prisma.awqafBatch.update({ where: { id: batchId }, data: { certFileUrl } }),
+    prisma.awqafResult.updateMany({ where: { id: { in: passedIds } }, data: { certArrived: true, certArchived: true } }),
+  ]);
+
+  await logAction(session.userId, `أرشف شهادات دفعة سبر الأوقاف بتاريخ ${batch.date} بملف واحد — ${passedIds.length} ناجحًا`);
+  revalidateAwqafPaths();
+  revalidatePath(`/exams/awqaf-batches/${batchId}`);
+  revalidatePath("/exam-monitor");
   return { ok: true };
 }

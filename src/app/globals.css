@@ -126,18 +126,18 @@ button {
   background-position: center calc(100% + 430px);
 }
 .login-brand-text {
-  font-size: 15.5px;
+  font-size: 21px;
 }
 .login-h1 {
   font-size: 42px;
   margin: 0 0 9px;
 }
 .login-lead {
-  font-size: 17.5px;
+  font-size: 19px;
   margin: 0 0 28px;
 }
 .login-label {
-  font-size: 15px;
+  font-size: 16.5px;
   margin-bottom: 7px;
 }
 .login-input {
@@ -154,7 +154,7 @@ button {
 }
 .login-foot {
   margin-top: 22px;
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 @media (max-width: 780px) {
@@ -182,7 +182,7 @@ button {
     display: none !important;
   }
   .login-brand-text {
-    font-size: 12.5px;
+    font-size: 16px;
   }
   .login-h1 {
     font-size: 23px;
@@ -192,7 +192,7 @@ button {
     display: none;
   }
   .login-label {
-    font-size: 12.5px;
+    font-size: 14px;
     margin-bottom: 5px;
   }
   .login-input {

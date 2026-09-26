@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dateOnly } from "@/lib/daily";
-import { buildHalaqatBlocks, buildTeachersRows, buildStudentPreview } from "@/lib/reports";
+import { buildHalaqatBlocks, buildTeachersRows, buildStudentPreview, buildAwqafMarks } from "@/lib/reports";
 import { renderPdf } from "@/lib/pdf";
-import { halaqatReportHtml, teachersReportHtml, studentReportHtml } from "@/lib/reportHtml";
+import { halaqatReportHtml, teachersReportHtml, studentReportHtml, awqafMarksReportHtml } from "@/lib/reportHtml";
 
 /** يُعيد توليد PDF تقرير سابق من معطياته المحفوظة عند الطلب — لا يُخزَّن أي ملف. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -47,6 +47,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const notes = (params_.notes as Record<string, string>) ?? {};
     const rows = await buildTeachersRows(report.fromDate, report.toDate);
     html = teachersReportHtml({ ...common, rows: rows.map((r) => ({ ...r, note: notes[r.teacherId] || "" })) });
+  } else if (report.kind === "AWQAF_MARKS") {
+    const marks = typeof params_.batchId === "string" ? await buildAwqafMarks(params_.batchId) : null;
+    if (!marks) return new NextResponse("دفعة سبر الأوقاف لم تعد موجودة.", { status: 404 });
+    html = awqafMarksReportHtml({ name: report.name, batchDate: marks.date, issuedBy: common.issuedBy, issuedAt, rows: marks.rows });
+    landscape = true;
   } else {
     const preview = report.studentId ? await buildStudentPreview(report.studentId, report.fromDate, report.toDate) : null;
     if (!preview) return new NextResponse("لم يُعثر على الطالب.", { status: 404 });

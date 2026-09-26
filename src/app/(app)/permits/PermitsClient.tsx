@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cardStyle, chipStyle, primaryButtonStyle } from "@/lib/ui";
+import { cardStyle, chipStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import { padTime } from "@/lib/daily";
 import PermitForm, { type ExistingPermit } from "./PermitForm";
 import { deletePermit } from "./actions";
@@ -81,6 +81,8 @@ export default function PermitsClient({ scopeNote, halaqat }: { scopeNote: strin
           </button>
         </div>
       )}
+
+      <StudentPermitSearch halaqat={halaqat} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 9, padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -168,6 +170,51 @@ export default function PermitsClient({ scopeNote, halaqat }: { scopeNote: strin
           onDeleted={() => setNotice("حُذف الإذن — عاد الطالب إلى دوام الفوج المعتاد.")}
         />
       )}
+    </div>
+  );
+}
+
+/** بحث عن طالب بالاسم أو الرقم — يُظهر فورًا إن كان لديه إذن دخول/خروج أم لا. */
+function StudentPermitSearch({ halaqat }: { halaqat: Halqa[] }) {
+  const [q, setQ] = useState("");
+  const query = q.trim();
+
+  const hits = useMemo(() => {
+    if (!query) return [];
+    const out: { id: string; no: number; name: string; halqaName: string; permits: Permit[] }[] = [];
+    for (const h of halaqat) {
+      for (const s of h.students) {
+        if (s.name.includes(query) || String(s.no) === query) {
+          out.push({ ...s, halqaName: h.name, permits: h.permits.filter((p) => p.studentId === s.id) });
+        }
+      }
+    }
+    return out.slice(0, 15);
+  }, [halaqat, query]);
+
+  return (
+    <div style={{ ...cardStyle, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث عن طالب بالاسم أو الرقم — هل لديه إذن؟" style={inputStyle()} />
+      {query && hits.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا طالب بهذا الاسم أو الرقم.</div>}
+      {hits.map((s) => (
+        <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid var(--line-2)" }}>
+          <span style={{ fontSize: 14.5, fontWeight: 600 }}>{s.name}</span>
+          <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>#{s.no} · {s.halqaName}</span>
+          {s.permits.length === 0 ? (
+            <span style={{ marginInlineStart: "auto", padding: "4px 11px", borderRadius: 999, fontSize: 12, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
+              لا يوجد إذن
+            </span>
+          ) : (
+            <span style={{ marginInlineStart: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {s.permits.map((p) => (
+                <span key={p.id} style={{ padding: "4px 11px", borderRadius: 999, fontSize: 12, border: `1px solid ${KIND_COLORS[p.kind]}`, color: KIND_COLORS[p.kind] }}>
+                  {KIND_LABELS[p.kind]} — {KIND_VERBS[p.kind]} {padTime(p.time)}
+                </span>
+              ))}
+            </span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

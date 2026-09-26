@@ -126,12 +126,12 @@ export type HalaqatPreviewRow = {
   note: string;
   noteFromTeacher: boolean;
 };
-export type HalaqatPreviewBlock = { halqaId: string; halqaName: string; teacherName: string; rows: HalaqatPreviewRow[] };
+export type HalaqatPreviewBlock = { halqaId: string; halqaName: string; teacherName: string; cohortName: string; rows: HalaqatPreviewRow[] };
 
 export async function buildHalaqatBlocks(from: string, to: string, halqaScope: string): Promise<HalaqatPreviewBlock[]> {
   const halaqat = await prisma.halqa.findMany({
     where: halqaScope === "all" ? {} : { id: halqaScope },
-    include: { teacher: { select: { name: true } } },
+    include: { teacher: { select: { name: true } }, cohort: { select: { name: true } } },
     orderBy: { name: "asc" },
   });
   const halqaIds = halaqat.map((h) => h.id);
@@ -157,6 +157,7 @@ export async function buildHalaqatBlocks(from: string, to: string, halqaScope: s
       halqaId: h.id,
       halqaName: h.name,
       teacherName: h.teacher.name,
+      cohortName: h.cohort.name,
       rows: students
         .filter((s) => s.halqaId === h.id)
         .map((s) => {
@@ -308,10 +309,14 @@ export type ReviewInputs = {
   studentId: string | null;
   halqaScope: string;
   notes: Record<string, string>;
+  batchId: string;
 };
 
 /** معطيات تقرير صادر سابقًا من السجل — لإعادة إعداده بنفس المدخلات («مراجعة التقرير»). */
-export async function loadReviewInputs(id: string | undefined, kind: "HALAQAT" | "TEACHERS" | "STUDENT"): Promise<ReviewInputs | null> {
+export async function loadReviewInputs(
+  id: string | undefined,
+  kind: "HALAQAT" | "TEACHERS" | "STUDENT" | "AWQAF_MARKS"
+): Promise<ReviewInputs | null> {
   if (!id) return null;
   const r = await prisma.issuedReport.findUnique({ where: { id } });
   if (!r || r.kind !== kind) return null;
@@ -328,5 +333,75 @@ export async function loadReviewInputs(id: string | undefined, kind: "HALAQAT" |
     studentId: r.studentId,
     halqaScope: typeof p.halqaScope === "string" ? p.halqaScope : "all",
     notes: p.notes && typeof p.notes === "object" ? (p.notes as Record<string, string>) : {},
+    batchId: typeof p.batchId === "string" ? p.batchId : "",
   };
+}
+
+// ==================== تقرير علامات سبر الأوقاف ====================
+
+/** دفعات سبر الأوقاف التي سُجّلت فيها علامة واحدة على الأقل — مرشّحة لتقرير العلامات. */
+export async function listMarkedAwqafBatches(): Promise<{ id: string; date: string; marked: number; total: number }[]> {
+  const batches = await prisma.awqafBatch.findMany({
+    include: { results: { select: { score: true } } },
+    orderBy: { date: "desc" },
+  });
+  return batches
+    .map((b) => ({ id: b.id, date: b.date, marked: b.results.filter((r) => r.score != null).length, total: b.results.length }))
+    .filter((b) => b.marked > 0);
+}
+
+export type AwqafMarksRow = {
+  studentId: string;
+  fullName: string;
+  studentNo: number;
+  examLabel: string; // مثلاً «5 غيبًا» أو «20 حاضرًا»
+  teacherName: string;
+  halqaName: string;
+  cohortName: string;
+  score: number | null;
+  passed: boolean | null;
+};
+
+export async function buildAwqafMarks(batchId: string): Promise<{ date: string; rows: AwqafMarksRow[] } | null> {
+  const batch = await prisma.awqafBatch.findUnique({
+    where: { id: batchId },
+    include: {
+      results: {
+        include: {
+          student: {
+            include: { halqa: { include: { teacher: { select: { name: true } }, cohort: { select: { name: true } } } } },
+          },
+        },
+      },
+    },
+  });
+  if (!batch) return null;
+
+  // عدد الأجزاء يُؤخذ من آخر ترشيح أوقاف للطالب حتى تاريخ الدفعة، بنفس مسار حاضرًا/غيبًا
+  const nominations = await prisma.exam.findMany({
+    where: { type: "WAQF_NOMINATION", studentId: { in: batch.results.map((r) => r.studentId) }, date: { lte: batch.date } },
+    orderBy: { date: "desc" },
+    select: { studentId: true, nominationPresent: true, nominationParts: true },
+  });
+
+  const rows = batch.results
+    .map((r) => {
+      const s = r.student;
+      const nom = nominations.find((n) => n.studentId === s.id && n.nominationPresent === r.nominationPresent);
+      const mode = r.nominationPresent ? "حاضرًا" : "غيبًا";
+      return {
+        studentId: s.id,
+        fullName: [s.name, s.fatherName, s.familyName].map((x) => x?.trim()).filter(Boolean).join(" "),
+        studentNo: s.studentNo,
+        examLabel: nom?.nominationParts ? `${nom.nominationParts} ${mode}` : mode,
+        teacherName: s.halqa?.teacher.name ?? "—",
+        halqaName: s.halqa?.name ?? "—",
+        cohortName: s.halqa?.cohort.name ?? "—",
+        score: r.score,
+        passed: awqafPassed(r.score, r.nominationPresent),
+      };
+    })
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, "ar"));
+
+  return { date: batch.date, rows };
 }

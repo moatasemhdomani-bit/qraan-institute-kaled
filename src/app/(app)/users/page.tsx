@@ -8,7 +8,7 @@ import UsersClient from "./UsersClient";
 export default async function UsersPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
+  if (session.role !== "DIRECTOR") redirect("/dashboard");
 
   const [staffRaw, cohorts] = await Promise.all([
     prisma.user.findMany({

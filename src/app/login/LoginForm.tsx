@@ -23,8 +23,8 @@ export default function LoginForm() {
         }}
       >
         <form action={formAction} style={{ width: "100%", maxWidth: 380 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-            <img src="/logo-mark.png" alt="" width={44} height={44} style={{ display: "block" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
+            <img src="/logo-mark.png" alt="شعار المعهد" width={82} height={58} style={{ display: "block", objectFit: "contain" }} />
             <div className="login-brand-text" style={{ color: "var(--ink-2)", lineHeight: 1.3 }}>
               معهد الصحابي الجليل
               <br />
@@ -34,7 +34,7 @@ export default function LoginForm() {
 
           <h1 className="login-h1" style={{ fontWeight: 600, margin: 0, letterSpacing: "-0.01em" }}>تسجيل الدخول</h1>
           <p className="login-lead" style={{ color: "var(--ink-2)", margin: 0 }}>
-            ادخل بياناتك للمتابعة إلى لوحة التحكم الخاصة بدورك.
+            ادخل بياناتك للمتابعة إلى الشاشات الخاصة بدورك.
           </p>
 
           <label className="login-label" style={{ display: "block", color: "var(--ink-2)" }}>
@@ -99,42 +99,6 @@ export default function LoginForm() {
             background: "var(--hero-glow)",
           }}
         />
-        <div
-          className="login-hero-content"
-          style={{
-            position: "relative",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "flex-end",
-            padding: 48,
-            gap: 14,
-          }}
-        >
-          <div style={{ fontSize: 12, letterSpacing: "0.14em", color: "var(--hero-ink-2)" }}>
-            المرحلة 1 — البنية الأساسية
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 600, color: "var(--hero-ink)", lineHeight: 1.45, maxWidth: 340 }}>
-            تسجيل العاملين، الأفواج، الحلقات، وتسجيل الطلاب في مكان واحد.
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-            {["5 أفواج ثابتة", "5 أدوار", "سجل تدقيق"].map((t) => (
-              <div
-                key={t}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  border: "1px solid var(--hero-pill-line)",
-                  background: "var(--hero-pill-bg)",
-                  color: "var(--hero-ink)",
-                  fontSize: 12,
-                }}
-              >
-                {t}
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

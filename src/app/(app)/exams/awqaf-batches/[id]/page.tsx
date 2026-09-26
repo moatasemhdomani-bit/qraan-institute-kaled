@@ -47,7 +47,7 @@ export default async function AwqafBatchDetailPage({ params }: { params: Promise
           </Link>
         }
       />
-      <BatchDetailClient batchId={batch.id} results={results} />
+      <BatchDetailClient batchId={batch.id} batchFileUrl={batch.certFileUrl} results={results} />
     </>
   );
 }

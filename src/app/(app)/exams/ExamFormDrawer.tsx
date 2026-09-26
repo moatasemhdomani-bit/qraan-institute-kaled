@@ -288,6 +288,20 @@ export default function ExamFormDrawer({
         )}
 
         {type === "PLACEMENT" && (
+          <div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>نوع السبر</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setNominationPresent(true)} style={{ ...chipStyle(nominationPresent === true), minHeight: 44, padding: "10px 22px" }}>
+                حاضرًا
+              </button>
+              <button type="button" onClick={() => setNominationPresent(false)} style={{ ...chipStyle(nominationPresent === false), minHeight: 44, padding: "10px 22px" }}>
+                غيبًا
+              </button>
+            </div>
+          </div>
+        )}
+
+        {type === "PLACEMENT" && (
           <div style={{ padding: 14, borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>الجزء الذي يبدأ منه الطالب</div>
             <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 10 }}>

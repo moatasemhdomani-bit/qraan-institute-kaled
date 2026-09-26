@@ -157,7 +157,8 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     juz: usesJuz ? juz : null,
     pages: type === "LOCAL" || type === "WAQF_NOMINATION" ? pages : [],
     resultMark: type === "WAQF_NOMINATION" || type === "LOCAL" ? resultMark : null,
-    nominationPresent: type === "WAQF_NOMINATION" ? nominationPresent : null,
+    // حاضرًا/غيبًا: لترشيح الأوقاف ولتحديد المستوى
+    nominationPresent: type === "WAQF_NOMINATION" || type === "PLACEMENT" ? nominationPresent : null,
     nominationParts: type === "WAQF_NOMINATION" ? nominationParts : null,
     notes,
   };

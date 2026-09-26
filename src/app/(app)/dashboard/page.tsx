@@ -42,7 +42,7 @@ export default async function DashboardPage() {
   if (!staffMode) {
     return (
       <>
-        <PageHeader title="لوحة التحكم" subtitle="روابط سريعة لما يخص دورك في المرحلة الأولى." />
+        <PageHeader title="لوحة المعلومات" subtitle="روابط سريعة لما يخص دورك في المرحلة الأولى." />
         <div style={{ ...cardStyle, padding: "48px 32px", textAlign: "center" }}>
           <div
             style={{
@@ -83,20 +83,24 @@ export default async function DashboardPage() {
     );
   }
 
-  const [staffCount, halaqatCount, studentsCount] = await Promise.all([
+  const [staffCount, halaqatCount, studentsCount, cohortsCount] = await Promise.all([
     prisma.user.count({ where: { role: { in: ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER"] } } }),
     prisma.halqa.count(),
     prisma.student.count(),
+    prisma.cohort.count(),
   ]);
 
   const stats = [
     { label: "العاملون", value: staffCount, note: "مدير، إداري، مدرّسون، مختبِرون" },
     { label: "الحلقات", value: halaqatCount, note: "كلها مُسندة إلى مدرّس" },
     { label: "الطلاب", value: studentsCount, note: "مفروزون على حلقة وفوج" },
-    { label: "الأفواج", value: 5, note: "ثلاثة ثابتة واثنان قلّابان" },
+    { label: "الأفواج", value: cohortsCount, note: "ثابتة وقلّابة" },
   ];
 
-  const links = session.role === "DIRECTOR" ? Object.values(QUICK_LINKS) : Object.values(QUICK_LINKS);
+  // إدارة المستخدمين من صلاحية مدير المعهد وحده
+  const links = Object.entries(QUICK_LINKS)
+    .filter(([id]) => id !== "users" || session.role === "DIRECTOR")
+    .map(([, l]) => l);
 
   const steps = [
     { num: "1", title: "تسجيل العاملين", note: "المدرّسون تحديدًا — يُدخلون كأشخاص في النظام" },
@@ -107,7 +111,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="لوحة التحكم" subtitle="روابط سريعة لما يخص دورك في المرحلة الأولى." />
+      <PageHeader title="لوحة المعلومات" subtitle="روابط سريعة لما يخص دورك في المرحلة الأولى." />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 14 }}>
         {stats.map((s) => (

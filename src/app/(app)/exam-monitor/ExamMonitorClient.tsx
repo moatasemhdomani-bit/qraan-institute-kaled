@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { cardStyle, chipStyle } from "@/lib/ui";
+import { cardStyle, chipStyle, inputStyle } from "@/lib/ui";
 import { resultLabel, passFailLabel, TYPE_LABELS, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
@@ -43,6 +43,7 @@ export default function ExamMonitorClient({
 }) {
   const [typeFilter, setTypeFilter] = useState<"all" | RowType>("all");
   const [examinerFilter, setExaminerFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<{ row: Row & { type: ExamTypeId }; halqaName: string } | null>(null);
 
   const examinerNames = useMemo(() => {
@@ -51,14 +52,29 @@ export default function ExamMonitorClient({
     return Array.from(names);
   }, [blocks]);
 
-  const filteredBlocks = blocks.map((b) => ({
-    ...b,
-    rows: b.rows.filter((r) => (typeFilter === "all" || r.type === typeFilter) && (examinerFilter === "all" || r.examinerName === examinerFilter)),
-  }));
+  const q = search.trim();
+  const filteredBlocks = blocks
+    .map((b) => ({
+      ...b,
+      rows: b.rows.filter(
+        (r) =>
+          (typeFilter === "all" || r.type === typeFilter) &&
+          (examinerFilter === "all" || r.examinerName === examinerFilter) &&
+          (!q || r.studentName.includes(q))
+      ),
+    }))
+    // عند البحث باسم طالب تُخفى الحلقات التي لا نتيجة فيها
+    .filter((b) => !q || b.rows.length > 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="بحث عن طالب باسمه"
+          style={inputStyle()}
+        />
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {(["all", "LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL"] as const).map((t) => (
             <button key={t} onClick={() => setTypeFilter(t)} style={chipStyle(typeFilter === t)}>
@@ -78,7 +94,11 @@ export default function ExamMonitorClient({
         </div>
       </div>
 
-      {filteredBlocks.length === 0 && <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا توجد حلقات بعد.</div>}
+      {filteredBlocks.length === 0 && (
+        <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>
+          {q ? `لا سبر مسجّل لطالب باسم «${q}».` : "لا توجد حلقات بعد."}
+        </div>
+      )}
 
       {filteredBlocks.map((b) => (
         <div key={b.id} style={{ ...cardStyle, overflow: "hidden", border: b.neverLabel ? "1px solid rgba(224,138,138,0.5)" : undefined }}>
