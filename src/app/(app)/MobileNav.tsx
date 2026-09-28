@@ -30,6 +30,28 @@ export default function MobileNav({ role, name }: { role: RoleId; name: string }
         zIndex: 6,
       }}
     >
+      {/* شعار المعهد واسمه ثابتان أعلى الشريط أثناء تمرير الروابط */}
+      <div
+        style={{
+          position: "sticky",
+          top: -8,
+          zIndex: 1,
+          margin: "-8px -5px 4px",
+          padding: "10px 4px 8px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 4,
+          background: "var(--card-2-grad), var(--panel-solid)",
+          borderBottom: "1px solid var(--line-2)",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-mark.png" alt="شعار المعهد" width={52} height={37} style={{ display: "block", objectFit: "contain" }} />
+        <div style={{ fontSize: 9.5, lineHeight: 1.3, textAlign: "center", color: "var(--ink-2)" }}>
+          خالد بن الوليد
+        </div>
+      </div>
       {items.map((n) => {
         const on = n.id === activeId;
         return (
@@ -69,7 +91,7 @@ export default function MobileNav({ role, name }: { role: RoleId; name: string }
             whiteSpace: "nowrap",
           }}
         >
-          {name}
+          {role === "GUARDIAN" ? name : `أ. ${name}`}
         </div>
         <form action={logout} style={{ width: "100%" }}>
           <button

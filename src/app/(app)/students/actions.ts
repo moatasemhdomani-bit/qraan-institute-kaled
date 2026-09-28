@@ -5,7 +5,7 @@ import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { normalizePhone } from "@/lib/phone";
+import { normalizePhone, isValidMobile } from "@/lib/phone";
 import { createGuardianAccount, regenerateGuardianPassword } from "@/lib/guardian";
 import { uploadFile, mimeFromExt } from "@/lib/storage";
 
@@ -33,6 +33,9 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
 
   const guardianPhone = normalizePhone(String(formData.get("guardianPhone") || ""));
   if (!guardianPhone) return { error: "رقم ولي الأمر حقل إلزامي." };
+  if (!isValidMobile(guardianPhone)) return { error: "رقم ولي الأمر بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
+  const studentPhone = normalizePhone(String(formData.get("phone") || ""));
+  if (studentPhone && !isValidMobile(studentPhone)) return { error: "رقم هاتف الطالب بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
 
   const data = {
     name,
@@ -42,7 +45,7 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     birthDate: String(formData.get("birth") || "") || null,
     address: String(formData.get("address") || "") || null,
     fatherJob: String(formData.get("job") || "") || null,
-    studentPhone: normalizePhone(String(formData.get("phone") || "")),
+    studentPhone,
     guardianPhone,
     halqaId,
   };
@@ -109,4 +112,35 @@ export async function resetGuardianPassword(studentId: string): Promise<ResetSta
   await logAction(session.userId, `ولّد كلمة مرور جديدة لولي أمر الطالب «${student.name}»`);
   revalidatePath("/students");
   return { ok: true, password };
+}
+
+/**
+ * حذف طالب نهائيًا — ومعه كل سجلاته (حضور، تسميع، سبر، إذن، نتائج أوقاف، سلوك) عبر الحذف المتتالي في القاعدة،
+ * وتقاريره الفردية من السجل، وحساب ولي أمره إن لم يكن مرتبطًا بطالب آخر.
+ */
+export async function deleteStudent(id: string): Promise<FormState> {
+  const session = await getSession();
+  if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) {
+    return { error: "غير مصرَّح لك بهذا الإجراء." };
+  }
+
+  const student = await prisma.student.findUnique({
+    where: { id },
+    include: { guardianUser: { select: { id: true, _count: { select: { guardianOf: true } } } } },
+  });
+  if (!student) return { error: "الطالب غير موجود." };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.issuedReport.deleteMany({ where: { studentId: id } });
+    await tx.student.delete({ where: { id } });
+    if (student.guardianUser && student.guardianUser._count.guardianOf <= 1) {
+      await tx.user.delete({ where: { id: student.guardianUser.id } });
+    }
+  });
+
+  await logAction(session.userId, `حذف الطالب «${student.name}» #${student.studentNo} مع سجلاته`);
+  revalidatePath("/students");
+  revalidatePath("/halaqat");
+  revalidatePath("/dashboard");
+  return { ok: true };
 }

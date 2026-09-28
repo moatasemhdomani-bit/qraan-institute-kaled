@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { saveHalqa, type FormState } from "./actions";
+import { saveHalqa, moveHalqaStudents, deleteHalqa, type FormState } from "./actions";
 import { inputStyle, primaryButtonStyle, cardStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import Select from "@/components/Select";
@@ -143,6 +143,7 @@ export default function HalaqatClient({
           initialCohortId={halqaDrawer.cohortId}
           teachers={teachers}
           cohorts={cohorts}
+          allHalaqat={halaqat}
           onClose={closeHalqa}
         />
       )}
@@ -155,12 +156,14 @@ function HalqaForm({
   initialCohortId,
   teachers,
   cohorts,
+  allHalaqat,
   onClose,
 }: {
   initial: HalqaRow | null;
   initialCohortId?: string;
   teachers: { id: string; name: string }[];
   cohorts: CohortRow[];
+  allHalaqat: HalqaRow[];
   onClose: () => void;
 }) {
   const [state, formAction, pending] = useActionState(saveHalqa, initialState);
@@ -220,6 +223,90 @@ function HalqaForm({
           />
         </div>
       </form>
+      {initial && <HalqaAdmin halqa={initial} others={allHalaqat.filter((h) => h.id !== initial.id)} onDone={onClose} />}
     </Drawer>
+  );
+}
+
+/** نقل كل طلاب الحلقة إلى حلقة أخرى، وحذف الحلقة حين تفرغ من الطلاب. */
+function HalqaAdmin({ halqa, others, onDone }: { halqa: HalqaRow; others: HalqaRow[]; onDone: () => void }) {
+  const router = useRouter();
+  const [target, setTarget] = useState("");
+  const [busy, setBusy] = useState<"move" | "delete" | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState("");
+  const small: React.CSSProperties = { padding: "9px 14px", borderRadius: 10, fontSize: 13, fontFamily: "inherit", cursor: "pointer" };
+
+  async function run(kind: "move" | "delete") {
+    setError("");
+    setBusy(kind);
+    const res = kind === "move" ? await moveHalqaStudents(halqa.id, target) : await deleteHalqa(halqa.id);
+    setBusy(null);
+    if (res.error) return setError(res.error);
+    router.refresh();
+    onDone();
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 16, borderTop: "1px solid var(--line-2)" }}>
+      <div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>نقل كل طلاب الحلقة</div>
+        <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 8 }}>
+          {halqa.count > 0 ? `ينتقل كل طلابها (${halqa.count}) معًا إلى الحلقة المختارة — سجلاتهم السابقة تبقى محفوظة.` : "لا طلاب في هذه الحلقة."}
+        </div>
+        {halqa.count > 0 && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 200px" }}>
+              <Select
+                value={target}
+                onChange={setTarget}
+                options={others.map((h) => ({ value: h.id, label: `${h.name} — ${h.teacherName} · ${h.cohortName}` }))}
+                placeholder="اختر الحلقة الجديدة"
+              />
+            </div>
+            <button
+              type="button"
+              disabled={!target || busy !== null}
+              onClick={() => run("move")}
+              style={{ ...small, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", opacity: !target || busy ? 0.6 : 1 }}
+            >
+              {busy === "move" ? "جارٍ النقل…" : "نقل الطلاب"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>حذف الحلقة</div>
+        {halqa.count > 0 ? (
+          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>متاح فقط حين لا يبقى فيها طلاب — انقلوا طلابها أولًا.</div>
+        ) : !confirmDelete ? (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            style={{ ...small, border: "1px solid var(--notice-line)", background: "transparent", color: "#E08A8A" }}
+          >
+            حذف الحلقة
+          </button>
+        ) : (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12.5, color: "#E08A8A" }}>حذف «{halqa.name}» نهائيًا؟</span>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => run("delete")}
+              style={{ ...small, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", color: "var(--ink)" }}
+            >
+              {busy === "delete" ? "…" : "نعم، احذف"}
+            </button>
+            <button type="button" onClick={() => setConfirmDelete(false)} style={{ ...small, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)" }}>
+              تراجع
+            </button>
+          </div>
+        )}
+      </div>
+
+      {error && <div style={{ fontSize: 12.5, color: "#E08A8A" }}>{error}</div>}
+    </div>
   );
 }

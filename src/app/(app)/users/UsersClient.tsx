@@ -11,6 +11,7 @@ import DateField from "@/components/DateField";
 type StaffRow = {
   id: string;
   name: string;
+  fullName: string;
   username: string;
   role: RoleId;
   phone: string;
@@ -50,7 +51,7 @@ export default function UsersClient({
   const filtered = useMemo(
     () =>
       staff
-        .filter((u) => !search.trim() || u.name.includes(search.trim()))
+        .filter((u) => !search.trim() || u.fullName.includes(search.trim()))
         .filter((u) => roleFilter === "ALL" || u.role === roleFilter),
     [staff, search, roleFilter]
   );
@@ -164,7 +165,7 @@ export default function UsersClient({
                         u.name.charAt(0)
                       )}
                     </span>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.name}</span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.fullName}</span>
                   </div>
                   <div>
                     <span
@@ -237,7 +238,7 @@ export default function UsersClient({
                   </span>
                   <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 15, fontWeight: 600 }}>{u.name}</span>
+                      <span style={{ fontSize: 15, fontWeight: 600 }}>{u.fullName}</span>
                       <span
                         style={{
                           padding: "4px 10px",

@@ -147,7 +147,7 @@ function ResultRow({ result }: { result: Result }) {
       {passed === true && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 8, borderTop: "1px solid var(--line-2)" }}>
           <StepControl step="arrived" result={result} locked={false} />
-          <StepControl step="archived" result={result} locked={certStepLocked("archived", result)} />
+          <ArchiveStatus result={result} />
           <StepControl step="delivered" result={result} locked={certStepLocked("delivered", result)} />
         </div>
       )}
@@ -155,9 +155,29 @@ function ResultRow({ result }: { result: Result }) {
   );
 }
 
+/** الأرشفة تتم بملف واحد للدفعة كلها (زر «أرشفة الشهادات» أعلى الصفحة) — هنا حالتها فقط. */
+function ArchiveStatus({ result }: { result: Result }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <span style={{ fontSize: 13, color: "var(--ink)", minWidth: 110 }}>{STEP_TITLES.archived}</span>
+      <span
+        style={{
+          padding: "5px 12px",
+          borderRadius: 999,
+          fontSize: 11.5,
+          fontWeight: result.certArchived ? 700 : 400,
+          border: result.certArchived ? "1px solid rgba(111,191,139,0.5)" : "1px dashed var(--line)",
+          color: result.certArchived ? "#6FBF8B" : "var(--ink-3)",
+        }}
+      >
+        {result.certArchived ? "✓ أُرشفت بملف الدفعة" : "بانتظار أرشفة شهادات الدفعة"}
+      </span>
+    </div>
+  );
+}
+
 function StepControl({ step, result, locked }: { step: CertStep; result: Result; locked: boolean }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(setCertStep, {});
-  const fileRef = useRef<HTMLFormElement>(null);
   const on = step === "arrived" ? result.certArrived : step === "archived" ? result.certArchived : result.certDelivered;
 
   if (locked) {
@@ -175,36 +195,6 @@ function StepControl({ step, result, locked }: { step: CertStep; result: Result;
         >
           مقفل
         </span>
-      </div>
-    );
-  }
-
-  if (step === "archived") {
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 13, color: "var(--ink)", minWidth: 110 }}>{STEP_TITLES[step]}</span>
-        {result.certFileUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={result.certFileUrl} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", border: "1px solid var(--line)" }} />
-        )}
-        <form ref={fileRef} action={formAction} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <input type="hidden" name="id" value={result.id} />
-          <input type="hidden" name="step" value="archived" />
-          <input type="hidden" name="value" value="1" />
-          <label style={{ ...softButtonStyle, cursor: "pointer" }}>
-            {on ? "استبدال الملف" : "رفع ملف الشهادة"}
-            <input
-              type="file"
-              name="file"
-              accept="image/png,image/jpeg,application/pdf"
-              style={{ display: "none" }}
-              onChange={(e) => { if (e.target.files?.[0]) fileRef.current?.requestSubmit(); }}
-            />
-          </label>
-        </form>
-        {on && <ToggleOffButton step="archived" resultId={result.id} />}
-        {pending && <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>جارٍ الرفع…</span>}
-        {state.error && <span style={{ fontSize: 11.5, color: "#E08A8A" }}>{state.error}</span>}
       </div>
     );
   }

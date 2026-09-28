@@ -122,10 +122,24 @@ export async function deleteStaff(id: string): Promise<FormState> {
   try {
     await prisma.user.delete({ where: { id } });
   } catch {
-    return {
-      error:
-        "لا يمكن حذف هذا الحساب لارتباطه ببيانات أخرى (حلقة مُسندة إليه، أو سجلات حضور/تسميع سجّلها) — انقل هذه الارتباطات أولًا.",
-    };
+    if (target.role === "TEACHER") {
+      return {
+        error:
+          "لا يمكن حذف هذا المدرّس لارتباطه ببيانات أخرى (حلقة مُسندة إليه، أو سجلات حضور/تسميع سجّلها) — انقل هذه الارتباطات أولًا.",
+      };
+    }
+    // المدير والإداري والمختبِر يُحذفون بلا قيود: إن ارتبط الحساب بسجلات سابقة (سبر أجراه، سجل تدقيق، تقارير…)
+    // يُعطَّل بدل مسحه — لا يدخل ولا يظهر في القوائم، ويبقى اسمه ظاهرًا في تلك السجلات.
+    await prisma.user.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        username: `deleted-${id}`,
+        passwordHash: await hashPassword(crypto.randomUUID()),
+        passwordEnc: null,
+      },
+    });
+    await prisma.cohortTeacher.deleteMany({ where: { userId: id } });
   }
 
   await logAction(session.userId, `حذف حساب ${ROLE_LABELS[target.role]} «${target.name}»`);

@@ -57,3 +57,68 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   revalidatePath("/dashboard");
   return { ok: true };
 }
+
+function revalidateHalqaPaths() {
+  revalidatePath("/halaqat");
+  revalidatePath("/students");
+  revalidatePath("/dashboard");
+  revalidatePath("/monitor");
+  revalidatePath("/recitation-monitor");
+}
+
+/** نقل كل طلاب الحلقة إلى حلقة أخرى — سجلاتهم السابقة تبقى كما هي. */
+export async function moveHalqaStudents(fromId: string, toId: string): Promise<FormState> {
+  const session = await getSession();
+  if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) return { error: "غير مصرَّح لك بهذا الإجراء." };
+  if (!toId) return { error: "اختاروا الحلقة التي يُنقل إليها الطلاب." };
+  if (fromId === toId) return { error: "اختاروا حلقة أخرى غير هذه." };
+
+  const [from, to] = await Promise.all([prisma.halqa.findUnique({ where: { id: fromId } }), prisma.halqa.findUnique({ where: { id: toId } })]);
+  if (!from || !to) return { error: "الحلقة غير موجودة." };
+
+  const moved = await prisma.student.updateMany({ where: { halqaId: fromId }, data: { halqaId: toId } });
+  if (moved.count === 0) return { error: "لا طلاب في هذه الحلقة لنقلهم." };
+
+  await logAction(session.userId, `نقل ${moved.count} طالبًا من حلقة «${from.name}» إلى حلقة «${to.name}»`);
+  revalidateHalqaPaths();
+  return { ok: true };
+}
+
+/**
+ * حذف حلقة لا طلاب فيها. سجلات الحضور والتسميع القديمة المسجّلة فيها تنتقل مع كل طالب إلى حلقته الحالية
+ * (فلا ينقص تاريخه ولا تقاريره)؛ وسجلات طالب لم يعد مفروزًا على أي حلقة تُحذف لتعذّر نسبتها.
+ */
+export async function deleteHalqa(id: string): Promise<FormState> {
+  const session = await getSession();
+  if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) return { error: "غير مصرَّح لك بهذا الإجراء." };
+
+  const halqa = await prisma.halqa.findUnique({ where: { id }, include: { _count: { select: { students: true } } } });
+  if (!halqa) return { error: "الحلقة غير موجودة." };
+  if (halqa._count.students > 0) {
+    return { error: `لا يمكن حذف حلقة فيها ${halqa._count.students} طالبًا — انقلوا طلابها إلى حلقة أخرى أولًا.` };
+  }
+
+  const [attendance, recitations] = await Promise.all([
+    prisma.attendance.findMany({ where: { halqaId: id }, select: { studentId: true, student: { select: { halqaId: true } } } }),
+    prisma.recitation.findMany({ where: { halqaId: id }, select: { studentId: true, student: { select: { halqaId: true } } } }),
+  ]);
+  const targetOf = new Map<string, string | null>();
+  for (const r of [...attendance, ...recitations]) targetOf.set(r.studentId, r.student.halqaId);
+
+  await prisma.$transaction(async (tx) => {
+    for (const [studentId, target] of targetOf) {
+      if (target) {
+        await tx.attendance.updateMany({ where: { halqaId: id, studentId }, data: { halqaId: target } });
+        await tx.recitation.updateMany({ where: { halqaId: id, studentId }, data: { halqaId: target } });
+      } else {
+        await tx.attendance.deleteMany({ where: { halqaId: id, studentId } });
+        await tx.recitation.deleteMany({ where: { halqaId: id, studentId } });
+      }
+    }
+    await tx.halqa.delete({ where: { id } });
+  });
+
+  await logAction(session.userId, `حذف الحلقة «${halqa.name}»`);
+  revalidateHalqaPaths();
+  return { ok: true };
+}

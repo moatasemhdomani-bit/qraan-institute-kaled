@@ -17,16 +17,15 @@ export default function Sidebar({ role, name, roleLabel }: { role: RoleId; name:
       style={{
         borderInlineStart: "1px solid var(--line)",
         background: "var(--card-2-grad)",
-        padding: "20px 14px",
         flexDirection: "column",
-        gap: 18,
         position: "sticky",
         top: 0,
         height: "100vh",
-        overflow: "auto",
+        overflow: "hidden",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 6px" }}>
+      {/* اسم المعهد وشعاره ثابتان أعلى الشريط — يتحرك تحتهما القسم السفلي وحده */}
+      <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 10, padding: "20px 20px 14px", borderBottom: "1px solid var(--line-2)" }}>
         <img src="/logo-mark.png" alt="شعار المعهد" width={48} height={34} style={{ display: "block", flex: "none", objectFit: "contain" }} />
         <div style={{ fontSize: 12, color: "var(--ink-2)", lineHeight: 1.35 }}>
           معهد الصحابي الجليل
@@ -35,6 +34,7 @@ export default function Sidebar({ role, name, roleLabel }: { role: RoleId; name:
         </div>
       </div>
 
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 14px 20px", display: "flex", flexDirection: "column", gap: 18 }}>
       <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {items.map((n) => {
           const on = n.id === activeId;
@@ -82,7 +82,7 @@ export default function Sidebar({ role, name, roleLabel }: { role: RoleId; name:
         }}
       >
         <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 6 }}>الحساب الحالي</div>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{name}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{role === "GUARDIAN" ? name : `أ. ${name}`}</div>
         <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{roleLabel}</div>
         <form action={logout}>
           <button
@@ -102,6 +102,7 @@ export default function Sidebar({ role, name, roleLabel }: { role: RoleId; name:
             خروج
           </button>
         </form>
+      </div>
       </div>
     </aside>
   );

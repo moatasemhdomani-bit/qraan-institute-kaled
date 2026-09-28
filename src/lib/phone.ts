@@ -28,3 +28,14 @@ export function normalizePhone(raw: string | null | undefined): string | null {
 
   return digits;
 }
+
+/** جوال سوري بالصيغة المعتمدة: 10 أرقام تبدأ بـ 09 (يُخزَّن بلا فراغات). */
+export function isValidMobile(normalized: string | null | undefined): boolean {
+  return !!normalized && /^09\d{8}$/.test(normalized);
+}
+
+/** يعرض الرقم بصيغة «09XX XXX XXX» — أثناء الكتابة وفي العرض. */
+export function formatMobile(raw: string | null | undefined): string {
+  const d = toWesternDigits(String(raw ?? "")).replace(/\D/g, "").slice(0, 10);
+  return [d.slice(0, 4), d.slice(4, 7), d.slice(7, 10)].filter(Boolean).join(" ");
+}

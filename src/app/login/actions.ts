@@ -17,7 +17,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   }
 
   const user = await prisma.user.findUnique({ where: { username } });
-  if (!user) return { error: "بيانات الدخول غير صحيحة." };
+  if (!user || user.deletedAt) return { error: "بيانات الدخول غير صحيحة." };
 
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) return { error: "بيانات الدخول غير صحيحة." };

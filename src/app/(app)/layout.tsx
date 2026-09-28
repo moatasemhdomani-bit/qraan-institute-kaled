@@ -10,9 +10,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  // الكنية (النسبة) تُقرأ من قاعدة البيانات لا من الجلسة، كي يظهر أي تعديل عليها فورًا دون إعادة الدخول.
-  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { name: true, familyName: true } });
-  const displayName = [user?.name ?? session.name, user?.familyName?.trim()].filter(Boolean).join(" ");
+  // الاسم (مع النسبة) يُقرأ من قاعدة البيانات لا من الجلسة، كي يظهر أي تعديل عليه فورًا دون إعادة الدخول.
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { name: true } });
+  const displayName = user?.name ?? session.name;
 
   return (
     <div className="app-shell" style={{ display: "grid", gridTemplateColumns: "248px minmax(0,1fr)", minHeight: "100vh" }}>

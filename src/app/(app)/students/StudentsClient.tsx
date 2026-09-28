@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { saveStudent, resetGuardianPassword, type FormState } from "./actions";
+import { saveStudent, resetGuardianPassword, deleteStudent, type FormState } from "./actions";
 import { saveBehavior, type BehaviorState } from "./behaviorActions";
 import Link from "next/link";
 import { copyToClipboard } from "@/lib/clipboard";
 import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
+import PhoneField from "@/components/PhoneField";
 import PhotoField from "@/components/PhotoField";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
@@ -276,6 +277,7 @@ function StudentForm({
           <button type="button" onClick={onClose} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 14, cursor: "pointer" }}>
             إلغاء
           </button>
+          {initial && <DeleteStudentButton id={initial.id} name={initial.name} onDeleted={onClose} />}
         </>
       }
     >
@@ -303,8 +305,8 @@ function StudentForm({
           <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} />
           <Field label="عنوان السكن" name="address" defaultValue={initial?.address} />
           <Field label="عمل الوالد الحالي" name="job" defaultValue={initial?.job} />
-          <Field label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} />
-          <Field label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
+          <PhoneField label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} />
+          <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
@@ -336,6 +338,52 @@ function StudentForm({
 
       {initial && <BehaviorSection student={initial} />}
     </Drawer>
+  );
+}
+
+/** حذف الطالب نهائيًا بعد تأكيد صريح — يُحذف معه كل ما سُجّل له. */
+function DeleteStudentButton({ id, name, onDeleted }: { id: string; name: string; onDeleted: () => void }) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const small: React.CSSProperties = { padding: "10px 14px", borderRadius: 10, fontSize: 13, fontFamily: "inherit", cursor: "pointer" };
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        style={{ ...small, marginInlineStart: "auto", border: "1px solid var(--notice-line)", background: "transparent", color: "#E08A8A" }}
+      >
+        حذف الطالب
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginInlineStart: "auto", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      <span style={{ fontSize: 12, color: "#E08A8A", maxWidth: 230 }}>حذف «{name}» نهائيًا مع كل حضوره وتسميعه وسبره؟</span>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={async () => {
+          setPending(true);
+          const res = await deleteStudent(id);
+          setPending(false);
+          if (res.error) return setError(res.error);
+          onDeleted();
+          router.refresh();
+        }}
+        style={{ ...small, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", color: "var(--ink)" }}
+      >
+        {pending ? "…" : "نعم، احذف"}
+      </button>
+      <button type="button" onClick={() => setConfirming(false)} style={{ ...small, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)" }}>
+        تراجع
+      </button>
+      {error && <span style={{ width: "100%", fontSize: 12, color: "#E08A8A" }}>{error}</span>}
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { prisma } from "@/lib/db";
+import { prisma, rawPrisma, nameWithNasab } from "@/lib/db";
 import { decryptPassword } from "@/lib/guardian";
 import PageHeader from "@/components/PageHeader";
 import UsersClient from "./UsersClient";
@@ -11,8 +11,9 @@ export default async function UsersPage() {
   if (session.role !== "DIRECTOR") redirect("/dashboard");
 
   const [staffRaw, cohorts] = await Promise.all([
-    prisma.user.findMany({
-      where: { role: { in: ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER"] } },
+    // العميل الخام: نموذج التعديل يحتاج الاسم المخزَّن بلا نسبة، والنسبة في حقلها المستقل
+    rawPrisma.user.findMany({
+      where: { role: { in: ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER"] }, deletedAt: null },
       include: { halaqatTaught: { include: { cohort: true } }, teachableCohorts: true },
       orderBy: { createdAt: "asc" },
     }),
@@ -22,6 +23,7 @@ export default async function UsersPage() {
   const staff = staffRaw.map((u) => ({
     id: u.id,
     name: u.name,
+    fullName: nameWithNasab(u.name, u.familyName),
     username: u.username,
     role: u.role,
     phone: u.phone || "",

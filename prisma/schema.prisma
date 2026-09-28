@@ -41,6 +41,9 @@ model User {
   // كلمة المرور مخزَّنة أيضًا مشفَّرة (قابلة للاسترجاع) لتظهر للإداريين — لكل الأدوار، وليس ولي الأمر وحده
   passwordEnc String?
 
+  // حساب محذوف لكن مرتبط بسجلات سابقة (سبر أجراه، سجل تدقيق، …): لا يدخل ولا يظهر في القوائم، ويبقى اسمه في تلك السجلات
+  deletedAt DateTime?
+
   teachableCohorts CohortTeacher[]
   halaqatTaught    Halqa[]
   auditLogs        AuditLog[]

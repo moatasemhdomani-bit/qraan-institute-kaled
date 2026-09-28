@@ -84,7 +84,7 @@ export default async function DashboardPage() {
   }
 
   const [staffCount, halaqatCount, studentsCount, cohortsCount] = await Promise.all([
-    prisma.user.count({ where: { role: { in: ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER"] } } }),
+    prisma.user.count({ where: { role: { in: ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER"] }, deletedAt: null } }),
     prisma.halqa.count(),
     prisma.student.count(),
     prisma.cohort.count(),

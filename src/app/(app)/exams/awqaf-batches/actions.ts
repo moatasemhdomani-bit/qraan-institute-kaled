@@ -103,16 +103,15 @@ export async function setCertStep(_prev: FormState, formData: FormData): Promise
   const id = String(formData.get("id") || "");
   const step = String(formData.get("step") || "") as CertStep;
   const value = String(formData.get("value") || "") === "1";
-  const file = formData.get("file");
 
-  const result = await prisma.awqafResult.findUnique({ where: { id }, include: { student: true, batch: { select: { certFileUrl: true } } } });
+  const result = await prisma.awqafResult.findUnique({ where: { id }, include: { student: true } });
   if (!result) return { error: "السجل غير موجود." };
 
   if (value && certStepLocked(step, result)) {
     return { error: `${STEP_LABELS[step]} مقفلة حتى تتحقق الخطوة السابقة.` };
   }
-  if (step === "archived" && value && !(file instanceof File && file.size > 0) && !result.certFileUrl && !result.batch.certFileUrl) {
-    return { error: "ارفعوا ملف الشهادة الممسوحة لإتمام الأرشفة." };
+  if (step === "archived" && value) {
+    return { error: "الأرشفة تتم بملف واحد لكل الدفعة — زر «أرشفة الشهادات» أعلى صفحة الدفعة." };
   }
 
   const data: { certArrived?: boolean; certArchived?: boolean; certDelivered?: boolean; certFileUrl?: string } = {};
@@ -122,7 +121,6 @@ export async function setCertStep(_prev: FormState, formData: FormData): Promise
   } else if (step === "archived") {
     data.certArchived = value;
     if (!value) data.certDelivered = false;
-    if (file instanceof File && file.size > 0) data.certFileUrl = await saveCertFile(file);
   } else if (step === "delivered") {
     data.certDelivered = value;
   }
