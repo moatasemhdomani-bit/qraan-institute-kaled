@@ -1,4 +1,4 @@
-import { prisma } from "./db";
+import { prisma, rawPrisma } from "./db";
 import { pageSpan } from "./daily";
 import { passFailLabel } from "./exam";
 import { awqafPassed } from "./awqaf";
@@ -310,12 +310,14 @@ export type ReviewInputs = {
   halqaScope: string;
   notes: Record<string, string>;
   batchId: string;
+  names: string[] | null; // الأيتام: القائمة المحفوظة يوم الإصدار
+  status: OrphanStatus; // الأيتام: فلتر حالة الطالب المختار عند الإصدار
 };
 
 /** معطيات تقرير صادر سابقًا من السجل — لإعادة إعداده بنفس المدخلات («مراجعة التقرير»). */
 export async function loadReviewInputs(
   id: string | undefined,
-  kind: "HALAQAT" | "TEACHERS" | "STUDENT" | "AWQAF_MARKS"
+  kind: "HALAQAT" | "TEACHERS" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS"
 ): Promise<ReviewInputs | null> {
   if (!id) return null;
   const r = await prisma.issuedReport.findUnique({ where: { id } });
@@ -334,6 +336,8 @@ export async function loadReviewInputs(
     halqaScope: typeof p.halqaScope === "string" ? p.halqaScope : "all",
     notes: p.notes && typeof p.notes === "object" ? (p.notes as Record<string, string>) : {},
     batchId: typeof p.batchId === "string" ? p.batchId : "",
+    names: Array.isArray(p.names) ? (p.names as string[]) : null,
+    status: p.status === "all" || p.status === "inactive" ? p.status : "active",
   };
 }
 
@@ -414,4 +418,27 @@ export async function buildAwqafMarks(batchId: string): Promise<{ date: string; 
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "ar"));
 
   return { date: batch.date, rows };
+}
+
+// ==================== تقرير الأيتام ====================
+
+export type OrphanStatus = "all" | "active" | "inactive";
+export const ORPHAN_STATUS_LABELS: Record<OrphanStatus, string> = { all: "الكل", active: "نشط", inactive: "منقطع" };
+
+/** كل الطلاب الأيتام مع حالتهم — الاسم الثلاثي (اسم الطالب + اسم الوالد + النسبة). */
+export async function listOrphans(): Promise<{ name: string; active: boolean }[]> {
+  // العميل الخام: الاسم المخزَّن بلا نسبة، كي يُركَّب الاسم الثلاثي بترتيبه الصحيح
+  const students = await rawPrisma.student.findMany({
+    where: { isOrphan: true },
+    select: { name: true, fatherName: true, familyName: true, active: true },
+  });
+  return students
+    .map((s) => ({ name: [s.name, s.fatherName, s.familyName].map((x) => x?.trim()).filter(Boolean).join(" "), active: s.active }))
+    // النشطون أولًا ثم المنقطعون، وكل فئة أبجديًا — فخيار «الكل» يسرد النشطين ثم المنقطعين
+    .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, "ar"));
+}
+
+/** أسماء الأيتام بحسب حالة الطالب المختارة (الكل / نشط / منقطع). */
+export async function buildOrphans(status: OrphanStatus = "active"): Promise<string[]> {
+  return (await listOrphans()).filter((o) => status === "all" || (status === "active" ? o.active : !o.active)).map((o) => o.name);
 }

@@ -22,6 +22,7 @@ const REVIEW_PATHS: Record<string, string> = {
   TEACHERS: "/reports/teachers",
   STUDENT: "/reports/student",
   AWQAF_MARKS: "/reports/awqaf-marks",
+  ORPHANS: "/reports/orphans",
 };
 
 const FILTERS = [
@@ -30,6 +31,7 @@ const FILTERS = [
   { id: "TEACHERS", label: "الشهري للمدرسين" },
   { id: "STUDENT", label: "تقرير طالب" },
   { id: "AWQAF_MARKS", label: "علامات سبر الأوقاف" },
+  { id: "ORPHANS", label: "الأيتام" },
 ];
 
 function DeleteButton({ id }: { id: string }) {

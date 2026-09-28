@@ -27,7 +27,10 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
 
   const id = String(formData.get("id") || "") || null;
   const name = String(formData.get("name") || "").trim();
-  const halqaId = String(formData.get("halqaId") || "") || null;
+  // المنقطع يُخرَج من حلقته (فيغيب عن الحضور والتسميع اليوميين)، وتبقى بياناته وسجلاته كلها محفوظة
+  const active = String(formData.get("status") || "active") !== "inactive";
+  const isOrphan = formData.get("orphan") === "1";
+  const halqaId = active ? String(formData.get("halqaId") || "") || null : null;
 
   if (!name) return { error: "اكتبوا اسم الطالب." };
 
@@ -48,6 +51,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     studentPhone,
     guardianPhone,
     halqaId,
+    active,
+    isOrphan,
   };
 
   // عند تسجيل طالب جديد: تطابق الاسم واسم الأب والأم والنسبة معًا يعني طالبًا مسجَّلًا بالفعل.
@@ -71,6 +76,9 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
       await logAction(session.userId, `فرز الطالب «${name}» إلى حلقة ${halqa?.name ?? ""}`);
     } else {
       await logAction(session.userId, `عدّل بيانات الطالب «${name}»`);
+    }
+    if (before && before.active !== active) {
+      await logAction(session.userId, active ? `أعاد الطالب «${name}» إلى «نشط»` : `غيّر حالة الطالب «${name}» إلى «منقطع» وأخرجه من حلقته`);
     }
   } else {
     const last = await prisma.student.findFirst({ orderBy: { studentNo: "desc" } });
@@ -96,6 +104,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
 
   revalidatePath("/students");
   revalidatePath("/dashboard");
+  revalidatePath("/attendance");
+  revalidatePath("/recitation");
   return { ok: true };
 }
 

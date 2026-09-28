@@ -13,6 +13,7 @@ const KIND_LABELS: Record<string, string> = {
   TEACHERS: "التقرير الشهري للمدرسين",
   STUDENT: "تقرير طالب",
   AWQAF_MARKS: "علامات سبر الأوقاف",
+  ORPHANS: "الأيتام",
 };
 
 const BASE_STYLE = `
@@ -64,9 +65,11 @@ function reportHeader(name: string, kind: string, from: string, to: string, issu
       <div><b>اسم التقرير:</b> ${escapeHtml(name)}</div>
       <div><b>نوع التقرير:</b> ${escapeHtml(kindLabel)}</div>
       ${
-        kind === "AWQAF_MARKS"
-          ? `<div><b>تاريخ الدفعة:</b> ${formatDateAr(from)}</div>`
-          : `<div><b>الفترة:</b> ${formatDateAr(from)} — ${formatDateAr(to)}</div>`
+        kind === "ORPHANS"
+          ? ""
+          : kind === "AWQAF_MARKS"
+            ? `<div><b>تاريخ الدفعة:</b> ${formatDateAr(from)}</div>`
+            : `<div><b>الفترة:</b> ${formatDateAr(from)} — ${formatDateAr(to)}</div>`
       }
       <div><b>أصدره:</b> ${escapeHtml(issuedBy)}</div>
       <div><b>تاريخ الإصدار:</b> ${formatDateAr(issuedAt)}</div>
@@ -289,5 +292,28 @@ export function awqafMarksReportHtml(input: {
     reportHeader(input.name, "AWQAF_MARKS", input.batchDate, input.batchDate, input.issuedBy, input.issuedAt) +
     table +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — علامات سبر الأوقاف</div></body></html>`
+  );
+}
+
+/** الأيتام: الصفحة نصفان (يمين ثم يسار)، كل طالب في سطر، مرقّمون من 1 إلى العدد الكامل. */
+export function orphansReportHtml(input: { name: string; issuedBy: string; issuedAt: string; names: string[]; statusLabel: string }): string {
+  const list =
+    input.names.length === 0
+      ? `<div style="padding:30px;text-align:center;color:#888">لا طلاب أيتام مسجّلون حاليًا.</div>`
+      : `<div class="count">حالة الطالب: <b>${escapeHtml(input.statusLabel)}</b> &nbsp;·&nbsp; عدد الطلاب الأيتام: <b>${input.names.length}</b></div>
+    <ol class="two-col">${input.names.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ol>`;
+
+  return (
+    htmlHead(input.name) +
+    `<style>
+      .count { font-size: 12.5px; margin-bottom: 10px; color: #555; }
+      .count b { color: #0a192f; }
+      ol.two-col { column-count: 2; column-gap: 28px; column-rule: 1px solid #e3ddc8; margin: 0; padding: 0 22px 0 0; font-size: 13px; }
+      ol.two-col li { break-inside: avoid; padding: 5px 4px; border-bottom: 1px dotted #ddd; }
+      ol.two-col li::marker { color: #8a6d1f; font-weight: 700; }
+    </style>` +
+    reportHeader(input.name, "ORPHANS", input.issuedAt, input.issuedAt, input.issuedBy, input.issuedAt) +
+    list +
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — الأيتام</div></body></html>`
   );
 }

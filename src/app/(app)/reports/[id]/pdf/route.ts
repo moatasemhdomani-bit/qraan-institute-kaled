@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dateOnly } from "@/lib/daily";
-import { buildHalaqatBlocks, buildTeachersRows, buildStudentPreview, buildAwqafMarks } from "@/lib/reports";
+import { buildHalaqatBlocks, buildTeachersRows, buildStudentPreview, buildAwqafMarks, buildOrphans, ORPHAN_STATUS_LABELS, type OrphanStatus } from "@/lib/reports";
 import { renderPdf } from "@/lib/pdf";
-import { halaqatReportHtml, teachersReportHtml, studentReportHtml, awqafMarksReportHtml } from "@/lib/reportHtml";
+import { halaqatReportHtml, teachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml } from "@/lib/reportHtml";
 
 /** يُعيد توليد PDF تقرير سابق من معطياته المحفوظة عند الطلب — لا يُخزَّن أي ملف. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -47,6 +47,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const notes = (params_.notes as Record<string, string>) ?? {};
     const rows = await buildTeachersRows(report.fromDate, report.toDate);
     html = teachersReportHtml({ ...common, rows: rows.map((r) => ({ ...r, note: notes[r.teacherId] || "" })) });
+  } else if (report.kind === "ORPHANS") {
+    // القائمة المحفوظة يوم الإصدار (تقارير قديمة بلا قائمة محفوظة تُعرض بالأسماء الحالية)
+    const names = Array.isArray(params_.names) ? (params_.names as string[]) : await buildOrphans();
+    const status = (typeof params_.status === "string" && params_.status in ORPHAN_STATUS_LABELS ? params_.status : "active") as OrphanStatus;
+    html = orphansReportHtml({ name: report.name, issuedBy: common.issuedBy, issuedAt, names, statusLabel: ORPHAN_STATUS_LABELS[status] });
   } else if (report.kind === "AWQAF_MARKS") {
     const marks = typeof params_.batchId === "string" ? await buildAwqafMarks(params_.batchId) : null;
     if (!marks) return new NextResponse("دفعة سبر الأوقاف لم تعد موجودة.", { status: 404 });

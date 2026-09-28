@@ -47,6 +47,8 @@ export default async function StudentsPage() {
     guardianUsername: s.guardianUser?.username || "",
     guardianPassword: decryptPassword(s.guardianUser?.passwordEnc) || "",
     behavior: s.behavior,
+    active: s.active,
+    isOrphan: s.isOrphan,
     behaviorLog: s.behaviorLog.map((l) => ({
       previousValue: l.previousValue,
       newValue: l.newValue,

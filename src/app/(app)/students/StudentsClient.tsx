@@ -19,6 +19,8 @@ type StudentRow = {
   no: string;
   name: string;
   fullName: string;
+  active: boolean;
+  isOrphan: boolean;
   father: string;
   mother: string;
   familyName: string;
@@ -61,18 +63,32 @@ export default function StudentsClient({
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [onlyUnsorted, setOnlyUnsorted] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [onlyOrphans, setOnlyOrphans] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<StudentRow | null>(null);
 
-  const unsortedCount = useMemo(() => students.filter((s) => !s.halqaId).length, [students]);
+  const counts = useMemo(
+    () => ({
+      all: students.length,
+      active: students.filter((s) => s.active).length,
+      inactive: students.filter((s) => !s.active).length,
+      orphans: students.filter((s) => s.isOrphan).length,
+      unsorted: students.filter(isUnsorted).length,
+    }),
+    [students]
+  );
 
   const filtered = useMemo(
     () =>
       students
-        .filter((s) => !onlyUnsorted || !s.halqaId)
+        .filter((s) => statusFilter === "all" || (statusFilter === "active" ? s.active : !s.active))
+        .filter((s) => !onlyOrphans || s.isOrphan)
+        .filter((s) => !onlyUnsorted || isUnsorted(s))
         .filter((s) => !search.trim() || s.fullName.includes(search.trim()) || s.no.includes(search.trim())),
-    [students, search, onlyUnsorted]
+    [students, search, onlyUnsorted, statusFilter, onlyOrphans]
   );
+  const anyFilter = statusFilter !== "all" || onlyOrphans || onlyUnsorted || !!search.trim();
 
   function openNew() {
     setEditing(null);
@@ -97,14 +113,30 @@ export default function StudentsClient({
             placeholder="بحث بالاسم أو رقم الطالب"
             style={inputStyle()}
           />
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <button onClick={() => setOnlyUnsorted(false)} style={chipStyle(!onlyUnsorted)}>
-              كل الطلاب
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 12.5, color: "var(--ink-2)", marginInlineEnd: 2 }}>حالة الطالب:</span>
+            <button onClick={() => setStatusFilter("all")} style={chipStyle(statusFilter === "all")}>
+              الكل ({counts.all})
             </button>
-            <button onClick={() => setOnlyUnsorted(true)} style={chipStyle(onlyUnsorted)}>
-              غير مفروزين ({unsortedCount})
+            <button onClick={() => setStatusFilter("active")} style={chipStyle(statusFilter === "active")}>
+              نشط ({counts.active})
+            </button>
+            <button onClick={() => setStatusFilter("inactive")} style={chipStyle(statusFilter === "inactive")}>
+              منقطع ({counts.inactive})
+            </button>
+            <span style={{ width: 1, height: 22, background: "var(--line)", margin: "0 4px" }} />
+            <button onClick={() => setOnlyOrphans((v) => !v)} style={chipStyle(onlyOrphans)}>
+              أيتام ({counts.orphans})
+            </button>
+            <button onClick={() => setOnlyUnsorted((v) => !v)} style={chipStyle(onlyUnsorted)}>
+              غير مفروزين ({counts.unsorted})
             </button>
           </div>
+          {anyFilter && (
+            <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>
+              عدد النتائج: <b style={{ color: "var(--ink)" }}>{filtered.length}</b> طالبًا
+            </div>
+          )}
           {onlyUnsorted && (
             <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
               هؤلاء أضافهم المختبِر عبر تحديد المستوى ولم يُفرزوا على حلقة وفوج بعد — الفرز هو ما يُنشئ حساب ولي
@@ -162,8 +194,11 @@ export default function StudentsClient({
                 }}
               >
                 <div style={{ color: "var(--ink-3)", fontSize: 13, direction: "ltr", textAlign: "right" }}>{s.no}</div>
-                <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.fullName}</div>
-                <div style={{ color: s.halqaId ? "var(--ink-2)" : "#E8A0A0", fontSize: 13 }}>{s.halqaId ? s.halqaName : "غير مفروز"}</div>
+                <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {s.fullName}
+                  <StudentBadges s={s} />
+                </div>
+                <div style={{ color: s.halqaId || !s.active ? "var(--ink-2)" : "#E8A0A0", fontSize: 13 }}>{s.halqaId ? s.halqaName : s.active ? "غير مفروز" : "—"}</div>
                 <div>
                   <span style={{ padding: "4px 10px", borderRadius: 999, background: "var(--chip)", border: "1px solid var(--line)", fontSize: 12 }}>
                     {s.cohortName}
@@ -202,9 +237,10 @@ export default function StudentsClient({
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 15, fontWeight: 600 }}>{s.fullName}</span>
                     <span style={{ fontSize: 12, color: "var(--ink-3)", direction: "ltr" }}>#{s.no}</span>
+                    <StudentBadges s={s} />
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 12, color: s.halqaId ? "var(--ink-2)" : "#E8A0A0" }}>{s.halqaId ? s.halqaName : "غير مفروز"}</span>
+                    <span style={{ fontSize: 12, color: s.halqaId || !s.active ? "var(--ink-2)" : "#E8A0A0" }}>{s.halqaId ? s.halqaName : s.active ? "غير مفروز" : "—"}</span>
                     <span style={{ padding: "4px 10px", borderRadius: 999, background: "var(--chip)", border: "1px solid var(--line)", fontSize: 12 }}>
                       {s.cohortName}
                     </span>
@@ -234,6 +270,24 @@ export default function StudentsClient({
   );
 }
 
+/** «غير مفروز» يخص النشطين فقط — المنقطع خارج الحلقات عمدًا. */
+function isUnsorted(s: StudentRow) {
+  return s.active && !s.halqaId;
+}
+
+/** شارتا «منقطع» و«يتيم» بجانب اسم الطالب في القائمة. */
+function StudentBadges({ s }: { s: StudentRow }) {
+  const badge = (text: string, color: string) => (
+    <span style={{ marginInlineStart: 6, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, border: "1px solid " + color, color }}>{text}</span>
+  );
+  return (
+    <>
+      {!s.active && badge("منقطع", "#E08A8A")}
+      {s.isOrphan && badge("يتيم", "#8FA8C8")}
+    </>
+  );
+}
+
 function StudentForm({
   initial,
   halaqat,
@@ -248,6 +302,8 @@ function StudentForm({
   const initialHalqa = halaqat.find((h) => h.id === initial?.halqaId);
   const [teacherId, setTeacherId] = useState(initialHalqa?.teacherId ?? "");
   const [cohortId, setCohortId] = useState(initialHalqa?.cohortId ?? "");
+  const [active, setActive] = useState(initial?.active ?? true);
+  const [isOrphan, setIsOrphan] = useState(initial?.isOrphan ?? false);
 
   useEffect(() => {
     if (state.ok) onClose();
@@ -290,7 +346,9 @@ function StudentForm({
 
       <form id="student-form" action={formAction} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <input type="hidden" name="id" value={initial?.id ?? ""} />
-        <input type="hidden" name="halqaId" value={resolvedHalqa?.id ?? ""} />
+        <input type="hidden" name="halqaId" value={active ? resolvedHalqa?.id ?? "" : ""} />
+        <input type="hidden" name="status" value={active ? "active" : "inactive"} />
+        <input type="hidden" name="orphan" value={isOrphan ? "1" : "0"} />
 
         <PhotoField name="photo" label="صورة الطالب" existingUrl={initial?.photoUrl} />
 
@@ -310,6 +368,32 @@ function StudentForm({
           <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
         </div>
 
+        <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>حالة الطالب</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button type="button" onClick={() => setActive(true)} style={chipStyle(active)}>
+                نشط
+              </button>
+              <button type="button" onClick={() => setActive(false)} style={chipStyle(!active)}>
+                منقطع
+              </button>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>يتيم</div>
+            <button type="button" onClick={() => setIsOrphan((v) => !v)} style={chipStyle(isOrphan)}>
+              {isOrphan ? "✓ يتيم" : "غير يتيم"}
+            </button>
+          </div>
+        </div>
+        {!active && (
+          <div style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 12.5 }}>
+            المنقطع يُخرَج من حلقته عند الحفظ، فلا يظهر في الحضور والتسميع اليوميين — وتبقى بياناته وحضوره وتسميعه وسبره كلها محفوظة. لإعادته: اختاروا «نشط» ثم المدرس والفوج.
+          </div>
+        )}
+
+        {active && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
           <div>
             <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>المدرس</label>
@@ -335,6 +419,7 @@ function StudentForm({
           </div>
           <ReadOnly label="الحلقة" value={resolvedHalqa?.name ?? "—"} />
         </div>
+        )}
       </form>
 
       {initial && <BehaviorSection student={initial} />}

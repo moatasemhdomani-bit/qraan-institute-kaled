@@ -12,9 +12,10 @@ const CARDS = [
   { href: "/reports/teachers", title: "التقرير الشهري للمدرسين", note: "صف واحد لكل مدرّس بأرقام الفترة المختارة — النطاق حرّ لا شهر مقفل." },
   { href: "/reports/student", title: "تقرير طالب", note: "حضوره وتسميعه واختباراته الثلاثة وسلوكه — يُفتح أيضًا من ملف الطالب." },
   { href: "/reports/awqaf-marks", title: "علامات سبر الأوقاف", note: "لدفعة سُجّلت علاماتها: الطالب ورقمه ونوع سبره ومدرّسه وحلقته وفوجه." },
+  { href: "/reports/orphans", title: "الأيتام", note: "أسماء الطلاب الأيتام ثلاثية ومرقّمة على نصفَي الصفحة." },
 ];
 
-const KIND_LABELS: Record<string, string> = { HALAQAT: "تسميع الحلقات", TEACHERS: "الشهري للمدرسين", STUDENT: "تقرير طالب", AWQAF_MARKS: "علامات سبر الأوقاف" };
+const KIND_LABELS: Record<string, string> = { HALAQAT: "تسميع الحلقات", TEACHERS: "الشهري للمدرسين", STUDENT: "تقرير طالب", AWQAF_MARKS: "علامات سبر الأوقاف", ORPHANS: "الأيتام" };
 
 export default async function ReportsHubPage() {
   const session = await getSession();

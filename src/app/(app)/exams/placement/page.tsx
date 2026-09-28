@@ -10,7 +10,7 @@ export default async function PlacementExamPage() {
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
 
   const examsRaw = await prisma.exam.findMany({
-    where: { type: "PLACEMENT", student: { halqaId: null } },
+    where: { type: "PLACEMENT", student: { halqaId: null, active: true } },
     include: { examiner: { select: { id: true, name: true } }, student: { select: { name: true } } },
     orderBy: { date: "desc" },
   });
