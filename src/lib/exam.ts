@@ -119,3 +119,27 @@ export function validateExam(input: {
 
   return null;
 }
+
+/**
+ * نوع السبر بصيغة مختصرة تُعرض دومًا مع العلامة والمختبِر والصفحات:
+ * «10 غيبًا» / «15 حاضرًا» (أجزاء ترشيح الأوقاف أو سبر الأوقاف الفعلي)، «الجزء 18 حاضرًا» / «الجزء 21 غيبًا» (السبر المحلي وتحديد المستوى)، «عمّ غيبًا».
+ */
+export function examKindLabel(e: {
+  type: ExamTypeId | "AWQAF_ACTUAL";
+  localKind?: LocalKindId | null;
+  juz?: number | null;
+  nominationPresent?: boolean | null;
+  nominationParts?: number | null;
+}): string {
+  const mode = e.nominationPresent == null ? "" : e.nominationPresent ? "حاضرًا" : "غيبًا";
+  if (e.type === "WAQF_NOMINATION" || e.type === "AWQAF_ACTUAL") {
+    return [e.nominationParts ?? "", mode].filter(Boolean).join(" ");
+  }
+  if (e.type === "LOCAL") {
+    if (e.localKind === "AMMA_GHAYBAN") return "عمّ غيبًا";
+    const localMode = e.localKind === "HADIRAN" ? "حاضرًا" : "غيبًا";
+    return e.juz != null ? `الجزء ${e.juz} ${localMode}` : localMode;
+  }
+  // PLACEMENT
+  return e.juz != null ? `الجزء ${e.juz}${mode ? ` ${mode}` : ""}` : mode;
+}

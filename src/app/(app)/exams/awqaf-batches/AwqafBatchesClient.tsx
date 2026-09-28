@@ -7,7 +7,7 @@ import { cardStyle, inputStyle, primaryButtonStyle, softButtonStyle } from "@/li
 import Drawer from "@/components/Drawer";
 import DateField from "@/components/DateField";
 import { createAwqafBatch, type FormState } from "./actions";
-import { today } from "@/lib/daily";
+import { today, formatDateAr } from "@/lib/daily";
 
 type Candidate = { id: string; no: number; name: string; nominationDate: string; nominationPresent: boolean; priorFailNote: string | null };
 type Batch = {
@@ -100,7 +100,7 @@ export default function AwqafBatchesClient({
               style={{ ...cardStyle, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8, textDecoration: "none", color: "var(--ink)" }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 15.5, fontWeight: 700, direction: "ltr" }}>دفعة {b.date}</span>
+                <span style={{ fontSize: 15.5, fontWeight: 700 }}>دفعة {formatDateAr(b.date)}</span>
                 <span
                   style={{
                     marginInlineStart: "auto",

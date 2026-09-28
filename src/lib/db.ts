@@ -17,6 +17,13 @@ function extend(raw: PrismaClient) {
           compute: (u) => nameWithNasab(u.name, u.familyName),
         },
       },
+      // واسم الطالب كذلك يظهر دومًا مع نسبته في كل الشاشات والتقارير
+      student: {
+        name: {
+          needs: { name: true, familyName: true },
+          compute: (s) => nameWithNasab(s.name, s.familyName),
+        },
+      },
     },
   });
 }

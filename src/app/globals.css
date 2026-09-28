@@ -10,6 +10,20 @@ body {
   padding: 0;
 }
 
+/* تكبير الموقع كله 125% على شاشات الحاسوب (كزوم المتصفح) — الجوال مضبوط أصلًا على حجم شاشته.
+   تحت الزوم تُضخَّم 100vh أيضًا، فكل ارتفاع «ملء الشاشة» يستعمل --full-h المعوَّض بدلها. */
+:root {
+  --full-h: 100vh;
+}
+@media (min-width: 781px) {
+  html {
+    zoom: 1.25;
+  }
+  :root {
+    --full-h: calc(100vh / 1.25);
+  }
+}
+
 body {
   background: var(--bg-grad);
   background-attachment: fixed;
@@ -17,7 +31,7 @@ body {
   font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
   font-size: 15px;
   line-height: 1.6;
-  min-height: 100vh;
+  min-height: var(--full-h);
 }
 
 a {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { cardStyle, primaryButtonStyle } from "@/lib/ui";
 import { resultLabel } from "@/lib/exam";
+import { formatDateAr } from "@/lib/daily";
 import ExamFormDrawer, { type ExistingExam } from "../ExamFormDrawer";
 
 type Row = ExistingExam & { studentName: string; examinerId: string; examinerName: string };
@@ -52,7 +53,7 @@ export default function PlacementClient({
                 </div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, color: "var(--ink-2)" }}>
                   <span>المختبِر: {r.examinerName}</span>
-                  <span style={{ direction: "ltr" }}>{r.date}</span>
+                  <span>{formatDateAr(r.date)}</span>
                 </div>
                 {r.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>ملاحظات: {r.notes}</div>}
               </div>

@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const displayName = user?.name ?? session.name;
 
   return (
-    <div className="app-shell" style={{ display: "grid", gridTemplateColumns: "248px minmax(0,1fr)", minHeight: "100vh" }}>
+    <div className="app-shell" style={{ display: "grid", gridTemplateColumns: "248px minmax(0,1fr)", minHeight: "var(--full-h)" }}>
       <Sidebar role={session.role} name={displayName} roleLabel={ROLE_LABELS[session.role]} />
       <MobileNav role={session.role} name={displayName} />
       <main style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>

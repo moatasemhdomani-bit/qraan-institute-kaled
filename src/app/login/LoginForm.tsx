@@ -11,7 +11,7 @@ export default function LoginForm() {
   const [state, formAction, pending] = useActionState(login, initialState);
 
   return (
-    <div className="login-grid" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1.05fr 1fr", alignItems: "stretch" }}>
+    <div className="login-grid" style={{ minHeight: "var(--full-h)", display: "grid", gridTemplateColumns: "1.05fr 1fr", alignItems: "stretch" }}>
       <div
         className="login-form-panel"
         style={{

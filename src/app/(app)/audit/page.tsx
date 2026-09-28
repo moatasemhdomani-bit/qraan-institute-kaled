@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import AuditClient from "./AuditClient";
+import { formatDateTimeAr } from "@/lib/daily";
 
 export default async function AuditPage() {
   const session = await getSession();
@@ -24,7 +25,7 @@ export default async function AuditPage() {
     who: r.actor.name,
     actorRole: r.actor.role,
     what: r.action,
-    when: r.createdAt.toLocaleString("ar-SY"),
+    when: formatDateTimeAr(r.createdAt),
   }));
 
   return (

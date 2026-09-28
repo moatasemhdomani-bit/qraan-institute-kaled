@@ -7,6 +7,8 @@ import Drawer from "@/components/Drawer";
 import PhotoField from "@/components/PhotoField";
 import PasswordField from "@/components/PasswordField";
 import DateField from "@/components/DateField";
+import PhoneField from "@/components/PhoneField";
+import { formatMobile } from "@/lib/phone";
 
 type StaffRow = {
   id: string;
@@ -182,7 +184,7 @@ export default function UsersClient({
                       {ROLE_LABELS[u.role]}
                     </span>
                   </div>
-                  <div style={{ color: "var(--ink-2)", fontSize: 13, direction: "ltr", textAlign: "right" }}>{u.phone || "—"}</div>
+                  <div style={{ color: "var(--ink-2)", fontSize: 13, direction: "ltr", textAlign: "right" }}>{u.phone ? formatMobile(u.phone) : "—"}</div>
                   <div style={{ color: "var(--ink-2)", fontSize: 13 }}>{u.halqaLabel}</div>
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <button
@@ -253,7 +255,7 @@ export default function UsersClient({
                         {ROLE_LABELS[u.role]}
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--ink-2)", direction: "ltr", textAlign: "right" }}>{u.phone || "—"}</div>
+                    <div style={{ fontSize: 12, color: "var(--ink-2)", direction: "ltr", textAlign: "right" }}>{u.phone ? formatMobile(u.phone) : "—"}</div>
                     <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{u.halqaLabel}</div>
                   </div>
                   <button
@@ -315,6 +317,7 @@ function StaffForm({
   const [state, formAction, pending] = useActionState(saveStaff, initialState);
   const [role, setRole] = useState<RoleId>(initial?.role ?? "TEACHER");
   const [cohortIds, setCohortIds] = useState<string[]>(initial?.cohortIds ?? []);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteState, deleteAction, deletePending] = useActionState(
     async (_prev: FormState, _f: FormData): Promise<FormState> =>
       initial ? deleteStaff(initial.id) : { error: "" },
@@ -344,8 +347,34 @@ function StaffForm({
           <button type="button" onClick={onClose} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 14, cursor: "pointer" }}>
             إلغاء
           </button>
-          {showDelete && (
-            <form action={deleteAction} style={{ marginInlineStart: "auto" }}>
+          {showDelete && !confirmDelete && (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              style={{
+                marginInlineStart: "auto",
+                padding: "10px 16px",
+                borderRadius: 10,
+                border: "1px solid var(--danger-line)",
+                background: "transparent",
+                color: "var(--danger)",
+                fontSize: 13,
+                cursor: "pointer",
+              }}
+            >
+              حذف الحساب
+            </button>
+          )}
+          {showDelete && confirmDelete && (
+            <form action={deleteAction} style={{ marginInlineStart: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12.5, color: "var(--danger)" }}>حذف حساب «{initial?.name}» نهائيًا؟</span>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}
+              >
+                تراجع
+              </button>
               <button
                 type="submit"
                 disabled={deletePending}
@@ -359,7 +388,7 @@ function StaffForm({
                   cursor: "pointer",
                 }}
               >
-                حذف الحساب
+                {deletePending ? "جارٍ الحذف…" : "نعم، احذف"}
               </button>
             </form>
           )}
@@ -465,7 +494,7 @@ function StaffForm({
           <Field label="اسم الأب" name="father" defaultValue={initial?.father} />
           <Field label="اسم الأم" name="mother" defaultValue={initial?.mother} />
           <Field label="النسبة (الكنية/العائلة)" name="family" defaultValue={initial?.family} />
-          <Field label="رقم التواصل" name="phone" defaultValue={initial?.phone} placeholder="09XX XXX XXX" />
+          <PhoneField label="رقم التواصل" name="phone" defaultValue={initial?.phone} />
           <Field label="تاريخ الميلاد" name="birth" type="date" defaultValue={initial?.birth} />
           <Field label="الرقم الوطني" name="nid" defaultValue={initial?.nid} />
           <Field label="عنوان السكن" name="address" defaultValue={initial?.address} />

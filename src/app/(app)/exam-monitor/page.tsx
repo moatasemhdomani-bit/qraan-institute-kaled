@@ -69,7 +69,11 @@ export default async function ExamMonitorPage() {
         pages: [] as number[],
         resultMark: r.score,
         nominationPresent: r.nominationPresent,
-        nominationParts: null,
+        // عدد الأجزاء من آخر ترشيح للطالب حتى تاريخ الدفعة، بنفس مسار حاضرًا/غيبًا
+        nominationParts:
+          examsRaw.find(
+            (e) => e.type === "WAQF_NOMINATION" && e.studentId === r.studentId && e.nominationPresent === r.nominationPresent && e.date <= r.batch.date
+          )?.nominationParts ?? null,
         notes: null as string | null,
         answers: [] as { topicId: string; text: string }[],
         certArrived: r.certArrived,

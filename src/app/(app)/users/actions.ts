@@ -8,7 +8,7 @@ import { logAction } from "@/lib/audit";
 import { ROLE_LABELS } from "@/lib/ui";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { normalizePhone } from "@/lib/phone";
+import { normalizePhone, isValidMobile } from "@/lib/phone";
 import { uploadFile, mimeFromExt } from "@/lib/storage";
 
 export type FormState = { error?: string; ok?: boolean; generatedPassword?: string };
@@ -33,6 +33,8 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   const password = String(formData.get("password") || "").trim();
 
   if (!name) return { error: "اكتبوا اسم العامل." };
+  const phone = normalizePhone(String(formData.get("phone") || ""));
+  if (phone && !isValidMobile(phone)) return { error: "رقم التواصل بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
   if (role === "DIRECTOR" && session.role !== "DIRECTOR") {
     return { error: "إسناد دور «مدير المعهد» من اختصاص مدير المعهد وحده." };
   }
@@ -43,7 +45,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     fatherName: String(formData.get("father") || "") || null,
     motherName: String(formData.get("mother") || "") || null,
     familyName: String(formData.get("family") || "") || null,
-    phone: normalizePhone(String(formData.get("phone") || "")),
+    phone,
     birthDate: String(formData.get("birth") || "") || null,
     nationalId: String(formData.get("nid") || "") || null,
     address: String(formData.get("address") || "") || null,

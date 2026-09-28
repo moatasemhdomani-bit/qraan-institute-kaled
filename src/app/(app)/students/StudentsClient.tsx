@@ -18,6 +18,7 @@ type StudentRow = {
   id: string;
   no: string;
   name: string;
+  fullName: string;
   father: string;
   mother: string;
   familyName: string;
@@ -69,7 +70,7 @@ export default function StudentsClient({
     () =>
       students
         .filter((s) => !onlyUnsorted || !s.halqaId)
-        .filter((s) => !search.trim() || s.name.includes(search.trim()) || s.no.includes(search.trim())),
+        .filter((s) => !search.trim() || s.fullName.includes(search.trim()) || s.no.includes(search.trim())),
     [students, search, onlyUnsorted]
   );
 
@@ -161,7 +162,7 @@ export default function StudentsClient({
                 }}
               >
                 <div style={{ color: "var(--ink-3)", fontSize: 13, direction: "ltr", textAlign: "right" }}>{s.no}</div>
-                <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
+                <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.fullName}</div>
                 <div style={{ color: s.halqaId ? "var(--ink-2)" : "#E8A0A0", fontSize: 13 }}>{s.halqaId ? s.halqaName : "غير مفروز"}</div>
                 <div>
                   <span style={{ padding: "4px 10px", borderRadius: 999, background: "var(--chip)", border: "1px solid var(--line)", fontSize: 12 }}>
@@ -199,7 +200,7 @@ export default function StudentsClient({
               >
                 <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</span>
+                    <span style={{ fontSize: 15, fontWeight: 600 }}>{s.fullName}</span>
                     <span style={{ fontSize: 12, color: "var(--ink-3)", direction: "ltr" }}>#{s.no}</span>
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -277,7 +278,7 @@ function StudentForm({
           <button type="button" onClick={onClose} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 14, cursor: "pointer" }}>
             إلغاء
           </button>
-          {initial && <DeleteStudentButton id={initial.id} name={initial.name} onDeleted={onClose} />}
+          {initial && <DeleteStudentButton id={initial.id} name={initial.fullName} onDeleted={onClose} />}
         </>
       }
     >

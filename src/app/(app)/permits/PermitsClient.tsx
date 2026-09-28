@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
-import { padTime } from "@/lib/daily";
+import { padTime, formatDateAr } from "@/lib/daily";
 import PermitForm, { type ExistingPermit } from "./PermitForm";
 import { deletePermit } from "./actions";
 
@@ -122,7 +122,7 @@ export default function PermitsClient({ scopeNote, halaqat }: { scopeNote: strin
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
-                    أضافه {p.setByName} · قائم منذ {p.since}
+                    أضافه {p.setByName} · قائم منذ {formatDateAr(p.since)}
                   </div>
                   {p.note && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>السبب: {p.note}</div>}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

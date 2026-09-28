@@ -339,6 +339,16 @@ export async function loadReviewInputs(
 
 // ==================== تقرير علامات سبر الأوقاف ====================
 
+/**
+ * «الاسم اسم الأب النسبة». s.name يصل هنا مع النسبة ملحقة (امتداد العميل في db.ts)، فتُنزع أولًا
+ * كي لا تتكرر، ثم يُدرج اسم الأب قبلها.
+ */
+function fullStudentName(s: { name: string; fatherName: string | null; familyName: string | null }): string {
+  const family = s.familyName?.trim() || "";
+  const base = family && s.name.endsWith(family) ? s.name.slice(0, -family.length).trim() : s.name;
+  return [base, s.fatherName?.trim(), family].filter(Boolean).join(" ");
+}
+
 /** دفعات سبر الأوقاف التي سُجّلت فيها علامة واحدة على الأقل — مرشّحة لتقرير العلامات. */
 export async function listMarkedAwqafBatches(): Promise<{ id: string; date: string; marked: number; total: number }[]> {
   const batches = await prisma.awqafBatch.findMany({
@@ -391,7 +401,7 @@ export async function buildAwqafMarks(batchId: string): Promise<{ date: string; 
       const mode = r.nominationPresent ? "حاضرًا" : "غيبًا";
       return {
         studentId: s.id,
-        fullName: [s.name, s.fatherName, s.familyName].map((x) => x?.trim()).filter(Boolean).join(" "),
+        fullName: fullStudentName(s),
         studentNo: s.studentNo,
         examLabel: nom?.nominationParts ? `${nom.nominationParts} ${mode}` : mode,
         teacherName: s.halqa?.teacher.name ?? "—",

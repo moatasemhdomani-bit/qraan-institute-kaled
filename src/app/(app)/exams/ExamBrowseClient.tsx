@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
-import { resultLabel, passFailLabel, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
+import { resultLabel, passFailLabel, examKindLabel, type ExamTypeId } from "@/lib/exam";
+import { formatDateAr } from "@/lib/daily";
 import Drawer from "@/components/Drawer";
 import ExamFormDrawer, { type ExistingExam } from "./ExamFormDrawer";
 
@@ -81,7 +82,7 @@ export default function ExamBrowseClient({
               >
                 <span>{s.name}</span>
                 <span style={{ color: "var(--ink-3)", fontSize: 11 }}>#{s.no}</span>
-                <span style={{ marginInlineStart: "auto", fontSize: 11.5, color: "var(--ink-3)", direction: "ltr" }}>{s.date}</span>
+                <span style={{ marginInlineStart: "auto", fontSize: 11.5, color: "var(--ink-3)" }}>{formatDateAr(s.date)}</span>
               </button>
             ))}
           </div>
@@ -208,9 +209,9 @@ export default function ExamBrowseClient({
                         {passFail}
                       </span>
                     )}
-                    {type === "LOCAL" && e.localKind && (
-                      <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
-                        {LOCAL_KIND_LABELS[e.localKind]}
+                    {examKindLabel({ ...e, type }) && (
+                      <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: "1px solid var(--accent-line)", color: "var(--ink)" }}>
+                        {examKindLabel({ ...e, type })}
                       </span>
                     )}
                     {e.pages != null && e.pages.length > 0 && (
@@ -229,7 +230,7 @@ export default function ExamBrowseClient({
                   </div>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, color: "var(--ink-2)" }}>
                     <span>المختبِر: {e.examinerName}</span>
-                    <span style={{ direction: "ltr" }}>{e.date}</span>
+                    <span>{formatDateAr(e.date)}</span>
                   </div>
                   {e.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>ملاحظات: {e.notes}</div>}
                 </div>

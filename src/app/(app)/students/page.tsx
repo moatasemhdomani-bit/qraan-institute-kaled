@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { prisma } from "@/lib/db";
+import { prisma, rawPrisma, nameWithNasab } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import StudentsClient from "./StudentsClient";
 import { decryptPassword } from "@/lib/guardian";
@@ -12,11 +12,13 @@ export default async function StudentsPage() {
   if (session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
 
   const [studentsRaw, halaqatRaw] = await Promise.all([
-    prisma.student.findMany({
+    // العميل الخام: نموذج التعديل يحتاج اسم الطالب المخزَّن بلا نسبة (النسبة في حقلها المستقل)،
+    // وأسماء العرض تُركَّب هنا صراحة مع النسبة
+    rawPrisma.student.findMany({
       include: {
         halqa: { include: { cohort: true, teacher: true } },
         guardianUser: true,
-        behaviorLog: { include: { actor: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
+        behaviorLog: { include: { actor: { select: { name: true, familyName: true } } }, orderBy: { createdAt: "desc" } },
       },
       orderBy: { studentNo: "asc" },
     }),
@@ -27,6 +29,7 @@ export default async function StudentsPage() {
     id: s.id,
     no: String(s.studentNo),
     name: s.name,
+    fullName: nameWithNasab(s.name, s.familyName),
     father: s.fatherName || "",
     mother: s.motherName || "",
     familyName: s.familyName || "",
@@ -40,7 +43,7 @@ export default async function StudentsPage() {
     halqaId: s.halqaId || "",
     halqaName: s.halqa?.name || "—",
     cohortName: s.halqa?.cohort.name || "—",
-    teacherName: s.halqa?.teacher.name || "—",
+    teacherName: s.halqa ? nameWithNasab(s.halqa.teacher.name, s.halqa.teacher.familyName) : "—",
     guardianUsername: s.guardianUser?.username || "",
     guardianPassword: decryptPassword(s.guardianUser?.passwordEnc) || "",
     behavior: s.behavior,
@@ -48,7 +51,7 @@ export default async function StudentsPage() {
       previousValue: l.previousValue,
       newValue: l.newValue,
       note: l.note,
-      by: l.actor.name,
+      by: nameWithNasab(l.actor.name, l.actor.familyName),
       date: formatDateAr(dateOnly(l.createdAt)),
     })),
   }));

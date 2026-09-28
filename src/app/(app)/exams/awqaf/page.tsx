@@ -36,10 +36,14 @@ export default async function AwqafExamPage() {
   }
 
   const readyMap = new Map<string, { id: string; no: number; name: string; date: string }>();
+  const seen = new Set<string>();
   for (const e of examsRaw) {
-    if (readyMap.has(e.studentId)) continue; // examsRaw مرتّبة تنازليًا حسب التاريخ — أول ظهور هو الأحدث
+    if (seen.has(e.studentId)) continue; // examsRaw مرتّبة تنازليًا حسب التاريخ — أول ظهور هو الأحدث، والأقدم لا يُعتدّ به
+    seen.add(e.studentId);
     const passed = passFailLabel({ type: "WAQF_NOMINATION", resultMark: e.resultMark, nominationPresent: e.nominationPresent }) === "ناجح";
-    if (passed) readyMap.set(e.studentId, { id: e.student.id, no: e.student.studentNo, name: e.student.name, date: e.date });
+    // رشّحه المدير/الإداري إلى دفعة سبر أوقاف بعد هذا الترشيح → لم يعد «جاهزًا» عند المختبِرين
+    const alreadyInBatch = awqafResultsRaw.some((r) => r.studentId === e.studentId && r.batch.date >= e.date);
+    if (passed && !alreadyInBatch) readyMap.set(e.studentId, { id: e.student.id, no: e.student.studentNo, name: e.student.name, date: e.date });
   }
   const readyStudents = Array.from(readyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
 

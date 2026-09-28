@@ -20,7 +20,7 @@ export default function MobileNav({ role, name }: { role: RoleId; name: string }
         position: "sticky",
         top: 0,
         alignSelf: "flex-start",
-        height: "100vh",
+        height: "var(--full-h)",
         overflow: "auto",
         flexDirection: "column",
         gap: 3,

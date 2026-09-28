@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cardStyle, chipStyle, inputStyle } from "@/lib/ui";
-import { resultLabel, passFailLabel, TYPE_LABELS, LOCAL_KIND_LABELS, type ExamTypeId } from "@/lib/exam";
+import { resultLabel, passFailLabel, examKindLabel, TYPE_LABELS, type ExamTypeId } from "@/lib/exam";
+import { formatDateAr } from "@/lib/daily";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
 
@@ -129,9 +130,12 @@ export default function ExamMonitorClient({
                   <span style={{ fontSize: 14.5, fontWeight: 700 }}>{r.studentName}</span>
                   <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
                     {isAwqafActual ? "سبر الأوقاف الفعلي" : TYPE_LABELS[r.type as ExamTypeId]}
-                    {r.localKind ? ` — ${LOCAL_KIND_LABELS[r.localKind]}` : ""}
-                    {isAwqafActual ? ` — ${r.nominationPresent ? "حاضرًا" : "غيبًا"}` : ""}
                   </span>
+                  {examKindLabel(r) && (
+                    <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: "1px solid var(--accent-line)", color: "var(--ink)" }}>
+                      {examKindLabel(r)}
+                    </span>
+                  )}
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{resultText}</span>
                   {passFail && (
                     <span
@@ -174,7 +178,7 @@ export default function ExamMonitorClient({
                 </div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, color: "var(--ink-2)" }}>
                   {!isAwqafActual && <span>المختبِر: {r.examinerName}</span>}
-                  <span style={{ direction: "ltr" }}>{r.date}</span>
+                  <span>{formatDateAr(r.date)}</span>
                 </div>
                 {r.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>ملاحظات: {r.notes}</div>}
               </div>

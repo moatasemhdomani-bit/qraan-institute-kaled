@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { today, isValidDate, formatDateAr, ATT_LABELS, ATT_STATES, pageSpan } from "@/lib/daily";
-import { resultLabel, TYPE_LABELS } from "@/lib/exam";
+import { resultLabel, examKindLabel, TYPE_LABELS } from "@/lib/exam";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import PageHeader from "@/components/PageHeader";
 import ParentClient from "./ParentClient";
@@ -142,7 +142,7 @@ export default async function ParentPage({
         }))}
         examRows={[
           ...exams.map((e) => ({
-            type: TYPE_LABELS[e.type],
+            type: [TYPE_LABELS[e.type], examKindLabel(e)].filter(Boolean).join(" — "),
             result: resultLabel(e),
             rawDate: e.date,
             examinerName: e.examiner.name,
@@ -151,7 +151,15 @@ export default async function ParentPage({
           ...awqafResults.map((r) => {
             const passed = awqafPassed(r.score, r.nominationPresent);
             return {
-              type: "سبر الأوقاف",
+              type: [
+                "سبر الأوقاف",
+                examKindLabel({
+                  type: "AWQAF_ACTUAL",
+                  nominationPresent: r.nominationPresent,
+                  nominationParts:
+                    exams.find((e) => e.type === "WAQF_NOMINATION" && e.nominationPresent === r.nominationPresent && e.date <= r.batch.date)?.nominationParts ?? null,
+                }),
+              ].join(" — "),
               result: r.score != null ? `${r.score} / 100${passed != null ? ` — ${passed ? "ناجح" : "راسب"}` : ""}` : "بانتظار العلامة",
               rawDate: r.batch.date,
               examinerName: "",

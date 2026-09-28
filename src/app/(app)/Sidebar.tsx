@@ -20,7 +20,7 @@ export default function Sidebar({ role, name, roleLabel }: { role: RoleId; name:
         flexDirection: "column",
         position: "sticky",
         top: 0,
-        height: "100vh",
+        height: "var(--full-h)",
         overflow: "hidden",
       }}
     >

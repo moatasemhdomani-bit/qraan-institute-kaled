@@ -45,6 +45,22 @@ export function formatDateAr(date: string): string {
   return `${y}/${m}/${d}`;
 }
 
+const DAMASCUS_DATETIME = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Damascus",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** تاريخ ووقت بصيغة «yyyy/mm/dd hh:mm» بتوقيت دمشق — مستقل عن توقيت الخادم (Railway يعمل بـ UTC). */
+export function formatDateTimeAr(d: Date): string {
+  const p = Object.fromEntries(DAMASCUS_DATETIME.formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}/${p.month}/${p.day} ${p.hour}:${p.minute}`;
+}
+
 /**
  * input[type=time] يرفض بصمت أي قيمة ليست HH:MM بالضبط (مثلًا "9:30" بلا صفر بادئ)،
  * وبيانات قديمة أُدخلت كنص حر قبل توحيد حقل الوقت قد تكون بهذا الشكل — طبّعوها للعرض والحقول معًا.
