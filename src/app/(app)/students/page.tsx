@@ -39,7 +39,7 @@ export default async function StudentsPage() {
     phone: s.studentPhone || "",
     guardianPhone: s.guardianPhone || "",
     photoUrl: s.photoUrl,
-    registeredAt: formatDateAr(dateOnly(s.registeredAt)),
+    registeredAt: s.registeredAt ? formatDateAr(dateOnly(s.registeredAt)) : "—",
     halqaId: s.halqaId || "",
     halqaName: s.halqa?.name || "—",
     cohortName: s.halqa?.cohort.name || "—",

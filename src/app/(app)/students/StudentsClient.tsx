@@ -97,7 +97,13 @@ export default function StudentsClient({
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+        <Link
+          href="/students/import"
+          style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 14, textDecoration: "none" }}
+        >
+          استيراد من Google Sheets
+        </Link>
         {halaqat.length > 0 && (
           <button onClick={openNew} style={primaryButtonStyle}>
             طالب جديد
@@ -368,7 +374,8 @@ function StudentForm({
           <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
         </div>
 
-        <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
+        {/* حالة الطالب في سطر، وتحتها «يتيم» */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>حالة الطالب</div>
             <div style={{ display: "flex", gap: 6 }}>
@@ -606,7 +613,8 @@ function Field({
   required?: boolean;
 }) {
   if (type === "date") {
-    return <DateField label={label} name={name} defaultValue={defaultValue} width="100%" />;
+    // المواليد قد تكون سنة وحدها (كما في الطلاب المستوردين من الجدول القديم)
+    return <DateField label={label} name={name} defaultValue={defaultValue} width="100%" allowYearOnly={name === "birth"} />;
   }
   return (
     <div>

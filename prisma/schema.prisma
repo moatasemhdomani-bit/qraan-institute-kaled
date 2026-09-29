@@ -112,7 +112,7 @@ model Student {
   photoUrl      String?
   studentPhone  String?
   guardianPhone String?
-  registeredAt  DateTime @default(now())
+  registeredAt  DateTime? @default(now()) // فارغ لطلاب مستوردين بلا تاريخ تسجيل في الجدول القديم
 
   halqaId String?
   halqa   Halqa?  @relation(fields: [halqaId], references: [id])

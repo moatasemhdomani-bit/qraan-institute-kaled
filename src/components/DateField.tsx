@@ -9,8 +9,9 @@ function toSlash(iso: string | undefined): string {
   return iso ? iso.replace(/-/g, "/") : "";
 }
 
-/** "YYYY/MM/DD" كاملة وصحيحة ← "YYYY-MM-DD"، وإلا "". */
-function toIso(text: string): string {
+/** "YYYY/MM/DD" كاملة وصحيحة ← "YYYY-MM-DD"، وإلا "". مع allowYearOnly تُقبل السنة وحدها «YYYY». */
+function toIso(text: string, allowYearOnly = false): string {
+  if (allowYearOnly && /^(19|20)\d{2}$/.test(text)) return text;
   const m = /^(\d{4})\/(\d{2})\/(\d{2})$/.exec(text);
   if (!m) return "";
   const [, y, mo, d] = m;
@@ -37,6 +38,7 @@ export default function DateField({
   defaultValue,
   onChange,
   width = 170,
+  allowYearOnly = false,
 }: {
   name?: string;
   label?: string;
@@ -44,6 +46,7 @@ export default function DateField({
   defaultValue?: string;
   onChange?: (v: string) => void;
   width?: number | string;
+  allowYearOnly?: boolean;
 }) {
   const [text, setText] = useState(toSlash(value ?? defaultValue));
   const [prevValue, setPrevValue] = useState(value);
@@ -52,15 +55,15 @@ export default function DateField({
   // قيمة يتحكم بها الأب وتغيّرت من خارج الحقل (مثل إعادة تعيين) — تُعكس في النص المعروض
   if (value !== prevValue) {
     setPrevValue(value);
-    if (value !== undefined && value !== toIso(text)) setText(toSlash(value));
+    if (value !== undefined && value !== toIso(text, allowYearOnly)) setText(toSlash(value));
   }
 
-  const iso = toIso(text);
+  const iso = toIso(text, allowYearOnly);
   const incomplete = text.length > 0 && !iso;
 
   function update(nextText: string) {
     setText(nextText);
-    const nextIso = toIso(nextText);
+    const nextIso = toIso(nextText, allowYearOnly);
     if (onChange && (nextIso || nextText === "")) onChange(nextIso);
   }
 
@@ -123,7 +126,7 @@ export default function DateField({
           type="date"
           tabIndex={-1}
           aria-hidden="true"
-          value={iso}
+          value={/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : ""}
           onChange={(e) => update(toSlash(e.target.value))}
           style={{ position: "absolute", left: 0, bottom: 0, width: "100%", height: 1, opacity: 0, pointerEvents: "none", border: 0, padding: 0 }}
         />
