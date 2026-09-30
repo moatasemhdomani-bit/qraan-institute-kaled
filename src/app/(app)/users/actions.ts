@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/password";
 import { generatePassword, encryptPassword } from "@/lib/guardian";
 import { logAction } from "@/lib/audit";
 import { ROLE_LABELS } from "@/lib/ui";
+import { staffRoleLabel } from "@/lib/track";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { normalizePhone, isValidMobile } from "@/lib/phone";
@@ -28,6 +29,8 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
 
   const id = String(formData.get("id") || "") || null;
   const role = String(formData.get("role") || "TEACHER") as "DIRECTOR" | "ADMIN" | "TEACHER" | "EXAMINER";
+  // نوع التدريس يخص المدرّس والمختبِر وحدهما
+  const track = (role === "TEACHER" || role === "EXAMINER") && formData.get("track") === "ARABIC" ? ("ARABIC" as const) : ("QURAN" as const);
   const name = String(formData.get("name") || "").trim();
   const username = String(formData.get("username") || "").trim();
   const password = String(formData.get("password") || "").trim();
@@ -39,9 +42,16 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     return { error: "إسناد دور «مدير المعهد» من اختصاص مدير المعهد وحده." };
   }
 
+  // مدرّس له حلقات: لا يتغيّر نوعه (قرآن / قراءة عربية) إلا بعد نقل حلقاته — الحلقة ومدرّسها من نوع واحد
+  if (id) {
+    const clash = await prisma.halqa.count({ where: { teacherId: id, NOT: { track } } });
+    if (clash > 0) return { error: "لهذا المدرّس حلقات من النوع الآخر — أسندوها إلى مدرّس غيره قبل تغيير نوعه." };
+  }
+
   const data = {
     name,
     role,
+    track,
     fatherName: String(formData.get("father") || "") || null,
     motherName: String(formData.get("mother") || "") || null,
     familyName: String(formData.get("family") || "") || null,
@@ -89,7 +99,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     const passwordEnc = encryptPassword(finalPassword);
     const created = await prisma.user.create({ data: { ...data, username, passwordHash, passwordEnc } });
     userId = created.id;
-    await logAction(session.userId, `سجّل عاملًا جديدًا «${name}» بدور ${ROLE_LABELS[role]}`);
+    await logAction(session.userId, `سجّل عاملًا جديدًا «${name}» بدور ${staffRoleLabel(role, track, ROLE_LABELS)}`);
   }
 
   if (role === "TEACHER" && userId) {
@@ -144,7 +154,7 @@ export async function deleteStaff(id: string): Promise<FormState> {
     await prisma.cohortTeacher.deleteMany({ where: { userId: id } });
   }
 
-  await logAction(session.userId, `حذف حساب ${ROLE_LABELS[target.role]} «${target.name}»`);
+  await logAction(session.userId, `حذف حساب ${staffRoleLabel(target.role, target.track, ROLE_LABELS)} «${target.name}»`);
   revalidatePath("/users");
   return { ok: true };
 }

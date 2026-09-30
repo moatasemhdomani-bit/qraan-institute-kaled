@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { examinerTrack } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import { cardStyle } from "@/lib/ui";
 import PageHeader from "@/components/PageHeader";
@@ -37,7 +38,7 @@ export default async function DashboardPage() {
   // المدرّس وولي الأمر ومختِبر لهم شاشات فعلية الآن — يُوجَّهون إليها مباشرة
   if (session.role === "TEACHER") redirect("/attendance");
   if (session.role === "GUARDIAN") redirect("/parent");
-  if (session.role === "EXAMINER") redirect("/exams/local");
+  if (session.role === "EXAMINER") redirect((await examinerTrack(session)) === "ARABIC" ? "/exams/arabic" : "/exams/local");
 
   if (!staffMode) {
     return (

@@ -1,18 +1,31 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
-import { saveExam, saveTajweedTopic, type FormState } from "./actions";
+import { useActionState, useEffect, useState } from "react";
+import { saveExam, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
-import { JUZ, MIN_PAGE, MAX_PAGE, NOMINATION_PARTS, LOCAL_KINDS, LOCAL_KIND_LABELS, passFailLabel, type ExamTypeId, type LocalKindId } from "@/lib/exam";
+import {
+  JUZ,
+  MIN_PAGE,
+  MAX_PAGE,
+  NOMINATION_PARTS,
+  LOCAL_KINDS,
+  LOCAL_KIND_LABELS,
+  ARABIC_STAGES,
+  ARABIC_GRADES,
+  ARABIC_MARK_STAGE,
+  ARABIC_PASS_MARK,
+  ARABIC_FAIL_GRADE,
+  TYPE_LABELS,
+  passFailLabel,
+  type ExamTypeId,
+  type LocalKindId,
+} from "@/lib/exam";
 import { today } from "@/lib/daily";
 import Drawer from "@/components/Drawer";
 import DateField from "@/components/DateField";
 import NumberField from "@/components/NumberField";
-import Select from "@/components/Select";
 
 const initialState: FormState = {};
-
-export type ExamAnswerRow = { topicId: string; text: string };
 
 export type ExistingExam = {
   id: string;
@@ -24,8 +37,9 @@ export type ExistingExam = {
   resultMark: number | null;
   nominationPresent: boolean | null;
   nominationParts: number | null;
+  stage?: number | null;
+  grade?: string | null;
   notes: string | null;
-  answers: ExamAnswerRow[];
 };
 
 function PagePicker({ pages, setPages }: { pages: number[]; setPages: (p: number[]) => void }) {
@@ -87,15 +101,13 @@ export default function ExamFormDrawer({
   type,
   student,
   existing,
-  tajweedTopics,
   onClose,
   onSaved,
 }: {
   type: ExamTypeId;
   /** null فقط عند إضافة طالب جديد ضمن تحديد المستوى */
-  student: { id: string; name: string } | null;
+  student: { id: string; name: string; no?: number; halqaName?: string } | null;
   existing: ExistingExam | null;
-  tajweedTopics: { id: string; juz: number; text: string }[];
   onClose: () => void;
   onSaved?: () => void;
 }) {
@@ -110,20 +122,8 @@ export default function ExamFormDrawer({
   const [nominationPresent, setNominationPresent] = useState<boolean | null>(existing?.nominationPresent ?? null);
   const [nominationParts, setNominationParts] = useState<number | null>(existing?.nominationParts ?? null);
   const [notes, setNotes] = useState(existing?.notes ?? "");
-  const [answers, setAnswers] = useState<ExamAnswerRow[]>(existing?.answers ?? []);
-  const [topicSearch, setTopicSearch] = useState("");
-  const [topics, setTopics] = useState(tajweedTopics);
-
-  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
-  const [editingTopicText, setEditingTopicText] = useState("");
-  const [editingTopicJuz, setEditingTopicJuz] = useState<number>(1);
-  const [topicSaving, setTopicSaving] = useState(false);
-  const [topicError, setTopicError] = useState("");
-
-  const [addingTopic, setAddingTopic] = useState(false);
-  const [newTopicText, setNewTopicText] = useState("");
-  const [newTopicJuz, setNewTopicJuz] = useState<number>(juz ?? 1);
-
+  const [stage, setStage] = useState<number | null>(existing?.stage ?? null);
+  const [grade, setGrade] = useState(existing?.grade ?? "");
   useEffect(() => {
     if (state.ok) {
       onSaved?.();
@@ -131,20 +131,9 @@ export default function ExamFormDrawer({
     }
   }, [state.ok, onClose, onSaved]);
 
-  const topicHits = useMemo(
-    () =>
-      topics
-        .filter((t) => t.juz <= (juz ?? 0))
-        .filter((t) => !topicSearch.trim() || t.text.includes(topicSearch.trim()))
-        .filter((t) => !answers.some((a) => a.topicId === t.id)),
-    [topics, juz, topicSearch, answers]
-  );
-
-  const titles: Record<ExamTypeId, string> = {
-    LOCAL: "سبر محلي",
-    WAQF_NOMINATION: "ترشيح الأوقاف",
-    PLACEMENT: "تحديد مستوى",
-  };
+  const titles = TYPE_LABELS;
+  const isArabic = type === "ARABIC";
+  const markStage = isArabic && stage === ARABIC_MARK_STAGE;
 
   const partsOptions = nominationPresent == null ? [] : NOMINATION_PARTS[nominationPresent ? "present" : "absent"];
 
@@ -156,56 +145,9 @@ export default function ExamFormDrawer({
           localKind: localKind || null,
           resultMark: resultMark ? parseInt(resultMark, 10) : null,
           nominationPresent,
+          stage,
+          grade: grade || null,
         });
-
-  async function startEditTopic(t: { id: string; juz: number; text: string }) {
-    setAddingTopic(false);
-    setEditingTopicId(t.id);
-    setEditingTopicText(t.text);
-    setEditingTopicJuz(t.juz);
-    setTopicError("");
-  }
-
-  async function saveEditedTopic() {
-    if (!editingTopicId) return;
-    if (!editingTopicText.trim()) {
-      setTopicError("اكتبوا نص السؤال.");
-      return;
-    }
-    setTopicSaving(true);
-    setTopicError("");
-    const res = await saveTajweedTopic({ id: editingTopicId, juz: editingTopicJuz, text: editingTopicText.trim() });
-    setTopicSaving(false);
-    if (res.error) {
-      setTopicError(res.error);
-      return;
-    }
-    if (res.topic) {
-      setTopics((prev) => prev.map((t) => (t.id === res.topic!.id ? res.topic! : t)));
-      setAnswers((prev) => prev.map((a) => (a.topicId === res.topic!.id ? { ...a, text: res.topic!.text } : a)));
-    }
-    setEditingTopicId(null);
-  }
-
-  async function addNewTopic() {
-    if (!newTopicText.trim()) {
-      setTopicError("اكتبوا نص السؤال.");
-      return;
-    }
-    setTopicSaving(true);
-    setTopicError("");
-    const res = await saveTajweedTopic({ juz: newTopicJuz, text: newTopicText.trim() });
-    setTopicSaving(false);
-    if (res.error) {
-      setTopicError(res.error);
-      return;
-    }
-    if (res.topic) {
-      setTopics((prev) => [...prev, res.topic!]);
-      setNewTopicText("");
-    }
-    setAddingTopic(false);
-  }
 
   return (
     <Drawer
@@ -240,7 +182,59 @@ export default function ExamFormDrawer({
         <input type="hidden" name="resultMark" value={resultMark} />
         <input type="hidden" name="nominationPresent" value={nominationPresent == null ? "" : nominationPresent ? "1" : "0"} />
         <input type="hidden" name="nominationParts" value={nominationParts ?? ""} />
-        <input type="hidden" name="topicIdsJson" value={JSON.stringify(answers.map((a) => a.topicId))} />
+        <input type="hidden" name="stage" value={stage ?? ""} />
+        <input type="hidden" name="grade" value={grade} />
+
+        {isArabic && (
+          <>
+            {/* بطاقة الطالب: الاسم والرقم والحلقة، ثم التاريخ (اليوم تلقائيًا) */}
+            <div style={{ padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 700 }}>
+                {student?.name}{" "}
+                {student?.no != null && <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 500 }}>#{student.no}</span>}
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>الحلقة: {student?.halqaName || "—"}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>
+              <DateField label="تاريخ السبر" name="date" value={date} onChange={setDate} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>المرحلة</div>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {ARABIC_STAGES.map((s) => (
+                  <button key={s} type="button" onClick={() => setStage(s)} style={{ ...chipStyle(stage === s), width: 48, minHeight: 44, padding: 0, fontSize: 16 }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {stage != null && !markStage && (
+              <div>
+                <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>التقدير</div>
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                  {ARABIC_GRADES.map((g) => (
+                    <button key={g} type="button" onClick={() => setGrade(g)} style={{ ...chipStyle(grade === g), minHeight: 44, padding: "10px 18px" }}>
+                      {g}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ marginTop: 7, fontSize: 12, color: "var(--ink-3)" }}>«{ARABIC_FAIL_GRADE}» تعني راسب؛ جيد وجيد جدًا وممتاز تعني ناجح.</div>
+              </div>
+            )}
+            {markStage && (
+              <div>
+                <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
+                <NumberField
+                  value={resultMark}
+                  onChange={(e) => setResultMark(e.target.value)}
+                  placeholder="0 — 100"
+                  style={{ width: 120, minHeight: 46, padding: 11, fontSize: 17 }}
+                />
+                <div style={{ marginTop: 7, fontSize: 12, color: "var(--ink-3)" }}>المرحلة 6 بعلامة من 100 — ناجح بـ {ARABIC_PASS_MARK} فأكثر.</div>
+              </div>
+            )}
+          </>
+        )}
 
         {type === "PLACEMENT" && !student && (
           <div>
@@ -362,146 +356,6 @@ export default function ExamFormDrawer({
               </div>
             )}
 
-            {localKind === "HADIRAN" && (
-              <>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 9, padding: 14, borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>الأسئلة المُغطاة في هذا السبر</div>
-                    {answers.length === 0 && (
-                      <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>لم تُضف أسئلة بعد — اختاروا الجزء ثم أسئلة من بنك التجويد أدناه.</div>
-                    )}
-                    {answers.map((a, idx) => (
-                      <div key={a.topicId} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 12px", borderRadius: 11, border: "1px solid var(--line-2)", background: "var(--card-grad)" }}>
-                        <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-                          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>سؤال {idx + 1}</span>
-                          <span style={{ fontSize: 13.5, color: "var(--ink)" }}>{a.text}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setAnswers((prev) => prev.filter((_, i) => i !== idx))}
-                          style={{ flex: "none", width: 34, height: 44, borderRadius: 9, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-3)", fontSize: 16, cursor: "pointer" }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {juz != null && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 9, padding: 14, borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700 }}>بنك أسئلة التجويد</div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAddingTopic((v) => !v);
-                            setEditingTopicId(null);
-                            setNewTopicJuz(juz ?? 1);
-                            setTopicError("");
-                          }}
-                          style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}
-                        >
-                          {addingTopic ? "إلغاء" : "+ سؤال جديد"}
-                        </button>
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>أسئلة الجزء {juz} فما دون — تراكميًا من كل الأجزاء الأقل.</div>
-
-                      {topicError && <div style={{ fontSize: 12, color: "#F0B4B4" }}>{topicError}</div>}
-
-                      {addingTopic && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-grad)" }}>
-                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                            <label style={{ fontSize: 12, color: "var(--ink-2)" }}>الجزء</label>
-                            <Select
-                              value={String(newTopicJuz)}
-                              onChange={(v) => setNewTopicJuz(parseInt(v, 10))}
-                              options={JUZ.map((j) => ({ value: String(j), label: String(j) }))}
-                              width={90}
-                            />
-                          </div>
-                          <textarea
-                            value={newTopicText}
-                            onChange={(e) => setNewTopicText(e.target.value)}
-                            placeholder="نص السؤال"
-                            rows={2}
-                            style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 13, resize: "vertical" }}
-                          />
-                          <button
-                            type="button"
-                            disabled={topicSaving}
-                            onClick={addNewTopic}
-                            style={{ ...primaryButtonStyle, padding: "8px 14px", fontSize: 13, opacity: topicSaving ? 0.7 : 1 }}
-                          >
-                            {topicSaving ? "جارٍ الإضافة…" : "إضافة إلى البنك"}
-                          </button>
-                        </div>
-                      )}
-
-                      <input value={topicSearch} onChange={(e) => setTopicSearch(e.target.value)} placeholder="بحث في الأسئلة" style={inputStyle()} />
-                      {topicHits.length === 0 && !addingTopic && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>لا سؤال مطابق، أو أُضيفت كل الأسئلة المتاحة بالفعل.</div>}
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflow: "auto" }}>
-                        {topicHits.map((t) =>
-                          editingTopicId === t.id ? (
-                            <div key={t.id} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-grad)" }}>
-                              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                <label style={{ fontSize: 12, color: "var(--ink-2)" }}>الجزء</label>
-                                <Select
-                                  value={String(editingTopicJuz)}
-                                  onChange={(v) => setEditingTopicJuz(parseInt(v, 10))}
-                                  options={JUZ.map((j) => ({ value: String(j), label: String(j) }))}
-                                  width={90}
-                                />
-                              </div>
-                              <textarea
-                                value={editingTopicText}
-                                onChange={(e) => setEditingTopicText(e.target.value)}
-                                rows={2}
-                                style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 13, resize: "vertical" }}
-                              />
-                              <div style={{ display: "flex", gap: 8 }}>
-                                <button
-                                  type="button"
-                                  disabled={topicSaving}
-                                  onClick={saveEditedTopic}
-                                  style={{ ...primaryButtonStyle, padding: "7px 14px", fontSize: 12.5, opacity: topicSaving ? 0.7 : 1 }}
-                                >
-                                  {topicSaving ? "جارٍ الحفظ…" : "حفظ"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingTopicId(null)}
-                                  style={{ padding: "7px 14px", borderRadius: 9, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 12.5, cursor: "pointer" }}
-                                >
-                                  إلغاء
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <button
-                                type="button"
-                                onClick={() => setAnswers((prev) => [...prev, { topicId: t.id, text: t.text }])}
-                                style={{ flex: 1, minWidth: 0, textAlign: "start", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-grad)", color: "var(--ink)", fontSize: 13, cursor: "pointer" }}
-                              >
-                                <span style={{ color: "var(--ink-3)" }}>الجزء {t.juz} — </span>
-                                {t.text}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => startEditTopic(t)}
-                                style={{ flex: "none", padding: "10px 10px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}
-                              >
-                                تعديل
-                              </button>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
           </>
         )}
 
@@ -535,9 +389,11 @@ export default function ExamFormDrawer({
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>
-          <DateField label="تاريخ السبر" name="date" value={date} onChange={setDate} />
-        </div>
+        {!isArabic && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>
+            <DateField label="تاريخ السبر" name="date" value={date} onChange={setDate} />
+          </div>
+        )}
 
         <div>
           <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>ملاحظات المختبِر</label>
@@ -549,7 +405,9 @@ export default function ExamFormDrawer({
             placeholder="ما يحتاج المدرّس أن يعرفه"
             style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 14, lineHeight: 1.6, resize: "vertical" }}
           />
-          <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>تصل هذه الملاحظات وأرقام الصفحات والنتيجة تلقائيًا إلى مدرّس الطالب.</div>
+          <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>
+            {isArabic ? "تصل هذه الملاحظات والمرحلة والنتيجة تلقائيًا إلى مدرّس الطالب." : "تصل هذه الملاحظات وأرقام الصفحات والنتيجة تلقائيًا إلى مدرّس الطالب."}
+          </div>
         </div>
       </form>
     </Drawer>

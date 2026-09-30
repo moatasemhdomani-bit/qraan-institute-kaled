@@ -1,6 +1,7 @@
 import type { RoleId } from "@/lib/ui";
 
-export const NAV: { id: string; href: string; label: string; roles: RoleId[] }[] = [
+/** track: عنصر يخص نوعًا واحدًا من المختبِرين (قرآن / قراءة عربية) — بلا track يظهر للجميع. */
+export const NAV: { id: string; href: string; label: string; roles: RoleId[]; track?: "QURAN" | "ARABIC" }[] = [
   { id: "dashboard", href: "/dashboard", label: "لوحة المعلومات", roles: ["DIRECTOR", "ADMIN", "EXAMINER"] },
   { id: "attendance", href: "/attendance", label: "الحضور اليومي", roles: ["TEACHER"] },
   { id: "recitation", href: "/recitation", label: "التسميع اليومي", roles: ["TEACHER"] },
@@ -9,9 +10,10 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[] }[]
   { id: "permits", href: "/permits", label: "إذن", roles: ["TEACHER", "ADMIN", "DIRECTOR"] },
   { id: "exams-hub", href: "/exams", label: "السبر", roles: ["DIRECTOR"] },
   { id: "awqaf-batches", href: "/exams/awqaf-batches", label: "سبر الأوقاف والشهادات", roles: ["DIRECTOR", "ADMIN"] },
-  { id: "exams-local", href: "/exams/local", label: "السبر المحلي", roles: ["EXAMINER"] },
-  { id: "exams-awqaf", href: "/exams/awqaf", label: "ترشيح الأوقاف", roles: ["EXAMINER"] },
-  { id: "exams-placement", href: "/exams/placement", label: "تحديد مستوى", roles: ["EXAMINER"] },
+  { id: "exams-local", href: "/exams/local", label: "السبر المحلي", roles: ["EXAMINER"], track: "QURAN" },
+  { id: "exams-awqaf", href: "/exams/awqaf", label: "ترشيح الأوقاف", roles: ["EXAMINER"], track: "QURAN" },
+  { id: "exams-placement", href: "/exams/placement", label: "تحديد مستوى", roles: ["EXAMINER"], track: "QURAN" },
+  { id: "exams-arabic", href: "/exams/arabic", label: "سبر القراءة العربية", roles: ["EXAMINER"], track: "ARABIC" },
   { id: "exam-monitor", href: "/exam-monitor", label: "متابعة السبر", roles: ["DIRECTOR", "ADMIN", "TEACHER"] },
   { id: "parent", href: "/parent", label: "متابعة الابن", roles: ["GUARDIAN"] },
   { id: "users", href: "/users", label: "إدارة المستخدمين", roles: ["DIRECTOR"] },

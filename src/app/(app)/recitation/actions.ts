@@ -73,7 +73,9 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
 
   if (e.gradeNew && !GRADES.includes(e.gradeNew as never)) return { error: "تقدير غير معروف." };
   if (e.gradePast && !GRADES.includes(e.gradePast as never)) return { error: "تقدير غير معروف." };
-  const bad = validateEntry(e, prior._max.newTo);
+  // القراءة العربية: جديد فقط بلا ماضٍ
+  if (halqa.track === "ARABIC") e.noPast = true;
+  const bad = validateEntry(e, prior._max.newTo, halqa.track);
   if (bad) return { error: bad };
 
   const data = {

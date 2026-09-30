@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { saveStudentRecitation } from "./actions";
-import { GRADES, MIN_PAGE, MAX_PAGE } from "@/lib/daily";
+import { GRADES } from "@/lib/daily";
+import { pageRange, hasPastRecitation, type TrackId } from "@/lib/track";
 import { validateEntry } from "@/lib/recitation";
 import { chipStyle } from "@/lib/ui";
 import NumberField from "@/components/NumberField";
@@ -34,11 +35,16 @@ type Student = {
  * «ماضي — من» يُترك فارغًا عمدًا: الماضي مراجعة، لا يُشترط أن يكمل من حيث انتهى آخر مرة، ويجوز
  * الرجوع لأي صفحة سابقة.
  */
-const blank = (s: Student): Entry => ({
+const blank = (s: Student, track: TrackId): Entry => ({
   none: false,
   noNew: false,
-  noPast: false,
-  nf: s.lastNewTo ? String(Math.min(s.lastNewTo + 1, MAX_PAGE)) : "",
+  // القراءة العربية: جديد فقط بلا ماضٍ، ويبدأ الطالب الجديد من أول صفحة في الكتاب
+  noPast: !hasPastRecitation(track),
+  nf: s.lastNewTo
+    ? String(Math.min(s.lastNewTo + 1, pageRange(track).max))
+    : hasPastRecitation(track)
+      ? ""
+      : String(pageRange(track).min),
   nt: "",
   rf: "",
   rt: "",
@@ -46,10 +52,11 @@ const blank = (s: Student): Entry => ({
   gradePast: "",
 });
 
-const span = (a: string, b: string) => {
+const span = (a: string, b: string, track: TrackId) => {
   const x = parseInt(a, 10);
   const y = parseInt(b, 10);
-  return x >= MIN_PAGE && y <= MAX_PAGE && y >= x ? y - x + 1 : 0;
+  const { min, max } = pageRange(track);
+  return x >= min && y <= max && y >= x ? y - x + 1 : 0;
 };
 
 const pageNum = (v: string): number | null => {
@@ -61,7 +68,7 @@ const sameEntry = (a: Entry | undefined, b: Entry) =>
   !!a && (Object.keys(b) as (keyof Entry)[]).every((k) => a[k] === b[k]);
 
 /** سبب رفض سطر الطالب (نفس قواعد الخادم تمامًا)، أو null إن كان جاهزًا للحفظ. */
-function entryProblem(s: Student, e: Entry): string | null {
+function entryProblem(s: Student, e: Entry, track: TrackId): string | null {
   return validateEntry(
     {
       studentId: s.id,
@@ -75,13 +82,15 @@ function entryProblem(s: Student, e: Entry): string | null {
       gradeNew: e.gradeNew || null,
       gradePast: e.gradePast || null,
     },
-    s.lastNewTo
+    s.lastNewTo,
+    track
   );
 }
 
-function summaryOf(e: Entry): string {
+function summaryOf(e: Entry, track: TrackId): string {
   if (e.none) return "لم يسمّع اليوم";
   const newPart = e.noNew ? "لم يسمّع جديدًا" : `تسميع جديد ${e.nf}→${e.nt} (${e.gradeNew})`;
+  if (!hasPastRecitation(track)) return newPart;
   const pastPart = e.noPast ? "لم يقرأ ماضي" : `ماضي ${e.rf}→${e.rt} (${e.gradePast})`;
   return `${newPart} · ${pastPart}`;
 }
@@ -92,21 +101,24 @@ function summaryOf(e: Entry): string {
  */
 export default function RecitationClient({
   halqaId,
+  track = "QURAN",
   date,
   students,
 }: {
   halqaId: string;
+  track?: TrackId;
   date: string;
   students: Student[];
   alreadyUploaded: boolean;
 }) {
   const [entries, setEntries] = useState<Record<string, Entry>>(() =>
-    Object.fromEntries(students.map((s) => [s.id, s.saved ?? blank(s)]))
+    Object.fromEntries(students.map((s) => [s.id, s.saved ?? blank(s, track)]))
   );
   // آخر نسخة محفوظة فعلًا على الخادم لكل طالب
   const [savedEntries, setSavedEntries] = useState<Record<string, Entry>>(() =>
     Object.fromEntries(students.filter((s) => s.saved).map((s) => [s.id, s.saved as Entry]))
   );
+  const withPast = hasPastRecitation(track);
   const [open, setOpen] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [justSaved, setJustSaved] = useState<string | null>(null);
@@ -133,7 +145,7 @@ export default function RecitationClient({
   function save(s: Student, idx: number) {
     const e = entries[s.id];
     setJustSaved(null);
-    const problem = entryProblem(s, e);
+    const problem = entryProblem(s, e, track);
     if (problem) {
       fail(s.id, problem);
       return;
@@ -182,7 +194,7 @@ export default function RecitationClient({
           const isOpen = open === s.id;
           const savedEntry = savedEntries[s.id];
           const summary = saved
-            ? summaryOf(e)
+            ? summaryOf(e, track)
             : savedEntry
               ? "عُدّل ولم يُحفظ التعديل بعد"
               : "لم يُحفظ بعد";
@@ -238,6 +250,7 @@ export default function RecitationClient({
                     >
                       لم يسمّع اليوم
                     </button>
+                    {withPast && (
                     <button
                       type="button"
                       disabled={e.none}
@@ -246,6 +259,8 @@ export default function RecitationClient({
                     >
                       لم يسمّع جديدًا اليوم
                     </button>
+                    )}
+                    {withPast && (
                     <button
                       type="button"
                       disabled={e.none}
@@ -254,6 +269,7 @@ export default function RecitationClient({
                     >
                       لم يقرأ ماضي اليوم
                     </button>
+                    )}
                   </div>
 
                   {!e.none && (
@@ -266,7 +282,7 @@ export default function RecitationClient({
                             { label: "ماضي — من صفحة", key: "rf", off: e.noPast },
                             { label: "ماضي — إلى صفحة", key: "rt", off: e.noPast },
                           ] as const
-                        ).map((f) => (
+                        ).filter((f) => withPast || (f.key !== "rf" && f.key !== "rt")).map((f) => (
                           <div key={f.key}>
                             <label style={{ display: "block", fontSize: 11.5, color: "var(--ink-2)", marginBottom: 5 }}>
                               {f.label}
@@ -282,8 +298,11 @@ export default function RecitationClient({
                         ))}
                       </div>
                       <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
-                        تسميع جديد «من» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت جديدًا — لا يجوز النزول تحتها. الماضي مراجعة حرّة، لأي صفحة سابقة
-                        {s.lastPastTo ? ` (آخر ماضٍ وصل إلى صفحة ${s.lastPastTo})` : ""}. الصفحات بين {MIN_PAGE} و{MAX_PAGE}.
+                        تسميع جديد «من» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت جديدًا — لا يجوز النزول تحتها.
+                        {withPast
+                          ? ` الماضي مراجعة حرّة، لأي صفحة سابقة${s.lastPastTo ? ` (آخر ماضٍ وصل إلى صفحة ${s.lastPastTo})` : ""}.`
+                          : " مختصر القراءة العربية: تسميع جديد فقط بلا ماضٍ."}
+                        {` الصفحات بين ${pageRange(track).min} و${pageRange(track).max}.`}
                       </div>
 
                       {!e.noNew && (
@@ -299,7 +318,7 @@ export default function RecitationClient({
                         </div>
                       )}
 
-                      {!e.noPast && (
+                      {withPast && !e.noPast && (
                         <div>
                           <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 7 }}>تقدير الماضي</div>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -334,11 +353,13 @@ export default function RecitationClient({
                   <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
-                        صفحات الجديد: {e.none || e.noNew ? 0 : span(e.nf, e.nt)}
+                        صفحات الجديد: {e.none || e.noNew ? 0 : span(e.nf, e.nt, track)}
                       </span>
-                      <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
-                        صفحات الماضي: {e.none || e.noPast ? 0 : span(e.rf, e.rt)}
-                      </span>
+                      {withPast && (
+                        <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
+                          صفحات الماضي: {e.none || e.noPast ? 0 : span(e.rf, e.rt, track)}
+                        </span>
+                      )}
                     </div>
                     <button
                       type="button"

@@ -11,12 +11,13 @@ export default async function LocalExamViewPage() {
 
   const [halaqatRaw, examsRaw] = await Promise.all([
     prisma.halqa.findMany({
+      where: { track: "QURAN" },
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
     }),
     prisma.exam.findMany({
       where: { type: "LOCAL" },
-      include: { examiner: { select: { id: true, name: true } }, answers: { include: { topic: true } } },
+      include: { examiner: { select: { id: true, name: true } } },
       orderBy: { date: "desc" },
     }),
   ]);
@@ -44,7 +45,6 @@ export default async function LocalExamViewPage() {
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       notes: e.notes,
-      answers: e.answers.map((a) => ({ topicId: a.topicId, text: a.topic.text })),
     };
   }
   for (const e of examsRaw) {
@@ -59,7 +59,6 @@ export default async function LocalExamViewPage() {
         readOnly
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}
-        tajweedTopics={[]}
         halaqat={halaqat}
         examsByStudent={examsByStudent}
       />

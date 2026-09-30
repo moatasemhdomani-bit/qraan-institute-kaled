@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma, rawPrisma, nameWithNasab } from "@/lib/db";
+import { halqaWithTrack } from "@/lib/track";
 import PageHeader from "@/components/PageHeader";
 import StudentsClient from "./StudentsClient";
 import { decryptPassword } from "@/lib/guardian";
@@ -41,7 +42,7 @@ export default async function StudentsPage() {
     photoUrl: s.photoUrl,
     registeredAt: s.registeredAt ? formatDateAr(dateOnly(s.registeredAt)) : "—",
     halqaId: s.halqaId || "",
-    halqaName: s.halqa?.name || "—",
+    halqaName: s.halqa ? halqaWithTrack(s.halqa.name, s.halqa.track) : "—",
     cohortName: s.halqa?.cohort.name || "—",
     teacherName: s.halqa ? nameWithNasab(s.halqa.teacher.name, s.halqa.teacher.familyName) : "—",
     guardianUsername: s.guardianUser?.username || "",
@@ -49,6 +50,7 @@ export default async function StudentsPage() {
     behavior: s.behavior,
     active: s.active,
     isOrphan: s.isOrphan,
+    track: s.track,
     behaviorLog: s.behaviorLog.map((l) => ({
       previousValue: l.previousValue,
       newValue: l.newValue,
@@ -65,6 +67,7 @@ export default async function StudentsPage() {
     cohortName: h.cohort.name,
     teacherId: h.teacherId,
     teacherName: h.teacher.name,
+    track: h.track,
   }));
 
   return (

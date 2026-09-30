@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma, rawPrisma, nameWithNasab } from "@/lib/db";
+import { halqaWithTrack } from "@/lib/track";
 import { decryptPassword } from "@/lib/guardian";
 import PageHeader from "@/components/PageHeader";
 import UsersClient from "./UsersClient";
@@ -26,6 +27,7 @@ export default async function UsersPage() {
     fullName: nameWithNasab(u.name, u.familyName),
     username: u.username,
     role: u.role,
+    track: u.track,
     phone: u.phone || "",
     photoUrl: u.photoUrl,
     father: u.fatherName || "",
@@ -38,7 +40,7 @@ export default async function UsersPage() {
     marital: u.maritalStatus || "",
     education: u.education || "",
     quran: u.quranLevel || "",
-    halqaLabel: u.halaqatTaught.length ? u.halaqatTaught.map((h) => `${h.name} · ${h.cohort.name}`).join("، ") : "—",
+    halqaLabel: u.halaqatTaught.length ? u.halaqatTaught.map((h) => `${halqaWithTrack(h.name, h.track)} · ${h.cohort.name}`).join("، ") : "—",
     cohortIds: u.teachableCohorts.map((c) => c.cohortId),
     currentPassword: decryptPassword(u.passwordEnc) || "",
   }));

@@ -14,7 +14,7 @@ export default async function TeachersReportPage({ searchParams }: { searchParam
 
   return (
     <>
-      <PageHeader title="التقرير الشهري للمدرسين" subtitle="صف واحد لكل مدرّس بأرقام الفترة المختارة — النطاق حرّ لا شهر مقفل." />
+      <PageHeader title="التقرير الشهري لمدرسي القرآن" subtitle="صف واحد لكل مدرّس بأرقام الفترة المختارة — النطاق حرّ لا شهر مقفل." />
       <TeachersReportClient key={review ?? "new"} initial={initial} />
     </>
   );

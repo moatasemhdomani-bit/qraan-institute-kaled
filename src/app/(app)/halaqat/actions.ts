@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { prisma, rawPrisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -17,6 +17,7 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   const name = String(formData.get("name") || "").trim();
   const teacherId = String(formData.get("teacherId") || "");
   const cohortId = String(formData.get("cohortId") || "");
+  const track = String(formData.get("track") || "QURAN") === "ARABIC" ? ("ARABIC" as const) : ("QURAN" as const);
 
   if (!name) return { error: "اكتبوا اسم الحلقة." };
   if (!teacherId) return { error: "اختاروا المدرس المسؤول." };
@@ -25,7 +26,17 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   // عند التعديل: لا نرفض حفظًا لم يُغيّر الاسم أو تكليف المدرس/الفوج، حتى لو كانت هذه الحلقة
   // تشارك حلقة أخرى موجودة مسبقًا بنفس الاسم أو نفس تكليف المدرس (بيانات قديمة سابقة لهذه القاعدة) —
   // الفحص يمنع فقط إدخال تعارض جديد، لا يقفل تعديل حلقة متعارضة أصلاً.
-  const current = id ? await prisma.halqa.findUnique({ where: { id } }) : null;
+  // العميل الخام: مقارنة الاسم المخزَّن نفسه (العرض العادي يُلحق به نوع الحلقة)
+  const current = id ? await rawPrisma.halqa.findUnique({ where: { id }, include: { _count: { select: { students: true } } } }) : null;
+
+  // المدرّس من نوع الحلقة نفسه، ونوع حلقة فيها طلاب لا يتغيّر (طلابها من نوعها)
+  const teacher = await prisma.user.findUnique({ where: { id: teacherId }, select: { track: true } });
+  if (!teacher || teacher.track !== track) {
+    return { error: track === "ARABIC" ? "حلقة القراءة العربية يدرّسها مدرس قراءة عربية فقط." : "حلقة القرآن يدرّسها مدرس قرآن فقط." };
+  }
+  if (current && current.track !== track && current._count.students > 0) {
+    return { error: "لا يتغيّر نوع حلقة فيها طلاب — انقلوا طلابها أولًا." };
+  }
 
   if (!current || current.name !== name) {
     const duplicateName = await prisma.halqa.findFirst({
@@ -45,10 +56,10 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   }
 
   if (id) {
-    await prisma.halqa.update({ where: { id }, data: { name, teacherId, cohortId } });
+    await prisma.halqa.update({ where: { id }, data: { name, teacherId, cohortId, track } });
     await logAction(session.userId, `عدّل الحلقة «${name}»`);
   } else {
-    await prisma.halqa.create({ data: { name, teacherId, cohortId } });
+    await prisma.halqa.create({ data: { name, teacherId, cohortId, track } });
     await logAction(session.userId, `أنشأ الحلقة «${name}»`);
   }
 
@@ -75,6 +86,7 @@ export async function moveHalqaStudents(fromId: string, toId: string): Promise<F
 
   const [from, to] = await Promise.all([prisma.halqa.findUnique({ where: { id: fromId } }), prisma.halqa.findUnique({ where: { id: toId } })]);
   if (!from || !to) return { error: "الحلقة غير موجودة." };
+  if (from.track !== to.track) return { error: "يُنقل الطلاب إلى حلقة من النوع نفسه فقط (قرآن / قراءة عربية)." };
 
   const moved = await prisma.student.updateMany({ where: { halqaId: fromId }, data: { halqaId: toId } });
   if (moved.count === 0) return { error: "لا طلاب في هذه الحلقة لنقلهم." };

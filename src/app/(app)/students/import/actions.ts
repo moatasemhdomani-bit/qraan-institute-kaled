@@ -222,11 +222,15 @@ export async function commitImport(
   const preview = await buildPreview(rows, mapping);
   if ("error" in preview) return preview;
 
+  // نوع الطالب (قرآن / قراءة عربية) يتبع حلقته
+  const halqaTrack = new Map((await prisma.halqa.findMany({ select: { id: true, track: true } })).map((h) => [h.id, h.track]));
+
   let created = 0;
   let updated = 0;
   for (const p of preview.rows) {
     if (p.status === "update" && p.existingId) {
-      await prisma.student.update({ where: { id: p.existingId }, data: p.patch });
+      const track = p.patch.halqaId ? halqaTrack.get(p.patch.halqaId) : undefined;
+      await prisma.student.update({ where: { id: p.existingId }, data: { ...p.patch, ...(track ? { track } : {}) } });
       updated++;
     } else if (p.status === "new") {
       const last = await prisma.student.findFirst({ orderBy: { studentNo: "desc" }, select: { studentNo: true } });
@@ -240,6 +244,7 @@ export async function commitImport(
           guardianPhone: p.phone,
           studentNo,
           halqaId: p.active ? p.halqaId : null,
+          track: (p.active && p.halqaId && halqaTrack.get(p.halqaId)) || "QURAN",
           active: p.active,
           isOrphan: p.orphan,
           // تاريخ التسجيل الناقص يبقى فارغًا (لا يُعبّأ بتاريخ اليوم)

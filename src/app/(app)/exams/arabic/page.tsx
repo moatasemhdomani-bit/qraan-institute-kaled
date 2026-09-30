@@ -5,22 +5,21 @@ import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import ExamBrowseClient from "../ExamBrowseClient";
 
-export default async function LocalExamPage() {
+/** سبر مختصر القراءة العربية — لمختبِر القراءة العربية، وللمدير بالصلاحية نفسها. حلقات القراءة العربية وحدها. */
+export default async function ArabicExamPage() {
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
+  if ((await examinerTrack(session)) === "QURAN") redirect("/exams/local");
 
-  const track = await examinerTrack(session);
-  // مختبِر القراءة العربية له شاشة سبره وحدها
-  if (track === "ARABIC") redirect("/exams/arabic");
   const [halaqatRaw, examsRaw] = await Promise.all([
     prisma.halqa.findMany({
-      where: { track: "QURAN" },
+      where: { track: "ARABIC" },
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
     }),
     prisma.exam.findMany({
-      where: { type: "LOCAL" },
+      where: { type: "ARABIC" },
       include: { examiner: { select: { id: true, name: true } } },
       orderBy: { date: "desc" },
     }),
@@ -48,6 +47,8 @@ export default async function LocalExamPage() {
       resultMark: e.resultMark,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
+      stage: e.stage,
+      grade: e.grade,
       notes: e.notes,
     };
   }
@@ -57,9 +58,9 @@ export default async function LocalExamPage() {
 
   return (
     <>
-      <PageHeader title="السبر المحلي" subtitle="غيباً أو حاضراً أو عمّ غيباً — بأرقام الصفحات وعلامة لكل نوع." />
+      <PageHeader title="سبر القراءة العربية" subtitle="مختصر القراءة العربية — المرحلة 1 إلى 6: تقدير للمراحل 1–5، وعلامة من 100 للمرحلة 6 (ناجح بـ 90 فأكثر)." />
       <ExamBrowseClient
-        type="LOCAL"
+        type="ARABIC"
         readOnly={false}
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}

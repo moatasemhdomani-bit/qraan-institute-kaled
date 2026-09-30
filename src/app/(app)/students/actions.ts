@@ -31,6 +31,7 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
   const active = String(formData.get("status") || "active") !== "inactive";
   const isOrphan = formData.get("orphan") === "1";
   const halqaId = active ? String(formData.get("halqaId") || "") || null : null;
+  const track = formData.get("track") === "ARABIC" ? ("ARABIC" as const) : ("QURAN" as const);
 
   if (!name) return { error: "اكتبوا اسم الطالب." };
 
@@ -39,6 +40,13 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
   if (!isValidMobile(guardianPhone)) return { error: "رقم ولي الأمر بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
   const studentPhone = normalizePhone(String(formData.get("phone") || ""));
   if (studentPhone && !isValidMobile(studentPhone)) return { error: "رقم هاتف الطالب بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
+
+  // الطالب يُفرز في حلقة من نوعه (قرآن / قراءة عربية)
+  if (halqaId) {
+    const target = await prisma.halqa.findUnique({ where: { id: halqaId }, select: { track: true } });
+    if (!target) return { error: "الحلقة غير موجودة." };
+    if (target.track !== track) return { error: "يُفرز الطالب في حلقة من نوعه فقط (قرآن / قراءة عربية)." };
+  }
 
   const data = {
     name,
@@ -53,6 +61,7 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     halqaId,
     active,
     isOrphan,
+    track,
   };
 
   // عند تسجيل طالب جديد: تطابق الاسم واسم الأب والأم والنسبة معًا يعني طالبًا مسجَّلًا بالفعل.

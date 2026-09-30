@@ -146,7 +146,7 @@ export default function ParentClient({
               ) : (
                 <>
                   <div style={{ fontSize: 13, color: "var(--ink)" }}>{h.newLine}</div>
-                  <div style={{ fontSize: 13, color: "var(--ink)" }}>{h.pastLine}</div>
+                  {h.pastLine && <div style={{ fontSize: 13, color: "var(--ink)" }}>{h.pastLine}</div>}
                 </>
               )}
             </div>

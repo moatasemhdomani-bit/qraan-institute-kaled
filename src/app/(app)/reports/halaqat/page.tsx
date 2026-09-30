@@ -12,13 +12,13 @@ export default async function HalaqatReportPage({ searchParams }: { searchParams
 
   const { review } = await searchParams;
   const [halaqat, initial] = await Promise.all([
-    prisma.halqa.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.halqa.findMany({ where: { track: "QURAN" }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     loadReviewInputs(review, "HALAQAT"),
   ]);
 
   return (
     <>
-      <PageHeader title="تقرير تسميع الحلقات" subtitle="بلوك لكل حلقة باسمها واسم أستاذها، ثم صف لكل طالب بإجمالي الفترة كاملة." />
+      <PageHeader title="تقرير تسميع حلقات القرآن" subtitle="بلوك لكل حلقة باسمها واسم أستاذها، ثم صف لكل طالب بإجمالي الفترة كاملة." />
       <HalaqatReportClient key={review ?? "new"} halaqat={halaqat} initial={initial} />
     </>
   );

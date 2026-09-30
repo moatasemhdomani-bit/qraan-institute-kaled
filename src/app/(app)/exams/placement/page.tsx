@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { examinerTrack } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import PlacementClient from "./PlacementClient";
@@ -9,8 +10,11 @@ export default async function PlacementExamPage() {
   if (!session) redirect("/login");
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
 
+  const track = await examinerTrack(session);
+  // مختبِر القراءة العربية له شاشة سبره وحدها
+  if (track === "ARABIC") redirect("/exams/arabic");
   const examsRaw = await prisma.exam.findMany({
-    where: { type: "PLACEMENT", student: { halqaId: null, active: true } },
+    where: { type: "PLACEMENT", student: { halqaId: null, active: true, track: "QURAN" } },
     include: { examiner: { select: { id: true, name: true } }, student: { select: { name: true } } },
     orderBy: { date: "desc" },
   });
@@ -29,7 +33,6 @@ export default async function PlacementExamPage() {
     nominationPresent: e.nominationPresent,
     nominationParts: e.nominationParts,
     notes: e.notes,
-    answers: [] as { topicId: string; text: string; mark: number }[],
   }));
 
   return (

@@ -99,11 +99,13 @@ export default async function ParentPage({
           ? "لم يسمّع جديدًا"
           : `تسميع جديد: من ${todayRec.newFrom} إلى ${todayRec.newTo} (${pageSpan(todayRec.newFrom, todayRec.newTo)} صفحة) — ${todayRec.gradeNew}`
       );
-      recLines.push(
-        todayRec.noPast
-          ? "لم يقرأ ماضيًا"
-          : `الماضي: من ${todayRec.pastFrom} إلى ${todayRec.pastTo} (${pageSpan(todayRec.pastFrom, todayRec.pastTo)} صفحة) — ${todayRec.gradePast}`
-      );
+      // القراءة العربية تسميعها جديد فقط — لا سطر للماضي
+      if (child.track !== "ARABIC")
+        recLines.push(
+          todayRec.noPast
+            ? "لم يقرأ ماضيًا"
+            : `الماضي: من ${todayRec.pastFrom} إلى ${todayRec.pastTo} (${pageSpan(todayRec.pastFrom, todayRec.pastTo)} صفحة) — ${todayRec.gradePast}`
+        );
     }
   } else {
     recLines.push("لا يوجد تسميع مسجَّل بعد");
@@ -136,7 +138,9 @@ export default async function ParentPage({
           newLine: r.noNew
             ? "لم يسمّع جديدًا"
             : `جديد: ${r.newFrom}→${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
-          pastLine: r.noPast
+          pastLine: child.track === "ARABIC"
+            ? ""
+            : r.noPast
             ? "لم يقرأ ماضيًا"
             : `ماضي: ${r.pastFrom}→${r.pastTo} (${pageSpan(r.pastFrom, r.pastTo)} صفحة) — ${r.gradePast ?? ""}`,
         }))}

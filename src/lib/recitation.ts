@@ -1,4 +1,4 @@
-import { MIN_PAGE, MAX_PAGE } from "./daily";
+import { pageRange, hasPastRecitation, type TrackId } from "./track";
 
 export type RecEntry = {
   studentId: string;
@@ -13,15 +13,21 @@ export type RecEntry = {
   gradePast: string | null;
 };
 
-const inRange = (n: number | null) => n != null && n >= MIN_PAGE && n <= MAX_PAGE;
 
 /**
  * يُرجع سبب رفض السطر، أو null إن كان مكتملًا وصحيحًا.
  * maxPriorNewTo: أعلى صفحة جديدة سُمِّعت من قبل لهذا الطالب — لا يجوز أن يبدأ التسميع الجديد قبلها
  * أو منها (لا يُعاد تسميع صفحة سبق حفظها). الماضي مراجعة حرّة، بلا هذا القيد.
+ * track: نوع الحلقة — القراءة العربية صفحاتها 5–48 وتسميعها جديد فقط بلا ماضٍ.
  */
-export function validateEntry(e: RecEntry, maxPriorNewTo?: number | null): string | null {
+export function validateEntry(e: RecEntry, maxPriorNewTo?: number | null, track: TrackId = "QURAN"): string | null {
   if (e.none) return null;
+  const { min: MIN_PAGE, max: MAX_PAGE } = pageRange(track);
+  const inRange = (n: number | null) => n != null && n >= MIN_PAGE && n <= MAX_PAGE;
+  if (!hasPastRecitation(track)) {
+    if (e.noNew) return "لم يسمّع جديدًا — استخدم خيار «لم يسمّع اليوم».";
+    e = { ...e, noPast: true };
+  }
   if (e.noNew && e.noPast) return "لم يسمّع جديدًا ولا ماضيًا — استخدم خيار «لم يسمّع اليوم».";
 
   if (!e.noNew) {

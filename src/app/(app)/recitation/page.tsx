@@ -70,7 +70,7 @@ export default async function RecitationPage({
         subtitle={
           (isDirector ? `ما سمّعه طلاب ${halqa?.name ?? "الحلقة"} يوم ` : "ما سمّعه طلابك يوم ") +
           formatDateAr(date) +
-          " — جديدًا وماضيًا."
+          (halqa?.track === "ARABIC" ? " — تسميعًا جديدًا (قراءة عربية)." : " — جديدًا وماضيًا.")
         }
       />
       <DailyShell
@@ -85,6 +85,7 @@ export default async function RecitationPage({
         <RecitationClient
           key={halqa.id + date}
           halqaId={halqa.id}
+          track={halqa.track}
           date={date}
           students={students.map((s) => ({
             id: s.id,

@@ -6,9 +6,9 @@ import { logout } from "./actions";
 import type { RoleId } from "@/lib/ui";
 import { NAV, activeNavId } from "./nav";
 
-export default function MobileNav({ role, name }: { role: RoleId; name: string }) {
+export default function MobileNav({ role, name, track }: { role: RoleId; name: string; track?: "QURAN" | "ARABIC" }) {
   const pathname = usePathname();
-  const items = NAV.filter((n) => n.roles.includes(role));
+  const items = NAV.filter((n) => n.roles.includes(role) && (!n.track || n.track === (track ?? "QURAN")));
   const activeId = activeNavId(pathname);
 
   return (

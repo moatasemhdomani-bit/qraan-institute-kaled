@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { examinerTrack } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import ExamBrowseClient from "../ExamBrowseClient";
@@ -12,14 +13,18 @@ export default async function AwqafExamPage() {
   if (!session) redirect("/login");
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
 
+  const track = await examinerTrack(session);
+  // مختبِر القراءة العربية له شاشة سبره وحدها
+  if (track === "ARABIC") redirect("/exams/arabic");
   const [halaqatRaw, examsRaw, awqafResultsRaw] = await Promise.all([
     prisma.halqa.findMany({
+      where: { track: "QURAN" },
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
     }),
     prisma.exam.findMany({
       where: { type: "WAQF_NOMINATION" },
-      include: { examiner: { select: { id: true, name: true } }, answers: true, student: { select: { id: true, name: true, studentNo: true } } },
+      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, studentNo: true } } },
       orderBy: { date: "desc" },
     }),
     prisma.awqafResult.findMany({ include: { batch: { select: { date: true } } }, orderBy: { createdAt: "desc" } }),
@@ -70,7 +75,6 @@ export default async function AwqafExamPage() {
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       notes: e.notes,
-      answers: [] as { topicId: string; text: string }[],
     };
   }
   for (const e of examsRaw) {
@@ -85,7 +89,6 @@ export default async function AwqafExamPage() {
         readOnly={false}
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}
-        tajweedTopics={[]}
         halaqat={halaqat}
         examsByStudent={examsByStudent}
         readyStudents={readyStudents}

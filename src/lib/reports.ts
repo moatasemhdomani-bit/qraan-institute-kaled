@@ -129,8 +129,9 @@ export type HalaqatPreviewRow = {
 export type HalaqatPreviewBlock = { halqaId: string; halqaName: string; teacherName: string; cohortName: string; rows: HalaqatPreviewRow[] };
 
 export async function buildHalaqatBlocks(from: string, to: string, halqaScope: string): Promise<HalaqatPreviewBlock[]> {
+  // تقرير تسميع حلقات القرآن — حلقات القرآن وحدها
   const halaqat = await prisma.halqa.findMany({
-    where: halqaScope === "all" ? {} : { id: halqaScope },
+    where: halqaScope === "all" ? { track: "QURAN" } : { id: halqaScope, track: "QURAN" },
     include: { teacher: { select: { name: true } }, cohort: { select: { name: true } } },
     orderBy: { name: "asc" },
   });
@@ -200,8 +201,9 @@ export type TeachersPreviewRow = {
 };
 
 export async function buildTeachersRows(from: string, to: string): Promise<TeachersPreviewRow[]> {
+  // التقرير الشهري لمدرسي القرآن — مدرّسو القرآن وحدهم
   const teachers = await prisma.user.findMany({
-    where: { role: "TEACHER" },
+    where: { role: "TEACHER", track: "QURAN" },
     orderBy: { name: "asc" },
     include: { halaqatTaught: { select: { id: true, name: true } } },
   });
@@ -244,6 +246,114 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
       };
     })
     .filter((r) => r.halqaNames !== "—");
+}
+
+// ==================== تقريرا القراءة العربية ====================
+
+/** اختبار قراءة عربية في التقرير: رقم مرحلته، وأخضر إن نجح وأحمر إن رسب. */
+export type ArabicExamMark = { stage: number; passed: boolean | null };
+
+export type ArabicHalaqatRow = {
+  studentId: string;
+  studentName: string;
+  studentNo: number;
+  from: number | null;
+  to: number | null;
+  total: number;
+  exams: ArabicExamMark[];
+};
+export type ArabicHalaqatBlock = { halqaId: string; halqaName: string; teacherName: string; cohortName: string; rows: ArabicHalaqatRow[] };
+
+function arabicExamMarks(exams: { date: string; stage: number | null; grade: string | null; resultMark: number | null }[]): ArabicExamMark[] {
+  return [...exams]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .filter((e) => e.stage != null)
+    .map((e) => {
+      const label = passFailLabel({ type: "ARABIC", stage: e.stage, grade: e.grade, resultMark: e.resultMark });
+      return { stage: e.stage as number, passed: label == null ? null : label === "ناجح" };
+    });
+}
+
+/** تقرير تسميع حلقات القراءة العربية: بلوك لكل حلقة، وصف لكل طالب — من/إلى صفحة، إجمالي الصفحات، واختباراته بأرقام مراحلها. */
+export async function buildArabicHalaqatBlocks(from: string, to: string, halqaScope: string): Promise<ArabicHalaqatBlock[]> {
+  const halaqat = await prisma.halqa.findMany({
+    where: halqaScope === "all" ? { track: "ARABIC" } : { id: halqaScope, track: "ARABIC" },
+    include: { teacher: { select: { name: true } }, cohort: { select: { name: true } } },
+    orderBy: { name: "asc" },
+  });
+  if (halaqat.length === 0) return [];
+  const students = await prisma.student.findMany({ where: { halqaId: { in: halaqat.map((h) => h.id) } }, orderBy: { name: "asc" } });
+  const studentIds = students.map((s) => s.id);
+  const [recitations, exams] = await Promise.all([
+    prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { gte: from, lte: to } } }),
+    prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "ARABIC", date: { gte: from, lte: to } } }),
+  ]);
+  return halaqat
+    .map((h) => ({
+      halqaId: h.id,
+      halqaName: h.name,
+      teacherName: h.teacher.name,
+      cohortName: h.cohort.name,
+      rows: students
+        .filter((s) => s.halqaId === h.id)
+        .map((s) => {
+          const pages = pagesSummary(recitations.filter((r) => r.studentId === s.id));
+          return {
+            studentId: s.id,
+            studentName: s.name,
+            studentNo: s.studentNo,
+            from: pages.from,
+            to: pages.to,
+            total: pages.newTotal,
+            exams: arabicExamMarks(exams.filter((e) => e.studentId === s.id)),
+          };
+        }),
+    }))
+    .filter((b) => b.rows.length > 0);
+}
+
+export type ArabicTeachersRow = {
+  teacherId: string;
+  teacherName: string;
+  halqaNames: string;
+  pages: number;
+  pass: number;
+  fail: number;
+  count: number;
+};
+
+/** التقرير الشهري لمدرسي القراءة العربية: صف لكل مدرّس — حلقاته في كل الأفواج، مجموع صفحات طلابه، اختباراتهم ناجحة وراسبة، وعدد طلابه. */
+export async function buildArabicTeachersRows(from: string, to: string): Promise<ArabicTeachersRow[]> {
+  const teachers = await prisma.user.findMany({
+    where: { role: "TEACHER", track: "ARABIC" },
+    orderBy: { name: "asc" },
+    include: { halaqatTaught: { select: { id: true, name: true, cohort: { select: { name: true } } } } },
+  });
+  const allStudents = await prisma.student.findMany({
+    where: { halqaId: { in: teachers.flatMap((t) => t.halaqatTaught.map((h) => h.id)) } },
+    select: { id: true, halqaId: true },
+  });
+  const studentIds = allStudents.map((s) => s.id);
+  const [recitations, exams] = await Promise.all([
+    prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { gte: from, lte: to } } }),
+    prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "ARABIC", date: { gte: from, lte: to } } }),
+  ]);
+  return teachers
+    .filter((t) => t.halaqatTaught.length > 0)
+    .map((t) => {
+      const halqaIds = new Set(t.halaqatTaught.map((h) => h.id));
+      const ids = new Set(allStudents.filter((s) => s.halqaId && halqaIds.has(s.halqaId)).map((s) => s.id));
+      const marks = arabicExamMarks(exams.filter((e) => ids.has(e.studentId)));
+      return {
+        teacherId: t.id,
+        teacherName: t.name,
+        halqaNames: t.halaqatTaught.map((h) => `${h.name} · ${h.cohort.name}`).join("، "),
+        pages: recitations.filter((r) => ids.has(r.studentId)).reduce((sum, r) => sum + pageSpan(r.newFrom, r.newTo), 0),
+        pass: marks.filter((m) => m.passed === true).length,
+        fail: marks.filter((m) => m.passed === false).length,
+        count: ids.size,
+      };
+    });
 }
 
 export type StudentPreview = {
@@ -317,7 +427,7 @@ export type ReviewInputs = {
 /** معطيات تقرير صادر سابقًا من السجل — لإعادة إعداده بنفس المدخلات («مراجعة التقرير»). */
 export async function loadReviewInputs(
   id: string | undefined,
-  kind: "HALAQAT" | "TEACHERS" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS"
+  kind: "HALAQAT" | "TEACHERS" | "HALAQAT_AR" | "TEACHERS_AR" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS"
 ): Promise<ReviewInputs | null> {
   if (!id) return null;
   const r = await prisma.issuedReport.findUnique({ where: { id } });

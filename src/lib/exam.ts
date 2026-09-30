@@ -9,13 +9,22 @@ export const NOMINATION_PARTS: Record<"present" | "absent", number[]> = {
   absent: [5, 10, 15, 20, 25, 30],
 };
 
-export type ExamTypeId = "LOCAL" | "WAQF_NOMINATION" | "PLACEMENT";
+export type ExamTypeId = "LOCAL" | "WAQF_NOMINATION" | "PLACEMENT" | "ARABIC";
 
 export const TYPE_LABELS: Record<ExamTypeId, string> = {
   LOCAL: "سبر محلي",
   WAQF_NOMINATION: "ترشيح الأوقاف",
   PLACEMENT: "تحديد مستوى",
+  ARABIC: "سبر القراءة العربية",
 };
+
+/** سبر القراءة العربية: ست مراحل — 1 إلى 5 بتقدير، والسادسة بعلامة من 100 (النجاح 90 فأكثر). */
+export const ARABIC_STAGES = [1, 2, 3, 4, 5, 6];
+export const ARABIC_MARK_STAGE = 6;
+export const ARABIC_PASS_MARK = 90;
+/** «إعادة» = راسب؛ جيد وجيد جدًا وممتاز = ناجح. */
+export const ARABIC_GRADES = ["ممتاز", "جيد جدًا", "جيد", "إعادة"];
+export const ARABIC_FAIL_GRADE = "إعادة";
 
 export type LocalKindId = "GHAYBAN" | "HADIRAN" | "AMMA_GHAYBAN";
 
@@ -33,6 +42,8 @@ type ExamResultShape = {
   resultMark?: number | null;
   juz?: number | null;
   nominationPresent?: boolean | null;
+  stage?: number | null;
+  grade?: string | null;
 };
 
 /** نص نتيجة موحّد للعرض. */
@@ -42,6 +53,7 @@ export function resultLabel(exam: ExamResultShape): string {
     const mode = exam.nominationPresent == null ? "" : exam.nominationPresent ? " — حاضرًا" : " — غيبًا";
     return `يبدأ من الجزء ${exam.juz}${mode}`;
   }
+  if (exam.type === "ARABIC" && exam.stage !== ARABIC_MARK_STAGE) return exam.grade || "—";
   return exam.resultMark != null ? `${exam.resultMark} / 100` : "—";
 }
 
@@ -63,6 +75,11 @@ type PassFailShape = ExamResultShape & { nominationPresent?: boolean | null };
 
 /** "ناجح" أو "راسب" — أو null لما لا حدّ نجاح له (تحديد مستوى، أو سبر بلا نتيجة بعد). */
 export function passFailLabel(exam: PassFailShape): "ناجح" | "راسب" | null {
+  if (exam.type === "ARABIC") {
+    if (exam.stage === ARABIC_MARK_STAGE) return exam.resultMark == null ? null : exam.resultMark >= ARABIC_PASS_MARK ? "ناجح" : "راسب";
+    if (!exam.grade) return null;
+    return exam.grade === ARABIC_FAIL_GRADE ? "راسب" : "ناجح";
+  }
   const threshold = passThreshold(exam.type, exam.localKind, exam.nominationPresent);
   if (threshold == null) return null;
   if (exam.resultMark == null) return null;
@@ -78,9 +95,17 @@ export function validateExam(input: {
   resultMark?: number | null;
   nominationPresent?: boolean | null;
   nominationParts?: number | null;
-  topicIds?: string[];
   studentName?: string;
+  stage?: number | null;
+  grade?: string | null;
 }): string | null {
+  if (input.type === "ARABIC") {
+    if (!input.stage || !ARABIC_STAGES.includes(input.stage)) return "اختاروا المرحلة (1 إلى 6).";
+    if (input.stage === ARABIC_MARK_STAGE) {
+      if (input.resultMark == null || input.resultMark < 0 || input.resultMark > 100) return "أدخلوا علامة المرحلة 6 من 0 إلى 100.";
+    } else if (!input.grade || !ARABIC_GRADES.includes(input.grade)) return "اختاروا التقدير.";
+    return null;
+  }
   if (input.type === "PLACEMENT") {
     // الاسم يُطلب فقط عند تسجيل طالب جديد — عند تعديل سبر قائم لا يُمرَّر الاسم أصلًا
     if (input.studentName !== undefined && !input.studentName.trim()) return "اكتبوا اسم الطالب.";
@@ -101,10 +126,6 @@ export function validateExam(input: {
 
     if (input.localKind === "HADIRAN" || input.localKind === "GHAYBAN") {
       if (!input.juz || input.juz < 1 || input.juz > 30) return "اختاروا الجزء الذي سُبر فيه الطالب.";
-    }
-
-    if (input.localKind === "HADIRAN" && (!input.topicIds || input.topicIds.length === 0)) {
-      return "أضيفوا سؤالًا واحدًا على الأقل من بنك التجويد.";
     }
 
     if (input.resultMark == null || input.resultMark < 0 || input.resultMark > 100) return "أدخلوا علامة من 0 إلى 100.";
@@ -130,7 +151,9 @@ export function examKindLabel(e: {
   juz?: number | null;
   nominationPresent?: boolean | null;
   nominationParts?: number | null;
+  stage?: number | null;
 }): string {
+  if (e.type === "ARABIC") return e.stage != null ? `المرحلة ${e.stage}` : "";
   const mode = e.nominationPresent == null ? "" : e.nominationPresent ? "حاضرًا" : "غيبًا";
   if (e.type === "WAQF_NOMINATION" || e.type === "AWQAF_ACTUAL") {
     return [e.nominationParts ?? "", mode].filter(Boolean).join(" ");

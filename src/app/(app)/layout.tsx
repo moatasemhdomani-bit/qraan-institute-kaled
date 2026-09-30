@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/ui";
+import { staffRoleLabel } from "@/lib/track";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 
@@ -11,13 +12,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   if (!session) redirect("/login");
 
   // الاسم (مع النسبة) يُقرأ من قاعدة البيانات لا من الجلسة، كي يظهر أي تعديل عليه فورًا دون إعادة الدخول.
-  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { name: true } });
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { name: true, track: true } });
   const displayName = user?.name ?? session.name;
 
   return (
     <div className={`app-shell role-${session.role.toLowerCase()}`} style={{ display: "grid", gridTemplateColumns: "248px minmax(0,1fr)", minHeight: "var(--full-h)" }}>
-      <Sidebar role={session.role} name={displayName} roleLabel={ROLE_LABELS[session.role]} />
-      <MobileNav role={session.role} name={displayName} />
+      <Sidebar role={session.role} name={displayName} roleLabel={staffRoleLabel(session.role, user?.track, ROLE_LABELS)} track={user?.track} />
+      <MobileNav role={session.role} name={displayName} track={user?.track} />
       <main style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
         <div className="app-content-pad" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
           {children}

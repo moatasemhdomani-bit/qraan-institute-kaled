@@ -2,9 +2,10 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { examinerTrack } from "@/lib/examinerTrack";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { validateExam, passFailLabel, LOCAL_KIND_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
+import { validateExam, passFailLabel, LOCAL_KIND_LABELS, ARABIC_MARK_STAGE, type ExamTypeId, type LocalKindId } from "@/lib/exam";
 
 export type FormState = { error?: string; ok?: boolean; examId?: string };
 
@@ -17,6 +18,7 @@ function revalidateExamPaths() {
   revalidatePath("/exams/local");
   revalidatePath("/exams/awqaf");
   revalidatePath("/exams/placement");
+  revalidatePath("/exams/arabic");
   revalidatePath("/exams/local-view");
   revalidatePath("/exam-monitor");
   revalidatePath("/students");
@@ -34,40 +36,20 @@ export async function addPlacementStudent(name: string): Promise<{ error?: strin
 
   const last = await prisma.student.findFirst({ orderBy: { studentNo: "desc" } });
   const nextNo = (last?.studentNo ?? 1000) + 1;
-  const created = await prisma.student.create({ data: { name: trimmed, studentNo: nextNo, halqaId: null } });
+  // الطالب الجديد من نوع مختبِره (قرآن / قراءة عربية)
+  const track = (await examinerTrack(session)) ?? "QURAN";
+  const created = await prisma.student.create({ data: { name: trimmed, studentNo: nextNo, halqaId: null, track } });
 
   await logAction(session.userId, `أضاف الطالب «${trimmed}» عبر سبر تحديد مستوى`);
   revalidatePath("/exams/placement");
+  revalidatePath("/exams/arabic");
   return { studentId: created.id };
-}
-
-/** إنشاء/تعديل سؤال في بنك أسئلة التجويد — لأي مختبِر (أو مدير المعهد). */
-export async function saveTajweedTopic(input: {
-  id?: string;
-  juz: number;
-  text: string;
-}): Promise<{ error?: string; topic?: { id: string; juz: number; text: string } }> {
-  const session = await getSession();
-  if (!session || (session.role !== "EXAMINER" && session.role !== "DIRECTOR")) {
-    return { error: "غير مصرَّح لك بهذا الإجراء." };
-  }
-  const text = input.text.trim();
-  if (!text) return { error: "اكتبوا نص السؤال." };
-  if (!input.juz || input.juz < 1 || input.juz > 30) return { error: "اختاروا جزءًا صحيحًا (١-٣٠)." };
-
-  const topic = input.id
-    ? await prisma.tajweedTopic.update({ where: { id: input.id }, data: { juz: input.juz, text } })
-    : await prisma.tajweedTopic.create({ data: { juz: input.juz, text } });
-
-  await logAction(session.userId, `${input.id ? "عدّل" : "أضاف"} سؤالًا في بنك التجويد (الجزء ${input.juz})`);
-  revalidatePath("/exams/local");
-  revalidatePath("/exam-monitor");
-  return { topic: { id: topic.id, juz: topic.juz, text: topic.text } };
 }
 
 function examLabel(type: ExamTypeId, localKind: LocalKindId | null): string {
   if (type === "LOCAL") return `سبر محلي (${LOCAL_KIND_LABELS[localKind ?? "GHAYBAN"]})`;
   if (type === "WAQF_NOMINATION") return "سبر ترشيح أوقاف";
+  if (type === "ARABIC") return "سبر القراءة العربية";
   return "سبر تحديد مستوى";
 }
 
@@ -110,14 +92,9 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   const nominationPartsRaw = String(formData.get("nominationParts") || "");
   const nominationParts = nominationPartsRaw ? parseInt(nominationPartsRaw, 10) : null;
 
-  let topicIds: string[] = [];
-  if (type === "LOCAL" && localKind === "HADIRAN") {
-    try {
-      topicIds = JSON.parse(String(formData.get("topicIdsJson") || "[]"));
-    } catch {
-      topicIds = [];
-    }
-  }
+  const stageRaw = String(formData.get("stage") || "");
+  const stage = stageRaw ? parseInt(stageRaw, 10) : null;
+  const grade = String(formData.get("grade") || "") || null;
 
   let studentName = "";
   if (type === "PLACEMENT" && !studentId) {
@@ -132,16 +109,27 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     resultMark,
     nominationPresent,
     nominationParts,
-    topicIds,
     studentName: type === "PLACEMENT" && !studentId ? studentName : undefined,
+    stage,
+    grade,
   });
   if (validationError) return { error: validationError };
+
+  // سبر القراءة العربية لطلاب القراءة العربية فقط، ويجريه مختبِرها أو المدير
+  if (type === "ARABIC" || studentId) {
+    const track = await examinerTrack(session);
+    const target = studentId ? await prisma.student.findUnique({ where: { id: studentId }, select: { track: true } }) : null;
+    if (type === "ARABIC" && target?.track !== "ARABIC") return { error: "سبر القراءة العربية لطلاب القراءة العربية فقط." };
+    if (type !== "ARABIC" && target?.track === "ARABIC") return { error: "طالب القراءة العربية يُسبر بسبر القراءة العربية فقط." };
+    if (track && (type === "ARABIC") !== (track === "ARABIC")) return { error: "هذا السبر ليس من نوع اختبارك." };
+  }
 
   let finalStudentId = studentId;
   if (type === "PLACEMENT" && !finalStudentId) {
     const last = await prisma.student.findFirst({ orderBy: { studentNo: "desc" } });
     const nextNo = (last?.studentNo ?? 1000) + 1;
-    const created = await prisma.student.create({ data: { name: studentName, studentNo: nextNo, halqaId: null } });
+    const track = (await examinerTrack(session)) ?? "QURAN";
+    const created = await prisma.student.create({ data: { name: studentName, studentNo: nextNo, halqaId: null, track } });
     finalStudentId = created.id;
   }
   if (!finalStudentId) return { error: "لا يوجد طالب لهذا السبر." };
@@ -156,7 +144,10 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     localKind: type === "LOCAL" ? localKind : null,
     juz: usesJuz ? juz : null,
     pages: type === "LOCAL" || type === "WAQF_NOMINATION" ? pages : [],
-    resultMark: type === "WAQF_NOMINATION" || type === "LOCAL" ? resultMark : null,
+    resultMark:
+      type === "WAQF_NOMINATION" || type === "LOCAL" || (type === "ARABIC" && stage === ARABIC_MARK_STAGE) ? resultMark : null,
+    stage: type === "ARABIC" ? stage : null,
+    grade: type === "ARABIC" && stage !== ARABIC_MARK_STAGE ? grade : null,
     // حاضرًا/غيبًا: لترشيح الأوقاف ولتحديد المستوى
     nominationPresent: type === "WAQF_NOMINATION" || type === "PLACEMENT" ? nominationPresent : null,
     nominationParts: type === "WAQF_NOMINATION" ? nominationParts : null,
@@ -165,24 +156,15 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
 
   const student = await prisma.student.findUnique({ where: { id: finalStudentId } });
 
-  const examId = await prisma.$transaction(async (tx) => {
-    const exam = id
-      ? await tx.exam.update({ where: { id }, data })
-      : await tx.exam.create({ data: { ...data, examinerId: session.userId } });
+  // بنك أسئلة التجويد أُلغي: سبر «حاضراً» يُسجَّل بجزئه وصفحاته وعلامته فقط
+  const exam = id
+    ? await prisma.exam.update({ where: { id }, data })
+    : await prisma.exam.create({ data: { ...data, examinerId: session.userId } });
+  const examId = exam.id;
 
-    if (isHadiran) {
-      await tx.examAnswer.deleteMany({ where: { examId: exam.id } });
-      for (const topicId of topicIds) {
-        await tx.examAnswer.create({ data: { examId: exam.id, topicId } });
-      }
-    }
-
-    return exam.id;
-  });
-
-  const passFail = passFailLabel({ type, localKind, resultMark, nominationPresent });
+  const passFail = passFailLabel({ type, localKind, resultMark, nominationPresent, stage, grade });
   const resultNote = passFail ? ` — النتيجة: ${passFail}` : "";
-  await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)} للطالب «${student?.name ?? ""}»${resultNote}`);
+  await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)}${type === "ARABIC" ? ` (المرحلة ${stage})` : ""} للطالب «${student?.name ?? ""}»${resultNote}`);
 
   revalidateExamPaths();
   return { ok: true, examId };

@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dateOnly } from "@/lib/daily";
-import { buildHalaqatBlocks, buildTeachersRows, buildStudentPreview, buildAwqafMarks, buildOrphans, ORPHAN_STATUS_LABELS, type OrphanStatus } from "@/lib/reports";
+import { buildHalaqatBlocks, buildTeachersRows, buildArabicHalaqatBlocks, buildArabicTeachersRows, buildStudentPreview, buildAwqafMarks, buildOrphans, ORPHAN_STATUS_LABELS, type OrphanStatus } from "@/lib/reports";
 import { renderPdf } from "@/lib/pdf";
-import { halaqatReportHtml, teachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml } from "@/lib/reportHtml";
+import { halaqatReportHtml, teachersReportHtml, arabicHalaqatReportHtml, arabicTeachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml } from "@/lib/reportHtml";
 
 /** يُعيد توليد PDF تقرير سابق من معطياته المحفوظة عند الطلب — لا يُخزَّن أي ملف. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -47,6 +47,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const notes = (params_.notes as Record<string, string>) ?? {};
     const rows = await buildTeachersRows(report.fromDate, report.toDate);
     html = teachersReportHtml({ ...common, rows: rows.map((r) => ({ ...r, note: notes[r.teacherId] || "" })) });
+  } else if (report.kind === "HALAQAT_AR") {
+    const halqaScope = typeof params_.halqaScope === "string" ? params_.halqaScope : "all";
+    html = arabicHalaqatReportHtml({ ...common, blocks: await buildArabicHalaqatBlocks(report.fromDate, report.toDate, halqaScope) });
+  } else if (report.kind === "TEACHERS_AR") {
+    const notes = (params_.notes as Record<string, string>) ?? {};
+    const rows = await buildArabicTeachersRows(report.fromDate, report.toDate);
+    html = arabicTeachersReportHtml({ ...common, rows: rows.map((r) => ({ ...r, note: notes[r.teacherId] || "" })) });
   } else if (report.kind === "ORPHANS") {
     // القائمة المحفوظة يوم الإصدار (تقارير قديمة بلا قائمة محفوظة تُعرض بالأسماء الحالية)
     const names = Array.isArray(params_.names) ? (params_.names as string[]) : await buildOrphans();

@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { halqaWithTrack } from "./track";
 
 /** «الاسم النسبة» — النسبة (الكنية/العائلة) تُلحق بالاسم إن وُجدت ولم يكن الاسم منتهيًا بها أصلًا. */
 export function nameWithNasab(name: string, familyName: string | null | undefined): string {
@@ -15,6 +16,13 @@ function extend(raw: PrismaClient) {
         name: {
           needs: { name: true, familyName: true },
           compute: (u) => nameWithNasab(u.name, u.familyName),
+        },
+      },
+      // اسم الحلقة يظهر دومًا مع نوعها (قرآن / قراءة عربية) في كل الموقع
+      halqa: {
+        name: {
+          needs: { name: true, track: true },
+          compute: (h) => halqaWithTrack(h.name, h.track),
         },
       },
       // واسم الطالب كذلك يظهر دومًا مع نسبته في كل الشاشات والتقارير

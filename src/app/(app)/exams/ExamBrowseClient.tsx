@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
-import { resultLabel, passFailLabel, examKindLabel, type ExamTypeId } from "@/lib/exam";
+import { resultLabel, passFailLabel, examKindLabel, TYPE_LABELS, type ExamTypeId } from "@/lib/exam";
 import { formatDateAr } from "@/lib/daily";
 import Drawer from "@/components/Drawer";
 import ExamFormDrawer, { type ExistingExam } from "./ExamFormDrawer";
 
-type StudentLite = { id: string; no: number; name: string };
+type StudentLite = { id: string; no: number; name: string; halqaName?: string };
 type Halqa = { id: string; name: string; teacherName: string; cohortName: string; students: StudentLite[] };
 type ExamRow = ExistingExam & { examinerId: string; examinerName: string };
 
@@ -18,7 +18,6 @@ export default function ExamBrowseClient({
   readOnly,
   currentUserId,
   isDirector,
-  tajweedTopics,
   halaqat,
   examsByStudent,
   readyStudents,
@@ -28,22 +27,25 @@ export default function ExamBrowseClient({
   readOnly: boolean;
   currentUserId: string;
   isDirector: boolean;
-  tajweedTopics: { id: string; juz: number; text: string }[];
   halaqat: Halqa[];
   examsByStudent: Record<string, ExamRow[]>;
   readyStudents?: { id: string; no: number; name: string; date: string }[];
   awqafByStudent?: Record<string, AwqafRow[]>;
 }) {
   const [search, setSearch] = useState("");
-  const [openHalqa, setOpenHalqa] = useState<string | null>(halaqat[0]?.id ?? null);
+  // حلقات كل فوج معزولة: يُختار الفوج أولًا، ثم تظهر حلقاته وحدها
+  const cohortNames = useMemo(() => [...new Set(halaqat.map((h) => h.cohortName))].sort((a, b) => a.localeCompare(b, "ar")), [halaqat]);
+  const [openCohort, setOpenCohort] = useState<string | null>(cohortNames[0] ?? null);
+  const cohortHalaqat = halaqat.filter((h) => h.cohortName === openCohort);
+  const [openHalqa, setOpenHalqa] = useState<string | null>(cohortHalaqat[0]?.id ?? null);
   const [fileStudent, setFileStudent] = useState<StudentLite | null>(null);
   const [formOpen, setFormOpen] = useState<{ existing: ExamRow | null } | null>(null);
 
   const allStudents = useMemo(() => halaqat.flatMap((h) => h.students.map((s) => ({ ...s, halqaName: h.name }))), [halaqat]);
   const hits = search.trim() ? allStudents.filter((s) => s.name.includes(search.trim()) || String(s.no).includes(search.trim())) : [];
 
-  const activeHalqa = halaqat.find((h) => h.id === openHalqa) ?? null;
-  const label = type === "LOCAL" ? "سبر محلي" : "ترشيح الأوقاف";
+  const activeHalqa = cohortHalaqat.find((h) => h.id === openHalqa) ?? null;
+  const label = TYPE_LABELS[type];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -92,12 +94,30 @@ export default function ExamBrowseClient({
       {halaqat.length === 0 ? (
         <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا توجد حلقات بعد.</div>
       ) : (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {halaqat.map((h) => (
-            <button key={h.id} onClick={() => setOpenHalqa(h.id)} style={chipStyle(h.id === openHalqa)}>
-              {h.name}
-            </button>
-          ))}
+        <div style={{ ...cardStyle, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>الفوج:</span>
+            {cohortNames.map((c) => (
+              <button
+                key={c}
+                onClick={() => {
+                  setOpenCohort(c);
+                  setOpenHalqa(halaqat.find((h) => h.cohortName === c)?.id ?? null);
+                }}
+                style={chipStyle(c === openCohort)}
+              >
+                {c} ({halaqat.filter((h) => h.cohortName === c).length})
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", paddingTop: 10, borderTop: "1px solid var(--line-2)" }}>
+            <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>الحلقة:</span>
+            {cohortHalaqat.map((h) => (
+              <button key={h.id} onClick={() => setOpenHalqa(h.id)} style={chipStyle(h.id === openHalqa)}>
+                {h.name} <span style={{ fontSize: 11, opacity: 0.75 }}>— {h.teacherName}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -118,7 +138,7 @@ export default function ExamBrowseClient({
               return (
                 <button
                   key={s.id}
-                  onClick={() => setFileStudent(s)}
+                  onClick={() => setFileStudent({ ...s, halqaName: activeHalqa.name })}
                   style={{
                     width: "100%",
                     display: "flex",
@@ -149,7 +169,7 @@ export default function ExamBrowseClient({
           open
           onClose={() => setFileStudent(null)}
           title={fileStudent.name}
-          subtitle={`#${fileStudent.no}`}
+          subtitle={`#${fileStudent.no}${fileStudent.halqaName ? ` · ${fileStudent.halqaName}` : ""}`}
         >
           {!readOnly && (
             <button onClick={() => setFormOpen({ existing: null })} style={{ ...primaryButtonStyle, width: "100%", minHeight: 48 }}>
@@ -188,12 +208,14 @@ export default function ExamBrowseClient({
                 localKind: e.localKind,
                 resultMark: e.resultMark,
                 nominationPresent: e.nominationPresent,
+                stage: e.stage,
+                grade: e.grade,
               });
               return (
                 <div key={e.id} style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 15, fontWeight: 700 }}>
-                      {resultLabel({ type, localKind: e.localKind, resultMark: e.resultMark })}
+                      {resultLabel({ type, localKind: e.localKind, resultMark: e.resultMark, stage: e.stage, grade: e.grade })}
                     </span>
                     {passFail && (
                       <span
@@ -245,7 +267,6 @@ export default function ExamBrowseClient({
           type={type}
           student={fileStudent}
           existing={formOpen.existing}
-          tajweedTopics={tajweedTopics}
           onClose={() => setFormOpen(null)}
         />
       )}

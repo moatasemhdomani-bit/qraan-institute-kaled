@@ -55,9 +55,14 @@ export default async function RecitationMonitorPage({
             r.noNew
               ? "لم يسمّع جديدًا"
               : `جديد: ${r.newFrom}→${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
-            r.noPast
-              ? "لم يقرأ ماضيًا"
-              : `ماضي: ${r.pastFrom}→${r.pastTo} (${pageSpan(r.pastFrom, r.pastTo)} صفحة) — ${r.gradePast ?? ""}`,
+            // القراءة العربية تسميعها جديد فقط — لا سطر للماضي
+            ...(h.track === "ARABIC"
+              ? []
+              : [
+                  r.noPast
+                    ? "لم يقرأ ماضيًا"
+                    : `ماضي: ${r.pastFrom}→${r.pastTo} (${pageSpan(r.pastFrom, r.pastTo)} صفحة) — ${r.gradePast ?? ""}`,
+                ]),
           ],
         };
       }),

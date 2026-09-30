@@ -9,6 +9,7 @@ import { copyToClipboard } from "@/lib/clipboard";
 import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import PhoneField from "@/components/PhoneField";
+import { TRACKS, TRACK_LABELS, type TrackId } from "@/lib/track";
 import PhotoField from "@/components/PhotoField";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
@@ -21,6 +22,7 @@ type StudentRow = {
   fullName: string;
   active: boolean;
   isOrphan: boolean;
+  track: TrackId;
   father: string;
   mother: string;
   familyName: string;
@@ -51,7 +53,7 @@ const BEHAVIOR_COLORS: Record<string, string> = {
 
 const initialState: FormState = {};
 
-type HalqaOption = { id: string; name: string; cohortId: string; cohortName: string; teacherId: string; teacherName: string };
+type HalqaOption = { id: string; name: string; cohortId: string; cohortName: string; teacherId: string; teacherName: string; track: TrackId };
 
 export default function StudentsClient({
   students,
@@ -65,6 +67,20 @@ export default function StudentsClient({
   const [onlyUnsorted, setOnlyUnsorted] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [onlyOrphans, setOnlyOrphans] = useState(false);
+  const [trackFilter, setTrackFilter] = useState<"all" | TrackId>("all");
+  const [teacherFilter, setTeacherFilter] = useState("");
+  const [cohortFilter, setCohortFilter] = useState("");
+  const [halqaFilter, setHalqaFilter] = useState("");
+
+  // خيارات الفلترة من الطلاب الموجودين فعلًا، مع عدد كل خيار
+  const optionsOf = (key: "teacherName" | "cohortName" | "halqaName") => {
+    const counts = new Map<string, number>();
+    for (const s of students) if (s.halqaId) counts.set(s[key], (counts.get(s[key]) ?? 0) + 1);
+    return [
+      { value: "", label: "الكل" },
+      ...[...counts].sort((a, b) => a[0].localeCompare(b[0], "ar")).map(([v, n]) => ({ value: v, label: `${v} (${n})` })),
+    ];
+  };
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<StudentRow | null>(null);
 
@@ -74,6 +90,8 @@ export default function StudentsClient({
       active: students.filter((s) => s.active).length,
       inactive: students.filter((s) => !s.active).length,
       orphans: students.filter((s) => s.isOrphan).length,
+      QURAN: students.filter((s) => s.track === "QURAN").length,
+      ARABIC: students.filter((s) => s.track === "ARABIC").length,
       unsorted: students.filter(isUnsorted).length,
     }),
     [students]
@@ -84,11 +102,15 @@ export default function StudentsClient({
       students
         .filter((s) => statusFilter === "all" || (statusFilter === "active" ? s.active : !s.active))
         .filter((s) => !onlyOrphans || s.isOrphan)
+        .filter((s) => trackFilter === "all" || s.track === trackFilter)
         .filter((s) => !onlyUnsorted || isUnsorted(s))
+        .filter((s) => !teacherFilter || (!!s.halqaId && s.teacherName === teacherFilter))
+        .filter((s) => !cohortFilter || (!!s.halqaId && s.cohortName === cohortFilter))
+        .filter((s) => !halqaFilter || (!!s.halqaId && s.halqaName === halqaFilter))
         .filter((s) => !search.trim() || s.fullName.includes(search.trim()) || s.no.includes(search.trim())),
-    [students, search, onlyUnsorted, statusFilter, onlyOrphans]
+    [students, search, onlyUnsorted, statusFilter, onlyOrphans, teacherFilter, cohortFilter, halqaFilter, trackFilter]
   );
-  const anyFilter = statusFilter !== "all" || onlyOrphans || onlyUnsorted || !!search.trim();
+  const anyFilter = trackFilter !== "all" || statusFilter !== "all" || onlyOrphans || onlyUnsorted || !!search.trim() || !!teacherFilter || !!cohortFilter || !!halqaFilter;
 
   function openNew() {
     setEditing(null);
@@ -131,12 +153,32 @@ export default function StudentsClient({
               منقطع ({counts.inactive})
             </button>
             <span style={{ width: 1, height: 22, background: "var(--line)", margin: "0 4px" }} />
+            <span style={{ width: 1, height: 22, background: "var(--line)", margin: "0 4px" }} />
+            {TRACKS.map((t) => (
+              <button key={t} onClick={() => setTrackFilter((v) => (v === t ? "all" : t))} style={chipStyle(trackFilter === t)}>
+                {TRACK_LABELS[t]} ({counts[t]})
+              </button>
+            ))}
             <button onClick={() => setOnlyOrphans((v) => !v)} style={chipStyle(onlyOrphans)}>
               أيتام ({counts.orphans})
             </button>
             <button onClick={() => setOnlyUnsorted((v) => !v)} style={chipStyle(onlyUnsorted)}>
               غير مفروزين ({counts.unsorted})
             </button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>المدرس</div>
+              <Select value={teacherFilter} onChange={setTeacherFilter} options={optionsOf("teacherName")} placeholder="الكل" />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الفوج</div>
+              <Select value={cohortFilter} onChange={setCohortFilter} options={optionsOf("cohortName")} placeholder="الكل" />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الحلقة</div>
+              <Select value={halqaFilter} onChange={setHalqaFilter} options={optionsOf("halqaName")} placeholder="الكل" />
+            </div>
           </div>
           {anyFilter && (
             <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>
@@ -310,19 +352,22 @@ function StudentForm({
   const [cohortId, setCohortId] = useState(initialHalqa?.cohortId ?? "");
   const [active, setActive] = useState(initial?.active ?? true);
   const [isOrphan, setIsOrphan] = useState(initial?.isOrphan ?? false);
+  const [track, setTrack] = useState<TrackId>(initial?.track ?? "QURAN");
 
   useEffect(() => {
     if (state.ok) onClose();
   }, [state.ok, onClose]);
 
+  // الطالب يُفرز فقط في حلقة من نوعه (قرآن / قراءة عربية) — فتظهر مدرّسو نوعه وأفواجهم وحدهم
+  const trackHalaqat = useMemo(() => halaqat.filter((h) => h.track === track), [halaqat, track]);
   const teachers = useMemo(() => {
     const byId = new Map<string, string>();
-    for (const h of halaqat) if (!byId.has(h.teacherId)) byId.set(h.teacherId, h.teacherName);
+    for (const h of trackHalaqat) if (!byId.has(h.teacherId)) byId.set(h.teacherId, h.teacherName);
     return Array.from(byId, ([id, name]) => ({ id, name }));
-  }, [halaqat]);
+  }, [trackHalaqat]);
 
-  const cohortsForTeacher = useMemo(() => halaqat.filter((h) => h.teacherId === teacherId), [halaqat, teacherId]);
-  const resolvedHalqa = halaqat.find((h) => h.teacherId === teacherId && h.cohortId === cohortId) ?? null;
+  const cohortsForTeacher = useMemo(() => trackHalaqat.filter((h) => h.teacherId === teacherId), [trackHalaqat, teacherId]);
+  const resolvedHalqa = trackHalaqat.find((h) => h.teacherId === teacherId && h.cohortId === cohortId) ?? null;
 
   const todayLabel = formatDateAr(today());
 
@@ -355,6 +400,7 @@ function StudentForm({
         <input type="hidden" name="halqaId" value={active ? resolvedHalqa?.id ?? "" : ""} />
         <input type="hidden" name="status" value={active ? "active" : "inactive"} />
         <input type="hidden" name="orphan" value={isOrphan ? "1" : "0"} />
+        <input type="hidden" name="track" value={track} />
 
         <PhotoField name="photo" label="صورة الطالب" existingUrl={initial?.photoUrl} />
 
@@ -374,8 +420,28 @@ function StudentForm({
           <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
         </div>
 
-        {/* حالة الطالب في سطر، وتحتها «يتيم» */}
+        {/* ما يدرسه، ثم حالة الطالب، وتحتها «يتيم» */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>يدرس</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {TRACKS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    if (t === track) return;
+                    setTrack(t);
+                    setTeacherId("");
+                    setCohortId("");
+                  }}
+                  style={chipStyle(track === t)}
+                >
+                  {TRACK_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          </div>
           <div>
             <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>حالة الطالب</div>
             <div style={{ display: "flex", gap: 6 }}>

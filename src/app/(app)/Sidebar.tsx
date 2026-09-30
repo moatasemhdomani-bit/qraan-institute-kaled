@@ -6,9 +6,9 @@ import { logout } from "./actions";
 import type { RoleId } from "@/lib/ui";
 import { NAV, activeNavId } from "./nav";
 
-export default function Sidebar({ role, name, roleLabel }: { role: RoleId; name: string; roleLabel: string }) {
+export default function Sidebar({ role, name, roleLabel, track }: { role: RoleId; name: string; roleLabel: string; track?: "QURAN" | "ARABIC" }) {
   const pathname = usePathname();
-  const items = NAV.filter((n) => n.roles.includes(role));
+  const items = NAV.filter((n) => n.roles.includes(role) && (!n.track || n.track === (track ?? "QURAN")));
   const activeId = activeNavId(pathname);
 
   return (

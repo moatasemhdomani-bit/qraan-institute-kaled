@@ -9,7 +9,7 @@ export default async function ExamMonitorPage() {
   if (!session) redirect("/login");
   if (session.role !== "DIRECTOR" && session.role !== "ADMIN" && session.role !== "TEACHER") redirect("/dashboard");
 
-  const [halaqatRaw, examsRaw, tajweedTopics, awqafResultsRaw] = await Promise.all([
+  const [halaqatRaw, examsRaw, awqafResultsRaw] = await Promise.all([
     prisma.halqa.findMany({
       where: session.role === "TEACHER" ? { teacherId: session.userId } : undefined,
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { select: { id: true } } },
@@ -17,10 +17,9 @@ export default async function ExamMonitorPage() {
     }),
     prisma.exam.findMany({
       where: { student: { halqaId: { not: null } } },
-      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, halqaId: true } }, answers: { include: { topic: true } } },
+      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, halqaId: true } } },
       orderBy: { date: "desc" },
     }),
-    session.role === "DIRECTOR" ? prisma.tajweedTopic.findMany({ orderBy: [{ juz: "asc" }, { order: "asc" }] }) : Promise.resolve([]),
     prisma.awqafResult.findMany({
       where: { student: { halqaId: { not: null } } },
       include: { batch: { select: { date: true } }, student: { select: { id: true, name: true, halqaId: true } } },
@@ -46,8 +45,9 @@ export default async function ExamMonitorPage() {
         resultMark: e.resultMark,
         nominationPresent: e.nominationPresent,
         nominationParts: e.nominationParts,
+        stage: e.stage,
+        grade: e.grade,
         notes: e.notes,
-        answers: e.answers.map((a) => ({ topicId: a.topicId, text: a.topic.text })),
         certArrived: false,
         certArchived: false,
         certDelivered: false,
@@ -75,7 +75,6 @@ export default async function ExamMonitorPage() {
             (e) => e.type === "WAQF_NOMINATION" && e.studentId === r.studentId && e.nominationPresent === r.nominationPresent && e.date <= r.batch.date
           )?.nominationParts ?? null,
         notes: null as string | null,
-        answers: [] as { topicId: string; text: string }[],
         certArrived: r.certArrived,
         certArchived: r.certArchived,
         certDelivered: r.certDelivered,
@@ -103,7 +102,6 @@ export default async function ExamMonitorPage() {
         isDirector={session.role === "DIRECTOR"}
         canManageAwqaf={session.role === "DIRECTOR" || session.role === "ADMIN"}
         currentUserId={session.userId}
-        tajweedTopics={tajweedTopics.map((t) => ({ id: t.id, juz: t.juz, text: t.text }))}
         blocks={blocks}
       />
     </>

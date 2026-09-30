@@ -9,8 +9,10 @@ const LOGO_DATA_URI = (() => {
 })();
 
 const KIND_LABELS: Record<string, string> = {
-  HALAQAT: "تقرير تسميع الحلقات",
-  TEACHERS: "التقرير الشهري للمدرسين",
+  HALAQAT: "تقرير تسميع حلقات القرآن",
+  TEACHERS: "التقرير الشهري لمدرسي القرآن",
+  HALAQAT_AR: "تقرير تسميع حلقات القراءة العربية",
+  TEACHERS_AR: "التقرير الشهري لمدرسي القراءة العربية",
   STUDENT: "تقرير طالب",
   AWQAF_MARKS: "علامات سبر الأوقاف",
   ORPHANS: "الأيتام",
@@ -148,7 +150,96 @@ export function halaqatReportHtml(input: {
     htmlHead(input.name) +
     reportHeader(input.name, "HALAQAT", input.from, input.to, input.issuedBy, input.issuedAt) +
     blocksHtml +
-    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير تسميع الحلقات</div></body></html>`
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير تسميع حلقات القرآن</div></body></html>`
+  );
+}
+
+export type ArabicHalaqatReportBlock = {
+  halqaName: string;
+  teacherName: string;
+  cohortName: string;
+  rows: { studentName: string; studentNo: number; from: number | null; to: number | null; total: number; exams: { stage: number; passed: boolean | null }[] }[];
+};
+
+/** أرقام مراحل الاختبارات: الأخضر ناجح والأحمر راسب. */
+function examStagesHtml(exams: { stage: number; passed: boolean | null }[]): string {
+  if (exams.length === 0) return "—";
+  return exams.map((e) => `<span class="${e.passed === false ? "fail" : e.passed ? "pass" : ""}">${e.stage}</span>`).join("، ");
+}
+
+export function arabicHalaqatReportHtml(input: {
+  name: string; from: string; to: string; issuedBy: string; issuedAt: string;
+  blocks: ArabicHalaqatReportBlock[];
+}): string {
+  const blocksHtml = input.blocks
+    .map(
+      (b) => `
+    <h2 class="block">الحلقة: ${escapeHtml(b.halqaName)} &nbsp;&nbsp; المدرس: ${escapeHtml(b.teacherName)} &nbsp;&nbsp; الفوج: ${escapeHtml(b.cohortName)}</h2>
+    <table>
+      <thead><tr>
+        <th>اسم الطالب</th><th>رقمه</th><th>من الصفحة</th><th>إلى الصفحة</th><th>إجمالي الصفحات</th><th>الاختبارات</th>
+      </tr></thead>
+      <tbody>
+        ${b.rows
+          .map(
+            (r) => `<tr>
+              <td class="name">${escapeHtml(r.studentName)}</td>
+              <td>${r.studentNo}</td>
+              <td>${r.from ?? "—"}</td>
+              <td>${r.to ?? "—"}</td>
+              <td>${r.total}</td>
+              <td>${examStagesHtml(r.exams)}</td>
+            </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>`
+    )
+    .join("");
+  return (
+    htmlHead(input.name) +
+    reportHeader(input.name, "HALAQAT_AR", input.from, input.to, input.issuedBy, input.issuedAt) +
+    blocksHtml +
+    `<div style="margin-top:10px;font-size:10.5px;color:#666">الاختبارات بأرقام مراحلها: <span class="pass">الأخضر ناجح</span>، <span class="fail">الأحمر راسب</span>.</div>` +
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير تسميع حلقات القراءة العربية</div></body></html>`
+  );
+}
+
+export type ArabicTeachersReportRow = { teacherName: string; halqaNames: string; pages: number; pass: number; fail: number; count: number; note: string };
+
+export function arabicTeachersReportHtml(input: {
+  name: string; from: string; to: string; issuedBy: string; issuedAt: string;
+  rows: ArabicTeachersReportRow[];
+}): string {
+  const table = `
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2">المدرس</th><th rowspan="2">الحلقات</th><th rowspan="2">مجموع الصفحات</th>
+          <th colspan="2">الاختبارات</th><th rowspan="2">عدد الطلاب</th><th rowspan="2">الملاحظات</th>
+        </tr>
+        <tr><th>ناجحة</th><th>راسبة</th></tr>
+      </thead>
+      <tbody>
+        ${input.rows
+          .map(
+            (r) => `<tr>
+              <td class="name">${escapeHtml(r.teacherName)}</td>
+              <td>${escapeHtml(r.halqaNames)}</td>
+              <td>${r.pages}</td>
+              ${passFailCells(r.pass, r.fail)}
+              <td>${r.count}</td>
+              <td class="note">${escapeHtml(r.note?.trim() || "—")}</td>
+            </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>`;
+  return (
+    htmlHead(input.name) +
+    reportHeader(input.name, "TEACHERS_AR", input.from, input.to, input.issuedBy, input.issuedAt) +
+    table +
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — التقرير الشهري لمدرسي القراءة العربية</div></body></html>`
   );
 }
 
@@ -196,7 +287,7 @@ export function teachersReportHtml(input: {
     htmlHead(input.name) +
     reportHeader(input.name, "TEACHERS", input.from, input.to, input.issuedBy, input.issuedAt) +
     table +
-    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — التقرير الشهري للمدرسين</div></body></html>`
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — التقرير الشهري لمدرسي القرآن</div></body></html>`
   );
 }
 

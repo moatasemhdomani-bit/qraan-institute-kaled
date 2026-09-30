@@ -3,6 +3,20 @@
 import { useMemo, useState, useActionState, useEffect } from "react";
 import { saveStaff, deleteStaff, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle, cardStyle, ROLE_LABELS, type RoleId } from "@/lib/ui";
+import { staffRoleLabel, type TrackId } from "@/lib/track";
+
+/** أنواع الموظفين كما تظهر للمستخدم: الدور مع نوع التدريس (قرآن / قراءة عربية) للمدرّس والمختبِر. */
+const STAFF_KINDS: { id: string; role: RoleId; track: TrackId }[] = [
+  { id: "DIRECTOR", role: "DIRECTOR", track: "QURAN" },
+  { id: "ADMIN", role: "ADMIN", track: "QURAN" },
+  { id: "TEACHER", role: "TEACHER", track: "QURAN" },
+  { id: "TEACHER_AR", role: "TEACHER", track: "ARABIC" },
+  { id: "EXAMINER", role: "EXAMINER", track: "QURAN" },
+  { id: "EXAMINER_AR", role: "EXAMINER", track: "ARABIC" },
+];
+const kindOf = (role: RoleId, track: TrackId) =>
+  STAFF_KINDS.find((k) => k.role === role && (k.role === "TEACHER" || k.role === "EXAMINER" ? k.track === track : true))?.id ?? role;
+const kindLabel = (k: (typeof STAFF_KINDS)[number]) => staffRoleLabel(k.role, k.track, ROLE_LABELS);
 import Drawer from "@/components/Drawer";
 import PhotoField from "@/components/PhotoField";
 import PasswordField from "@/components/PasswordField";
@@ -16,6 +30,7 @@ type StaffRow = {
   fullName: string;
   username: string;
   role: RoleId;
+  track: TrackId;
   phone: string;
   photoUrl: string | null;
   father: string;
@@ -33,7 +48,6 @@ type StaffRow = {
   currentPassword: string;
 };
 
-const STAFF_ROLES: RoleId[] = ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER"];
 const initialState: FormState = {};
 
 export default function UsersClient({
@@ -46,7 +60,7 @@ export default function UsersClient({
   isDirector: boolean;
 }) {
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"ALL" | RoleId>("ALL");
+  const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<StaffRow | null>(null);
 
@@ -54,7 +68,7 @@ export default function UsersClient({
     () =>
       staff
         .filter((u) => !search.trim() || u.fullName.includes(search.trim()))
-        .filter((u) => roleFilter === "ALL" || u.role === roleFilter),
+        .filter((u) => roleFilter === "ALL" || kindOf(u.role, u.track) === roleFilter),
     [staff, search, roleFilter]
   );
 
@@ -87,9 +101,9 @@ export default function UsersClient({
             <button style={chipStyle(roleFilter === "ALL")} onClick={() => setRoleFilter("ALL")}>
               الكل
             </button>
-            {STAFF_ROLES.map((r) => (
-              <button key={r} style={chipStyle(roleFilter === r)} onClick={() => setRoleFilter(r)}>
-                {ROLE_LABELS[r]}
+            {STAFF_KINDS.map((k) => (
+              <button key={k.id} style={chipStyle(roleFilter === k.id)} onClick={() => setRoleFilter(k.id)}>
+                {kindLabel(k)}
               </button>
             ))}
           </div>
@@ -181,7 +195,7 @@ export default function UsersClient({
                         fontWeight: u.role === "DIRECTOR" ? 600 : 400,
                       }}
                     >
-                      {ROLE_LABELS[u.role]}
+                      {staffRoleLabel(u.role, u.track, ROLE_LABELS)}
                     </span>
                   </div>
                   <div style={{ color: "var(--ink-2)", fontSize: 13, direction: "ltr", textAlign: "right" }}>{u.phone ? formatMobile(u.phone) : "—"}</div>
@@ -252,7 +266,7 @@ export default function UsersClient({
                           fontWeight: u.role === "DIRECTOR" ? 600 : 400,
                         }}
                       >
-                        {ROLE_LABELS[u.role]}
+                        {staffRoleLabel(u.role, u.track, ROLE_LABELS)}
                       </span>
                     </div>
                     <div style={{ fontSize: 12, color: "var(--ink-2)", direction: "ltr", textAlign: "right" }}>{u.phone ? formatMobile(u.phone) : "—"}</div>
@@ -315,7 +329,9 @@ function StaffForm({
   onClose: () => void;
 }) {
   const [state, formAction, pending] = useActionState(saveStaff, initialState);
-  const [role, setRole] = useState<RoleId>(initial?.role ?? "TEACHER");
+  const [kind, setKind] = useState<string>(initial ? kindOf(initial.role, initial.track) : "TEACHER");
+  const role = STAFF_KINDS.find((k) => k.id === kind)?.role ?? "TEACHER";
+  const track = STAFF_KINDS.find((k) => k.id === kind)?.track ?? "QURAN";
   const [cohortIds, setCohortIds] = useState<string[]>(initial?.cohortIds ?? []);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteState, deleteAction, deletePending] = useActionState(
@@ -419,6 +435,7 @@ function StaffForm({
       <form id="staff-form" action={formAction} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <input type="hidden" name="id" value={initial?.id ?? ""} />
         <input type="hidden" name="role" value={role} />
+        <input type="hidden" name="track" value={track} />
         {cohortIds.map((c) => (
           <input key={c} type="hidden" name="cohortIds" value={c} />
         ))}
@@ -428,16 +445,17 @@ function StaffForm({
         <div>
           <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 8 }}>الدور</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {(["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER"] as RoleId[]).map((r) => {
+            {STAFF_KINDS.map((k) => {
+              const r = k.role;
               const locked = r === "DIRECTOR" && !isDirector;
-              const on = role === r;
+              const on = kind === k.id;
               return (
                 <button
-                  key={r}
+                  key={k.id}
                   type="button"
                   disabled={locked}
                   title={locked ? "إسناد هذا الدور من اختصاص مدير المعهد" : ""}
-                  onClick={() => setRole(r)}
+                  onClick={() => setKind(k.id)}
                   style={{
                     padding: "8px 14px",
                     borderRadius: 999,
@@ -451,7 +469,7 @@ function StaffForm({
                     cursor: locked ? "not-allowed" : "pointer",
                   }}
                 >
-                  {ROLE_LABELS[r]}
+                  {kindLabel(k)}
                   {locked ? " · مقفل" : ""}
                 </button>
               );

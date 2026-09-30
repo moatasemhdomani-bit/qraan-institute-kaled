@@ -20,6 +20,8 @@ type IssuedRow = {
 const REVIEW_PATHS: Record<string, string> = {
   HALAQAT: "/reports/halaqat",
   TEACHERS: "/reports/teachers",
+  HALAQAT_AR: "/reports/halaqat-arabic",
+  TEACHERS_AR: "/reports/teachers-arabic",
   STUDENT: "/reports/student",
   AWQAF_MARKS: "/reports/awqaf-marks",
   ORPHANS: "/reports/orphans",
@@ -27,8 +29,10 @@ const REVIEW_PATHS: Record<string, string> = {
 
 const FILTERS = [
   { id: "all", label: "كل الأنواع" },
-  { id: "HALAQAT", label: "تسميع الحلقات" },
-  { id: "TEACHERS", label: "الشهري للمدرسين" },
+  { id: "HALAQAT", label: "تسميع حلقات القرآن" },
+  { id: "TEACHERS", label: "الشهري لمدرسي القرآن" },
+  { id: "HALAQAT_AR", label: "تسميع حلقات القراءة العربية" },
+  { id: "TEACHERS_AR", label: "الشهري لمدرسي القراءة العربية" },
   { id: "STUDENT", label: "تقرير طالب" },
   { id: "AWQAF_MARKS", label: "علامات سبر الأوقاف" },
   { id: "ORPHANS", label: "الأيتام" },

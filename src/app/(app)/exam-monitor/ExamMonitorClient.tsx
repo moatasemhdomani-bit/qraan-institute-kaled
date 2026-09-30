@@ -32,14 +32,12 @@ export default function ExamMonitorClient({
   isDirector,
   canManageAwqaf,
   currentUserId,
-  tajweedTopics,
   blocks,
 }: {
   canEdit: boolean;
   isDirector: boolean;
   canManageAwqaf: boolean;
   currentUserId: string;
-  tajweedTopics: { id: string; juz: number; text: string }[];
   blocks: Block[];
 }) {
   const [typeFilter, setTypeFilter] = useState<"all" | RowType>("all");
@@ -77,7 +75,7 @@ export default function ExamMonitorClient({
           style={inputStyle()}
         />
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {(["all", "LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL"] as const).map((t) => (
+          {(["all", "LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL", "ARABIC"] as const).map((t) => (
             <button key={t} onClick={() => setTypeFilter(t)} style={chipStyle(typeFilter === t)}>
               {t === "all" ? "كل الأنواع" : t === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[t]}
             </button>
@@ -197,9 +195,8 @@ export default function ExamMonitorClient({
       {editing && (
         <ExamFormDrawer
           type={editing.row.type}
-          student={{ id: editing.row.studentId, name: editing.row.studentName }}
+          student={{ id: editing.row.studentId, name: editing.row.studentName, halqaName: editing.halqaName }}
           existing={editing.row}
-          tajweedTopics={tajweedTopics}
           onClose={() => setEditing(null)}
         />
       )}
