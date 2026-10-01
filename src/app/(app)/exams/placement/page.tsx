@@ -14,7 +14,7 @@ export default async function PlacementExamPage() {
   // مختبِر القراءة العربية له شاشة سبره وحدها
   if (track === "ARABIC") redirect("/exams/arabic");
   const examsRaw = await prisma.exam.findMany({
-    where: { type: "PLACEMENT", student: { halqaId: null, active: true, track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] } } },
+    where: { type: "PLACEMENT", student: { halqaId: null, active: true, track: { not: "GRADUATED" } } },
     include: { examiner: { select: { id: true, name: true } }, student: { select: { name: true } } },
     orderBy: { date: "desc" },
   });
@@ -28,6 +28,7 @@ export default async function PlacementExamPage() {
     date: e.date,
     localKind: null,
     juz: e.juz,
+    startPage: e.startPage,
     pages: e.pages,
     resultMark: e.resultMark,
     nominationPresent: e.nominationPresent,
@@ -37,7 +38,7 @@ export default async function PlacementExamPage() {
 
   return (
     <>
-      <PageHeader title="تحديد مستوى" subtitle="لطالب غير مسجَّل بعد — نتيجته هي الجزء الذي يبدأ منه حفظه." />
+      <PageHeader title="تحديد مستوى" subtitle="لطالب غير مسجَّل بعد — نتيجته هي الجزء الذي يبدأ منه حفظه، أو الصفحة التي يبدأ منها في القراءة العربية." />
       <PlacementClient currentUserId={session.userId} isDirector={session.role === "DIRECTOR"} rows={rows} />
     </>
   );

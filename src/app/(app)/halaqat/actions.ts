@@ -32,7 +32,8 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   // العميل الخام: مقارنة الاسم المخزَّن نفسه (العرض العادي يُلحق به نوع الحلقة)
   const current = id ? await rawPrisma.halqa.findUnique({ where: { id }, include: { _count: { select: { students: true } } } }) : null;
 
-  // تغيير نوع حلقة قائمة مع إبقاء مدرّسها (للإعداد الأول — سيُحذف لاحقًا): ينتقل المدرّس وكل حلقاته وطلابها إلى النوع الجديد
+  // استثناء مؤقت للإعداد الأول (سيُحذف بعد توزيع الطلاب): تغيير نوع حلقة قائمة مع إبقاء مدرّسها يغيّر مستوى طلابها
+  // ودور مدرّسها إلى النوع الجديد دون نقل أحد من حلقته — وحلقات المدرّس الأخرى معها، لأن للمدرّس نوعًا واحدًا
   const cascade = !!current && current.track !== track && current.teacherId === teacherId;
 
   // غير ذلك: المدرّس من نوع الحلقة نفسه
@@ -67,7 +68,7 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
       prisma.student.updateMany({ where: { halqaId: { in: ids } }, data: { track } }),
       prisma.user.update({ where: { id: teacherId }, data: { track } }),
     ]);
-    await logAction(session.userId, `غيّر نوع الحلقة «${name}» إلى «${TRACK_LABELS[track]}» — ومعها مدرّسها وكل حلقاته (${ids.length}) وطلابها`);
+    await logAction(session.userId, `غيّر نوع الحلقة «${name}» إلى «${TRACK_LABELS[track]}» — ومعه مستوى طلابها ودور مدرّسها (حلقات المدرّس المتغيّرة: ${ids.length})`);
   } else if (id) {
     await prisma.halqa.update({ where: { id }, data: { name, teacherId, cohortId, track } });
     await logAction(session.userId, `عدّل الحلقة «${name}»`);

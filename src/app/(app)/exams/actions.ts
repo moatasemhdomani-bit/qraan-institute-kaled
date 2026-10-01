@@ -78,6 +78,10 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
 
   const juzRaw = String(formData.get("juz") || "");
   const juz = juzRaw ? parseInt(juzRaw, 10) : null;
+  // تحديد المستوى بالقراءة العربية: صفحة البداية بدل الجزء
+  const startPageRaw = String(formData.get("startPage") || "");
+  const startPage = type === "PLACEMENT" && startPageRaw ? parseInt(startPageRaw, 10) : null;
+  const arabicPlacement = startPage != null;
 
   let pages: number[] = [];
   try {
@@ -114,11 +118,13 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     studentName: type === "PLACEMENT" && !studentId ? studentName : undefined,
     stage,
     grade,
+    startPage,
   });
   if (validationError) return { error: validationError };
 
   // سبر القراءة العربية لطلاب القراءة العربية فقط، ويجريه مختبِرها أو المدير
-  if (type === "ARABIC" || studentId) {
+  // تحديد المستوى لطالب لم يُفرز بعد — يحدّد هو نفسه مستواه (قراءة عربية أو قرآن)، فلا قيد على نوعه
+  if (type === "ARABIC" || (studentId && type !== "PLACEMENT")) {
     const track = await examinerTrack(session);
     const target = studentId ? await prisma.student.findUnique({ where: { id: studentId }, select: { track: true } }) : null;
     if (target?.track === "GRADUATED") return { error: "هذا الطالب متخرِّج — أنهى المستويات كلها." };
@@ -131,7 +137,8 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   if (type === "PLACEMENT" && !finalStudentId) {
     const last = await prisma.student.findFirst({ orderBy: { studentNo: "desc" } });
     const nextNo = (last?.studentNo ?? 1000) + 1;
-    const track = (await examinerTrack(session)) ?? "QURAN";
+    // الطالب الجديد على مستوى نتيجة تحديد مستواه: قراءة عربية، أو قرآن حاضراً
+    const track = arabicPlacement ? ("ARABIC" as const) : ("QURAN" as const);
     const created = await prisma.student.create({ data: { name: studentName, studentNo: nextNo, halqaId: null, track } });
     finalStudentId = created.id;
   }
@@ -145,19 +152,27 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     date,
     studentId: finalStudentId,
     localKind: type === "LOCAL" ? localKind : null,
-    juz: usesJuz ? juz : null,
+    juz: usesJuz && !arabicPlacement ? juz : null,
+    startPage: arabicPlacement ? startPage : null,
     pages: type === "LOCAL" || type === "WAQF_NOMINATION" ? pages : [],
     resultMark:
       type === "WAQF_NOMINATION" || type === "LOCAL" || (type === "ARABIC" && isArabicMarkStage(stage)) ? resultMark : null,
     stage: type === "ARABIC" ? stage : null,
     grade: type === "ARABIC" && !isArabicMarkStage(stage) ? grade : null,
     // حاضرًا/غيبًا: لترشيح الأوقاف ولتحديد المستوى
-    nominationPresent: type === "WAQF_NOMINATION" || type === "PLACEMENT" ? nominationPresent : null,
+    nominationPresent: type === "WAQF_NOMINATION" || (type === "PLACEMENT" && !arabicPlacement) ? nominationPresent : null,
     nominationParts: type === "WAQF_NOMINATION" ? nominationParts : null,
     notes,
   };
 
-  const student = await prisma.student.findUnique({ where: { id: finalStudentId } });
+  let student = await prisma.student.findUnique({ where: { id: finalStudentId } });
+  // تعديل تحديد مستوى طالب لم يُفرز بعد: يتبع مستواه نتيجة تحديد المستوى
+  if (type === "PLACEMENT" && student && !student.halqaId) {
+    const want = arabicPlacement ? "ARABIC" : "QURAN";
+    if (examFamily(student.track) !== examFamily(want)) {
+      student = await prisma.student.update({ where: { id: student.id }, data: { track: want } });
+    }
+  }
 
   // بنك أسئلة التجويد أُلغي: سبر «حاضراً» يُسجَّل بجزئه وصفحاته وعلامته فقط
   const exam = id

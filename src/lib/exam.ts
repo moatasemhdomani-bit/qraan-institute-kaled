@@ -49,11 +49,14 @@ type ExamResultShape = {
   nominationPresent?: boolean | null;
   stage?: number | null;
   grade?: string | null;
+  /** تحديد المستوى بالقراءة العربية: صفحة البداية (5–48) بدل الجزء */
+  startPage?: number | null;
 };
 
 /** نص نتيجة موحّد للعرض. */
 export function resultLabel(exam: ExamResultShape): string {
   if (exam.type === "PLACEMENT") {
+    if (exam.startPage != null) return `يبدأ من الصفحة ${exam.startPage} — قراءة عربية`;
     if (exam.juz == null) return "—";
     const mode = exam.nominationPresent == null ? "" : exam.nominationPresent ? " — حاضرًا" : " — غيبًا";
     return `يبدأ من الجزء ${exam.juz}${mode}`;
@@ -103,6 +106,7 @@ export function validateExam(input: {
   studentName?: string;
   stage?: number | null;
   grade?: string | null;
+  startPage?: number | null;
 }): string | null {
   if (input.type === "ARABIC") {
     if (!input.stage || !ARABIC_STAGES.includes(input.stage)) return "اختاروا المرحلة.";
@@ -114,8 +118,13 @@ export function validateExam(input: {
   if (input.type === "PLACEMENT") {
     // الاسم يُطلب فقط عند تسجيل طالب جديد — عند تعديل سبر قائم لا يُمرَّر الاسم أصلًا
     if (input.studentName !== undefined && !input.studentName.trim()) return "اكتبوا اسم الطالب.";
-    if (input.nominationPresent == null) return "اختاروا حاضرًا أو غيبًا.";
-    if (!input.juz || input.juz < 1 || input.juz > 30) return "اختاروا الجزء الذي يبدأ منه الطالب.";
+    // القراءة العربية: صفحة البداية في «مختصر القراءة العربية» بدل الجزء
+    if (input.startPage != null) {
+      if (input.startPage < 5 || input.startPage > 48) return "اختاروا الصفحة التي يبدأ منها الطالب (من 5 إلى 48).";
+    } else {
+      if (input.nominationPresent == null) return "اختاروا حاضرًا أو غيبًا أو قراءة عربية.";
+      if (!input.juz || input.juz < 1 || input.juz > 30) return "اختاروا الجزء الذي يبدأ منه الطالب.";
+    }
   }
 
   if (input.type === "LOCAL" || input.type === "WAQF_NOMINATION") {
@@ -157,6 +166,7 @@ export function examKindLabel(e: {
   nominationPresent?: boolean | null;
   nominationParts?: number | null;
   stage?: number | null;
+  startPage?: number | null;
 }): string {
   if (e.type === "ARABIC") return e.stage != null ? arabicStageLabel(e.stage) : "";
   const mode = e.nominationPresent == null ? "" : e.nominationPresent ? "حاضرًا" : "غيبًا";
@@ -169,5 +179,6 @@ export function examKindLabel(e: {
     return e.juz != null ? `الجزء ${e.juz} ${localMode}` : localMode;
   }
   // PLACEMENT
+  if (e.startPage != null) return `قراءة عربية — الصفحة ${e.startPage}`;
   return e.juz != null ? `الجزء ${e.juz}${mode ? ` ${mode}` : ""}` : mode;
 }

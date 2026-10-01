@@ -41,6 +41,7 @@ export default async function ExamMonitorPage() {
         date: e.date,
         localKind: e.localKind,
         juz: e.juz,
+        startPage: e.startPage,
         pages: e.pages,
         resultMark: e.resultMark,
         nominationPresent: e.nominationPresent,

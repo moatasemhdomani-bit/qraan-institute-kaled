@@ -177,6 +177,7 @@ function HalqaForm({
   const [cohortId, setCohortId] = useState(initial?.cohortId ?? initialCohortId ?? "");
   // مدرّس الحلقة من نوعها. عند تغيير نوع حلقة قائمة مع إبقاء مدرّسها، يبقى مدرّسها خيارًا (ينتقل معها إلى النوع الجديد)
   const typeChanging = !!initial && initial.track !== track;
+  const otherTeacherHalaqat = initial ? allHalaqat.filter((h) => h.teacherId === initial.teacherId && h.id !== initial.id) : [];
   const trackTeachers = teachers.filter((t) => t.track === track || (typeChanging && t.id === initial?.teacherId));
 
   useEffect(() => {
@@ -228,9 +229,12 @@ function HalqaForm({
             ))}
           </div>
           {typeChanging && teacherId === initial?.teacherId && (
-            // للإعداد الأول — سيُحذف هذا الخيار لاحقًا
-            <div style={{ fontSize: 12, color: "var(--bad-ink)", marginTop: 7, lineHeight: 1.6 }}>
-              تغيير النوع إلى «{TRACK_LABELS[track]}» ينقل المدرّس «{initial?.teacherName}» وكل حلقاته وكل طلابها إلى هذا المستوى.
+            // استثناء مؤقت للإعداد الأول — سيُحذف بعد توزيع الطلاب على حلقاتهم المناسبة
+            <div style={{ fontSize: 12, color: "var(--bad-ink)", marginTop: 7, lineHeight: 1.7 }}>
+              <b>خيار مؤقت للإعداد الأول:</b> يبقى الطلاب في حلقتهم — يتغيّر مستوى كل طلابها ({initial?.count}) إلى «{TRACK_LABELS[track]}»،
+              ويصبح دور المدرّس «{initial?.teacherName}» «مدرس {TRACK_LABELS[track]}».
+              {otherTeacherHalaqat.length > 0 &&
+                ` ولأن للمدرّس نوعًا واحدًا، تتغيّر معها حلقاته الأخرى (${otherTeacherHalaqat.map((h) => h.name).join("، ")}) ومستوى طلابها أيضًا.`}
             </div>
           )}
         </div>

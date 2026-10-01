@@ -40,6 +40,7 @@ export type ExistingExam = {
   nominationParts: number | null;
   stage?: number | null;
   grade?: string | null;
+  startPage?: number | null;
   notes: string | null;
 };
 
@@ -118,6 +119,9 @@ export default function ExamFormDrawer({
   const [date, setDate] = useState(existing?.date ?? today());
   const [localKind, setLocalKind] = useState<LocalKindId | "">(existing?.localKind ?? "");
   const [juz, setJuz] = useState<number | null>(existing?.juz ?? null);
+  // تحديد المستوى بالقراءة العربية: صفحة البداية (5–48) بدل الجزء
+  const [arabicPlacement, setArabicPlacement] = useState(existing?.startPage != null);
+  const [startPage, setStartPage] = useState<number | null>(existing?.startPage ?? null);
   const [pages, setPages] = useState<number[]>(existing?.pages ?? []);
   const [resultMark, setResultMark] = useState(existing?.resultMark != null ? String(existing.resultMark) : "");
   const [nominationPresent, setNominationPresent] = useState<boolean | null>(existing?.nominationPresent ?? null);
@@ -181,7 +185,8 @@ export default function ExamFormDrawer({
         <input type="hidden" name="juz" value={juz ?? ""} />
         <input type="hidden" name="pagesJson" value={JSON.stringify(pages)} />
         <input type="hidden" name="resultMark" value={resultMark} />
-        <input type="hidden" name="nominationPresent" value={nominationPresent == null ? "" : nominationPresent ? "1" : "0"} />
+        <input type="hidden" name="nominationPresent" value={nominationPresent == null || (type === "PLACEMENT" && arabicPlacement) ? "" : nominationPresent ? "1" : "0"} />
+        <input type="hidden" name="startPage" value={type === "PLACEMENT" && arabicPlacement ? startPage ?? "" : ""} />
         <input type="hidden" name="nominationParts" value={nominationParts ?? ""} />
         <input type="hidden" name="stage" value={stage ?? ""} />
         <input type="hidden" name="grade" value={grade} />
@@ -291,17 +296,57 @@ export default function ExamFormDrawer({
           <div>
             <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>نوع السبر</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setNominationPresent(true)} style={{ ...chipStyle(nominationPresent === true), minHeight: 44, padding: "10px 22px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setArabicPlacement(false);
+                  setNominationPresent(true);
+                }}
+                style={{ ...chipStyle(!arabicPlacement && nominationPresent === true), minHeight: 44, padding: "10px 22px" }}
+              >
                 حاضرًا
               </button>
-              <button type="button" onClick={() => setNominationPresent(false)} style={{ ...chipStyle(nominationPresent === false), minHeight: 44, padding: "10px 22px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setArabicPlacement(false);
+                  setNominationPresent(false);
+                }}
+                style={{ ...chipStyle(!arabicPlacement && nominationPresent === false), minHeight: 44, padding: "10px 22px" }}
+              >
                 غيبًا
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setArabicPlacement(true);
+                  setNominationPresent(null);
+                }}
+                style={{ ...chipStyle(arabicPlacement), minHeight: 44, padding: "10px 22px" }}
+              >
+                قراءة عربية
               </button>
             </div>
           </div>
         )}
 
-        {type === "PLACEMENT" && (
+        {type === "PLACEMENT" && arabicPlacement && (
+          <div style={{ padding: 14, borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>الصفحة التي يبدأ منها الطالب</div>
+            <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 10 }}>
+              صفحة من كتاب «مختصر القراءة العربية» (5–48) — يُسجَّل الطالب على مستوى «قراءة عربية» ويُفرز على حلقة منه.
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {Array.from({ length: 44 }, (_, i) => i + 5).map((p) => (
+                <button key={p} type="button" onClick={() => setStartPage(p)} style={{ ...chipStyle(startPage === p), width: 42, minHeight: 40, padding: 0 }}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {type === "PLACEMENT" && !arabicPlacement && (
           <div style={{ padding: 14, borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>الجزء الذي يبدأ منه الطالب</div>
             <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 10 }}>

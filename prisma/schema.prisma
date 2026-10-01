@@ -285,6 +285,9 @@ model Exam {
   // LOCAL/HADIRAN وLOCAL/GHAYBAN: الجزء الذي سُبر فيه (لا يوجد لعمّ غيباً — دائمًا جزء عمّ)
   juz Int?
 
+  // PLACEMENT بالقراءة العربية: الصفحة التي يبدأ منها الطالب في «مختصر القراءة العربية» (5–48) بدل الجزء
+  startPage Int?
+
   // LOCAL (الأنواع الثلاثة) وWAQF_NOMINATION — أرقام صفحات مفردة، غير متتالية بالضرورة
   pages Int[] @default([])
 
