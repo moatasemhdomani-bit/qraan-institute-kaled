@@ -22,7 +22,7 @@ export default async function ArabicHalaqatReportPage({ searchParams }: { search
         title="تقرير تسميع حلقات القراءة العربية"
         subtitle="بلوك لكل حلقة، وصف لكل طالب: من/إلى الصفحة وإجماليها، واختباراته بأرقام مراحلها (الأخضر ناجح والأحمر راسب)."
       />
-      <ArabicHalaqatReportClient key={review ?? "new"} halaqat={halaqat} initial={initial} />
+      <ArabicHalaqatReportClient key={review ?? "new"} halaqat={halaqat.map((h) => ({ id: h.id, name: h.name }))} initial={initial} />
     </>
   );
 }

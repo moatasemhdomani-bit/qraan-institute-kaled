@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
 import { login, type LoginState } from "./actions";
 import { primaryButtonStyle } from "@/lib/ui";
 import PasswordField from "@/components/PasswordField";
@@ -19,10 +19,18 @@ export default function LoginForm() {
           alignItems: "center",
           justifyContent: "center",
           padding: "52px 44px",
-          background: "linear-gradient(to left, #050d1c 0%, #0A192F 45%, #142c4d 100%)",
+          background: "var(--login-panel)",
         }}
       >
-        <form action={formAction} style={{ width: "100%", maxWidth: 380 }}>
+        {/* إرسال بلا تفريغ تلقائي للحقول: إن رُفض الدخول يبقى اسم المستخدم وكلمة المرور كما كُتبا لتصحيحهما */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const fd = new FormData(e.currentTarget);
+            startTransition(() => formAction(fd));
+          }}
+          style={{ width: "100%", maxWidth: 380 }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
             <img src="/logo-mark.png" alt="شعار المعهد" width={82} height={58} style={{ display: "block", objectFit: "contain" }} />
             <div className="login-brand-text" style={{ color: "var(--ink-2)", lineHeight: 1.3 }}>

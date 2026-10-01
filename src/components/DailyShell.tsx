@@ -30,7 +30,7 @@ export default function DailyShell({
           padding: "40px 24px",
           borderRadius: 16,
           border: "1px solid var(--accent-line)",
-          background: "linear-gradient(152deg, rgba(212,175,55,0.14), rgba(10,25,47,0.92))",
+          background: "var(--card-grad)",
           textAlign: "center",
           boxShadow: "var(--glow)",
         }}

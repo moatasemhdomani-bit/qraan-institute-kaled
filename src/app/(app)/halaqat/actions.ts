@@ -4,6 +4,7 @@ import { prisma, rawPrisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { TRACK_LABELS } from "@/lib/track";
 
 export type FormState = { error?: string; ok?: boolean };
 
@@ -17,7 +18,9 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   const name = String(formData.get("name") || "").trim();
   const teacherId = String(formData.get("teacherId") || "");
   const cohortId = String(formData.get("cohortId") || "");
-  const track = String(formData.get("track") || "QURAN") === "ARABIC" ? ("ARABIC" as const) : ("QURAN" as const);
+  const rawTrack = String(formData.get("track") || "QURAN");
+  const track: "ARABIC" | "AMMA" | "QURAN" | "QURAN_GHAIB" =
+    rawTrack === "ARABIC" || rawTrack === "AMMA" || rawTrack === "QURAN_GHAIB" ? rawTrack : "QURAN";
 
   if (!name) return { error: "اكتبوا اسم الحلقة." };
   if (!teacherId) return { error: "اختاروا المدرس المسؤول." };
@@ -29,13 +32,13 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   // العميل الخام: مقارنة الاسم المخزَّن نفسه (العرض العادي يُلحق به نوع الحلقة)
   const current = id ? await rawPrisma.halqa.findUnique({ where: { id }, include: { _count: { select: { students: true } } } }) : null;
 
-  // المدرّس من نوع الحلقة نفسه، ونوع حلقة فيها طلاب لا يتغيّر (طلابها من نوعها)
+  // تغيير نوع حلقة قائمة مع إبقاء مدرّسها (للإعداد الأول — سيُحذف لاحقًا): ينتقل المدرّس وكل حلقاته وطلابها إلى النوع الجديد
+  const cascade = !!current && current.track !== track && current.teacherId === teacherId;
+
+  // غير ذلك: المدرّس من نوع الحلقة نفسه
   const teacher = await prisma.user.findUnique({ where: { id: teacherId }, select: { track: true } });
-  if (!teacher || teacher.track !== track) {
-    return { error: track === "ARABIC" ? "حلقة القراءة العربية يدرّسها مدرس قراءة عربية فقط." : "حلقة القرآن يدرّسها مدرس قرآن فقط." };
-  }
-  if (current && current.track !== track && current._count.students > 0) {
-    return { error: "لا يتغيّر نوع حلقة فيها طلاب — انقلوا طلابها أولًا." };
+  if (!teacher || (!cascade && teacher.track !== track)) {
+    return { error: `حلقة «${TRACK_LABELS[track]}» يدرّسها مدرس ${TRACK_LABELS[track]} فقط.` };
   }
 
   if (!current || current.name !== name) {
@@ -55,7 +58,17 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
     }
   }
 
-  if (id) {
+  if (id && cascade) {
+    const teacherHalaqat = await prisma.halqa.findMany({ where: { teacherId }, select: { id: true } });
+    const ids = teacherHalaqat.map((h) => h.id);
+    await prisma.$transaction([
+      prisma.halqa.update({ where: { id }, data: { name, teacherId, cohortId } }),
+      prisma.halqa.updateMany({ where: { id: { in: ids } }, data: { track } }),
+      prisma.student.updateMany({ where: { halqaId: { in: ids } }, data: { track } }),
+      prisma.user.update({ where: { id: teacherId }, data: { track } }),
+    ]);
+    await logAction(session.userId, `غيّر نوع الحلقة «${name}» إلى «${TRACK_LABELS[track]}» — ومعها مدرّسها وكل حلقاته (${ids.length}) وطلابها`);
+  } else if (id) {
     await prisma.halqa.update({ where: { id }, data: { name, teacherId, cohortId, track } });
     await logAction(session.userId, `عدّل الحلقة «${name}»`);
   } else {

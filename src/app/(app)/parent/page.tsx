@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { today, isValidDate, formatDateAr, ATT_LABELS, ATT_STATES, pageSpan } from "@/lib/daily";
 import { resultLabel, examKindLabel, TYPE_LABELS } from "@/lib/exam";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
+import { hasPastRecitation } from "@/lib/track";
 import PageHeader from "@/components/PageHeader";
 import ParentClient from "./ParentClient";
 
@@ -87,7 +88,7 @@ export default async function ParentPage({
     }),
   ]);
 
-  const stateColor = ATT_STATES.find((s) => s.id === todayAtt?.status)?.color ?? "#8FA8C8";
+  const stateColor = ATT_STATES.find((s) => s.id === todayAtt?.status)?.color ?? "var(--info)";
 
   const recLines: string[] = [];
   if (todayRec) {
@@ -95,12 +96,14 @@ export default async function ParentPage({
       recLines.push("لم يسمّع في هذا اليوم");
     } else {
       recLines.push(
-        todayRec.noNew
-          ? "لم يسمّع جديدًا"
-          : `تسميع جديد: من ${todayRec.newFrom} إلى ${todayRec.newTo} (${pageSpan(todayRec.newFrom, todayRec.newTo)} صفحة) — ${todayRec.gradeNew}`
+        todayRec.surahs.length > 0
+          ? `السور: ${todayRec.surahs.join("، ")} — ${todayRec.gradeNew}`
+          : todayRec.noNew
+            ? "لم يسمّع جديدًا"
+            : `تسميع جديد: من ${todayRec.newFrom} إلى ${todayRec.newTo} (${pageSpan(todayRec.newFrom, todayRec.newTo)} صفحة) — ${todayRec.gradeNew}`
       );
-      // القراءة العربية تسميعها جديد فقط — لا سطر للماضي
-      if (child.track !== "ARABIC")
+      // الماضي لمستويَي القرآن حاضراً وغيباً وحدهما
+      if (hasPastRecitation(child.track) && todayRec.surahs.length === 0)
         recLines.push(
           todayRec.noPast
             ? "لم يقرأ ماضيًا"
@@ -130,15 +133,18 @@ export default async function ParentPage({
         attHistory={attHistory.map((a) => ({
           date: formatDateAr(a.date),
           label: ATT_LABELS[a.status],
-          color: ATT_STATES.find((s) => s.id === a.status)?.color ?? "#8FA8C8",
+          color: ATT_STATES.find((s) => s.id === a.status)?.color ?? "var(--info)",
         }))}
         recHistory={recHistory.map((r) => ({
           date: formatDateAr(r.date),
           blank: r.none,
-          newLine: r.noNew
-            ? "لم يسمّع جديدًا"
-            : `جديد: ${r.newFrom}→${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
-          pastLine: child.track === "ARABIC"
+          newLine:
+            r.surahs.length > 0
+              ? `سور: ${r.surahs.join("، ")} — ${r.gradeNew ?? ""}`
+              : r.noNew
+                ? "لم يسمّع جديدًا"
+                : `جديد: ${r.newFrom}→${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
+          pastLine: !hasPastRecitation(child.track) || r.surahs.length > 0
             ? ""
             : r.noPast
             ? "لم يقرأ ماضيًا"

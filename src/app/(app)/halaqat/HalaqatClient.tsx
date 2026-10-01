@@ -6,7 +6,7 @@ import { saveHalqa, moveHalqaStudents, deleteHalqa, type FormState } from "./act
 import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import Select from "@/components/Select";
-import { TRACKS, TRACK_LABELS, halqaWithTrack, type TrackId } from "@/lib/track";
+import { HALQA_TRACKS, TRACK_LABELS, halqaWithTrack, type TrackId } from "@/lib/track";
 
 type HalqaRow = { id: string; name: string; track: TrackId; teacherId: string; teacherName: string; cohortId: string; cohortName: string; count: number };
 type TeacherOption = { id: string; name: string; track: TrackId };
@@ -121,7 +121,7 @@ export default function HalaqatClient({
                     <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
                       <div style={{ fontSize: 15, fontWeight: 700, overflowWrap: "anywhere" }}>
                         {h.name}{" "}
-                        <span style={{ fontSize: 11.5, fontWeight: 600, color: h.track === "ARABIC" ? "#8FA8C8" : "var(--accent-line)" }}>({TRACK_LABELS[h.track]})</span>
+                        <span style={{ fontSize: 11.5, fontWeight: 600, color: h.track === "ARABIC" ? "var(--info)" : "var(--gold)" }}>({TRACK_LABELS[h.track]})</span>
                       </div>
                       <div style={{ fontSize: 12.5, color: "var(--ink-2)", overflowWrap: "anywhere" }}>المدرس: {h.teacherName}</div>
                       <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{h.count} طالبًا</div>
@@ -175,8 +175,9 @@ function HalqaForm({
   const [track, setTrack] = useState<TrackId>(initial?.track ?? "QURAN");
   const [teacherId, setTeacherId] = useState(initial?.teacherId ?? "");
   const [cohortId, setCohortId] = useState(initial?.cohortId ?? initialCohortId ?? "");
-  // مدرّس الحلقة من نوعها — مدرّس القرآن لا يُسند إلى حلقة قراءة عربية والعكس
-  const trackTeachers = teachers.filter((t) => t.track === track);
+  // مدرّس الحلقة من نوعها. عند تغيير نوع حلقة قائمة مع إبقاء مدرّسها، يبقى مدرّسها خيارًا (ينتقل معها إلى النوع الجديد)
+  const typeChanging = !!initial && initial.track !== track;
+  const trackTeachers = teachers.filter((t) => t.track === track || (typeChanging && t.id === initial?.teacherId));
 
   useEffect(() => {
     if (state.ok) onClose();
@@ -209,24 +210,28 @@ function HalqaForm({
         <input type="hidden" name="track" value={track} />
         <div>
           <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>نوع الحلقة</label>
-          <div style={{ display: "flex", gap: 6 }}>
-            {TRACKS.map((t) => (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {HALQA_TRACKS.map((t) => (
               <button
                 key={t}
                 type="button"
-                disabled={!!initial && initial.count > 0 && initial.track !== t}
                 onClick={() => {
                   setTrack(t);
-                  if (teachers.find((x) => x.id === teacherId)?.track !== t) setTeacherId("");
+                  // حلقة جديدة: يُفرَّغ مدرّس من نوع آخر. حلقة قائمة: يبقى مدرّسها لينتقل معها
+                  if (!initial && teachers.find((x) => x.id === teacherId)?.track !== t) setTeacherId("");
+                  if (initial && t === initial.track) setTeacherId(initial.teacherId);
                 }}
-                style={{ ...chipStyle(track === t), opacity: !!initial && initial.count > 0 && initial.track !== t ? 0.45 : 1 }}
+                style={chipStyle(track === t)}
               >
                 {TRACK_LABELS[t]}
               </button>
             ))}
           </div>
-          {!!initial && initial.count > 0 && (
-            <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 5 }}>لا يتغيّر نوع حلقة فيها طلاب — طلابها من نوعها.</div>
+          {typeChanging && teacherId === initial?.teacherId && (
+            // للإعداد الأول — سيُحذف هذا الخيار لاحقًا
+            <div style={{ fontSize: 12, color: "var(--bad-ink)", marginTop: 7, lineHeight: 1.6 }}>
+              تغيير النوع إلى «{TRACK_LABELS[track]}» ينقل المدرّس «{initial?.teacherName}» وكل حلقاته وكل طلابها إلى هذا المستوى.
+            </div>
           )}
         </div>
         <div>
@@ -315,13 +320,13 @@ function HalqaAdmin({ halqa, others, onDone }: { halqa: HalqaRow; others: HalqaR
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            style={{ ...small, border: "1px solid var(--notice-line)", background: "transparent", color: "#E08A8A" }}
+            style={{ ...small, border: "1px solid var(--notice-line)", background: "transparent", color: "var(--bad)" }}
           >
             حذف الحلقة
           </button>
         ) : (
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12.5, color: "#E08A8A" }}>حذف «{halqa.name}» نهائيًا؟</span>
+            <span style={{ fontSize: 12.5, color: "var(--bad)" }}>حذف «{halqa.name}» نهائيًا؟</span>
             <button
               type="button"
               disabled={busy !== null}
@@ -337,7 +342,7 @@ function HalqaAdmin({ halqa, others, onDone }: { halqa: HalqaRow; others: HalqaR
         )}
       </div>
 
-      {error && <div style={{ fontSize: 12.5, color: "#E08A8A" }}>{error}</div>}
+      {error && <div style={{ fontSize: 12.5, color: "var(--bad)" }}>{error}</div>}
     </div>
   );
 }

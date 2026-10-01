@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { cardStyle, primaryButtonStyle } from "@/lib/ui";
 import { resultLabel } from "@/lib/exam";
 import { formatDateAr } from "@/lib/daily";
@@ -22,6 +23,11 @@ export default function PlacementClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {isDirector && (
+        <Link href="/exam-monitor" style={{ fontSize: 12.5, color: "var(--ink-2)" }}>
+          ← رجوع إلى متابعة السبر
+        </Link>
+      )}
       <button onClick={() => setAdding(true)} style={{ ...primaryButtonStyle, width: "100%", minHeight: 52, fontSize: 15 }}>
         سبر تحديد مستوى
       </button>

@@ -4,7 +4,9 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { dayLockReason, isValidDate, GRADES, formatDateAr } from "@/lib/daily";
-import { validateEntry, type RecEntry } from "@/lib/recitation";
+import { validateEntry, validateSurahEntry, type RecEntry } from "@/lib/recitation";
+import { recitationMode, hasPastRecitation } from "@/lib/track";
+import { passedArabicStage6 } from "@/lib/arabicProgress";
 import { revalidatePath } from "next/cache";
 
 export type SaveResult = { error?: string; ok?: boolean };
@@ -22,6 +24,8 @@ export type StudentRecitationInput = {
   rt: string;
   gradeNew: string;
   gradePast: string;
+  /** تسميع بالسور: أسماء السور مفصولة بـ | */
+  surahs: string;
 };
 
 const page = (v: string): number | null => {
@@ -53,6 +57,39 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
   const student = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true, halqaId: true } });
   if (!student || student.halqaId !== halqaId) return { error: "الطالب ليس في هذه الحلقة." };
 
+  // التسميع بالسور: عمَّ غيباً، وطالب القراءة العربية بعد نجاحه في المرحلة 6 («بينة للناس»)
+  const stage6 = halqa.track === "ARABIC" ? await passedArabicStage6([studentId]) : new Set<string>();
+  if (recitationMode(halqa.track, stage6.has(studentId)) === "surah") {
+    const surahs = input.surahs ? input.surahs.split("|").filter(Boolean) : [];
+    if (input.gradeNew && !GRADES.includes(input.gradeNew as never)) return { error: "تقدير غير معروف." };
+    const bad = validateSurahEntry({ none: input.none, surahs, gradeNew: input.gradeNew || null });
+    if (bad) return { error: bad };
+    const surahData = {
+      none: input.none,
+      noNew: false,
+      noPast: !input.none,
+      newFrom: null,
+      newTo: null,
+      pastFrom: null,
+      pastTo: null,
+      gradeNew: input.none ? null : input.gradeNew,
+      gradePast: null,
+      surahs: input.none ? [] : surahs,
+      halqaId,
+      recordedById: session.userId,
+    };
+    const existingSurah = await prisma.recitation.findUnique({ where: { studentId_date: { studentId, date } } });
+    await prisma.recitation.upsert({
+      where: { studentId_date: { studentId, date } },
+      update: surahData,
+      create: { ...surahData, studentId, date },
+    });
+    await logAction(session.userId, `${existingSurah ? "عدّل" : "سجّل"} تسميع ${student.name} (حلقة ${halqa.name}) ليوم ${formatDateAr(date)}`);
+    revalidatePath("/recitation");
+    revalidatePath("/recitation-monitor");
+    return { ok: true };
+  }
+
   const prior = await prisma.recitation.aggregate({
     where: { studentId, date: { lt: date }, none: false, noNew: false },
     _max: { newTo: true },
@@ -74,7 +111,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
   if (e.gradeNew && !GRADES.includes(e.gradeNew as never)) return { error: "تقدير غير معروف." };
   if (e.gradePast && !GRADES.includes(e.gradePast as never)) return { error: "تقدير غير معروف." };
   // القراءة العربية: جديد فقط بلا ماضٍ
-  if (halqa.track === "ARABIC") e.noPast = true;
+  if (!hasPastRecitation(halqa.track)) e.noPast = true;
   const bad = validateEntry(e, prior._max.newTo, halqa.track);
   if (bad) return { error: bad };
 
@@ -88,6 +125,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
     pastTo: e.none || e.noPast ? null : e.pastTo,
     gradeNew: e.none || e.noNew ? null : e.gradeNew,
     gradePast: e.none || e.noPast ? null : e.gradePast,
+    surahs: [],
     halqaId,
     recordedById: session.userId,
   };

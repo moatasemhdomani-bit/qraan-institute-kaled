@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { cardStyle, chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
 import { resultLabel, passFailLabel, examKindLabel, TYPE_LABELS, type ExamTypeId } from "@/lib/exam";
 import { formatDateAr } from "@/lib/daily";
@@ -22,6 +23,7 @@ export default function ExamBrowseClient({
   examsByStudent,
   readyStudents,
   awqafByStudent,
+  initialHalqaId,
 }: {
   type: ExamTypeId;
   readOnly: boolean;
@@ -31,13 +33,16 @@ export default function ExamBrowseClient({
   examsByStudent: Record<string, ExamRow[]>;
   readyStudents?: { id: string; no: number; name: string; date: string }[];
   awqafByStudent?: Record<string, AwqafRow[]>;
+  /** فُتحت الشاشة من «متابعة السبر» على حلقة بعينها */
+  initialHalqaId?: string;
 }) {
   const [search, setSearch] = useState("");
   // حلقات كل فوج معزولة: يُختار الفوج أولًا، ثم تظهر حلقاته وحدها
   const cohortNames = useMemo(() => [...new Set(halaqat.map((h) => h.cohortName))].sort((a, b) => a.localeCompare(b, "ar")), [halaqat]);
-  const [openCohort, setOpenCohort] = useState<string | null>(cohortNames[0] ?? null);
+  const initialHalqa = halaqat.find((h) => h.id === initialHalqaId);
+  const [openCohort, setOpenCohort] = useState<string | null>(initialHalqa?.cohortName ?? cohortNames[0] ?? null);
   const cohortHalaqat = halaqat.filter((h) => h.cohortName === openCohort);
-  const [openHalqa, setOpenHalqa] = useState<string | null>(cohortHalaqat[0]?.id ?? null);
+  const [openHalqa, setOpenHalqa] = useState<string | null>(initialHalqa?.id ?? cohortHalaqat[0]?.id ?? null);
   const [fileStudent, setFileStudent] = useState<StudentLite | null>(null);
   const [formOpen, setFormOpen] = useState<{ existing: ExamRow | null } | null>(null);
 
@@ -49,6 +54,11 @@ export default function ExamBrowseClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {isDirector && (
+        <Link href="/exam-monitor" style={{ fontSize: 12.5, color: "var(--ink-2)" }}>
+          ← رجوع إلى متابعة السبر
+        </Link>
+      )}
       <div style={{ ...cardStyle, padding: "12px 14px" }}>
         <input
           value={search}
@@ -73,7 +83,7 @@ export default function ExamBrowseClient({
 
       {readyStudents && readyStudents.length > 0 && (
         <div style={{ ...cardStyle, padding: "13px 16px" }}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#6FBF8B" }}>قائمة جاهز للسبر ({readyStudents.length})</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: "var(--ok)" }}>قائمة جاهز للسبر ({readyStudents.length})</div>
           <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 10 }}>طلاب نجحوا في سبر ترشيح الأوقاف — جاهزون لسبر الأوقاف الفعلي.</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {readyStudents.map((s) => (
@@ -154,7 +164,7 @@ export default function ExamBrowseClient({
                 >
                   <span style={{ fontSize: 14.5, fontWeight: 600 }}>{s.name}</span>
                   <span style={{ fontSize: 11, color: "var(--ink-3)", direction: "ltr" }}>#{s.no}</span>
-                  <span style={{ marginInlineStart: "auto", fontSize: 12, color: never ? "#E8A0A0" : "var(--ink-2)" }}>
+                  <span style={{ marginInlineStart: "auto", fontSize: 12, color: never ? "var(--bad-ink)" : "var(--ink-2)" }}>
                     {never ? `لم يُسبَر ${label} بعد` : `${exams.length} سبر مسجَّل`}
                   </span>
                 </button>
@@ -185,7 +195,7 @@ export default function ExamBrowseClient({
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 13.5, fontWeight: 700 }}>{a.score != null ? `${a.score} / 100` : "بانتظار العلامة"}</span>
                     {a.passed != null && (
-                      <span style={{ fontSize: 11, fontWeight: 700, color: a.passed ? "#6FBF8B" : "#E08A8A" }}>{a.passed ? "ناجح" : "راسب"}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: a.passed ? "var(--ok)" : "var(--bad)" }}>{a.passed ? "ناجح" : "راسب"}</span>
                     )}
                     <span style={{ marginInlineStart: "auto", fontSize: 11.5, color: "var(--ink-3)", direction: "ltr" }}>{a.batchDate}</span>
                   </div>
@@ -225,7 +235,7 @@ export default function ExamBrowseClient({
                           fontSize: 11.5,
                           fontWeight: 700,
                           border: `1px solid ${passFail === "ناجح" ? "rgba(111,191,139,0.5)" : "rgba(224,138,138,0.5)"}`,
-                          color: passFail === "ناجح" ? "#6FBF8B" : "#E08A8A",
+                          color: passFail === "ناجح" ? "var(--ok)" : "var(--bad)",
                         }}
                       >
                         {passFail}

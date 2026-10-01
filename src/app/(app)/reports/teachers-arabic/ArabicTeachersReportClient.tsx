@@ -107,7 +107,7 @@ export default function ArabicTeachersReportClient({ initial }: { initial: Revie
                     <td style={{ padding: 8, textAlign: "center" }}>{r.halqaNames}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{r.pages}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>
-                      <b style={{ color: "#6FBF8B" }}>{r.pass}</b> / <b style={{ color: "#E08A8A" }}>{r.fail}</b>
+                      <b style={{ color: "var(--ok)" }}>{r.pass}</b> / <b style={{ color: "var(--bad)" }}>{r.fail}</b>
                     </td>
                     <td style={{ padding: 8, textAlign: "center" }}>{r.count}</td>
                     <td style={{ padding: 6 }}>

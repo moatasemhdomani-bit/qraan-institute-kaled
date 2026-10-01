@@ -8,6 +8,7 @@ import crypto from "crypto";
 import { normalizePhone, isValidMobile } from "@/lib/phone";
 import { createGuardianAccount, regenerateGuardianPassword } from "@/lib/guardian";
 import { uploadFile, mimeFromExt } from "@/lib/storage";
+import { STUDENT_LEVELS, TRACK_LABELS, type TrackId } from "@/lib/track";
 
 export type FormState = { error?: string; ok?: boolean };
 export type ResetState = { error?: string; ok?: boolean; password?: string };
@@ -30,8 +31,10 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
   // المنقطع يُخرَج من حلقته (فيغيب عن الحضور والتسميع اليوميين)، وتبقى بياناته وسجلاته كلها محفوظة
   const active = String(formData.get("status") || "active") !== "inactive";
   const isOrphan = formData.get("orphan") === "1";
-  const halqaId = active ? String(formData.get("halqaId") || "") || null : null;
-  const track = formData.get("track") === "ARABIC" ? ("ARABIC" as const) : ("QURAN" as const);
+  const rawTrack = String(formData.get("track") || "QURAN");
+  const track: TrackId = (STUDENT_LEVELS as string[]).includes(rawTrack) ? (rawTrack as TrackId) : "QURAN";
+  // المتخرّج لا حلقة له
+  const halqaId = active && track !== "GRADUATED" ? String(formData.get("halqaId") || "") || null : null;
 
   if (!name) return { error: "اكتبوا اسم الطالب." };
 
@@ -41,11 +44,11 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
   const studentPhone = normalizePhone(String(formData.get("phone") || ""));
   if (studentPhone && !isValidMobile(studentPhone)) return { error: "رقم هاتف الطالب بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
 
-  // الطالب يُفرز في حلقة من نوعه (قرآن / قراءة عربية)
+  // الطالب يُفرز في حلقة من مستواه
   if (halqaId) {
     const target = await prisma.halqa.findUnique({ where: { id: halqaId }, select: { track: true } });
     if (!target) return { error: "الحلقة غير موجودة." };
-    if (target.track !== track) return { error: "يُفرز الطالب في حلقة من نوعه فقط (قرآن / قراءة عربية)." };
+    if (target.track !== track) return { error: `يُفرز الطالب في حلقة من مستواه فقط («${TRACK_LABELS[track]}»).` };
   }
 
   const data = {
@@ -62,6 +65,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     active,
     isOrphan,
     track,
+    // فُرز على حلقة: لم يعد «ترفّع» ينتظر الفرز
+    ...(halqaId ? { promotedAt: null } : {}),
   };
 
   // عند تسجيل طالب جديد: تطابق الاسم واسم الأب والأم والنسبة معًا يعني طالبًا مسجَّلًا بالفعل.

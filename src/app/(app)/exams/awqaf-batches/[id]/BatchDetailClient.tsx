@@ -76,7 +76,7 @@ function BatchArchive({ batchId, fileUrl, passedCount }: { batchId: string; file
           />
         </label>
       </form>
-      {state.error && <span style={{ width: "100%", fontSize: 12, color: "#E08A8A" }}>{state.error}</span>}
+      {state.error && <span style={{ width: "100%", fontSize: 12, color: "var(--bad)" }}>{state.error}</span>}
     </div>
   );
 }
@@ -90,7 +90,7 @@ function BulkButton({ batchId, step, label, disabledHint }: { batchId: string; s
       <button type="submit" disabled={pending} style={softButtonStyle} title={disabledHint}>
         {label}
       </button>
-      {state.error && <span style={{ fontSize: 11, color: "#E08A8A" }}>{state.error}</span>}
+      {state.error && <span style={{ fontSize: 11, color: "var(--bad)" }}>{state.error}</span>}
     </form>
   );
 }
@@ -116,7 +116,7 @@ function ResultRow({ result }: { result: Result }) {
               fontSize: 12,
               fontWeight: 700,
               border: `1px solid ${passed ? "rgba(111,191,139,0.5)" : "rgba(224,138,138,0.55)"}`,
-              color: passed ? "#6FBF8B" : "#E08A8A",
+              color: passed ? "var(--ok)" : "var(--bad)",
               background: passed ? "rgba(111,191,139,0.1)" : "rgba(224,138,138,0.14)",
             }}
           >
@@ -137,7 +137,7 @@ function ResultRow({ result }: { result: Result }) {
         <button type="submit" disabled={scorePending} style={{ ...softButtonStyle, padding: "6px 13px" }}>
           حفظ
         </button>
-        {scoreState.error && <span style={{ fontSize: 11.5, color: "#E08A8A" }}>{scoreState.error}</span>}
+        {scoreState.error && <span style={{ fontSize: 11.5, color: "var(--bad)" }}>{scoreState.error}</span>}
       </form>
 
       {passed === false && (
@@ -167,7 +167,7 @@ function ArchiveStatus({ result }: { result: Result }) {
           fontSize: 11.5,
           fontWeight: result.certArchived ? 700 : 400,
           border: result.certArchived ? "1px solid rgba(111,191,139,0.5)" : "1px dashed var(--line)",
-          color: result.certArchived ? "#6FBF8B" : "var(--ink-3)",
+          color: result.certArchived ? "var(--ok)" : "var(--ink-3)",
         }}
       >
         {result.certArchived ? "✓ أُرشفت بملف الدفعة" : "بانتظار أرشفة شهادات الدفعة"}
@@ -211,7 +211,7 @@ function StepControl({ step, result, locked }: { step: CertStep; result: Result;
               fontSize: 11.5,
               fontWeight: 700,
               border: "1px solid rgba(111,191,139,0.5)",
-              color: "#6FBF8B",
+              color: "var(--ok)",
               background: "rgba(111,191,139,0.1)",
             }}
           >
@@ -229,7 +229,7 @@ function StepControl({ step, result, locked }: { step: CertStep; result: Result;
           </button>
         </form>
       )}
-      {state.error && <span style={{ fontSize: 11.5, color: "#E08A8A" }}>{state.error}</span>}
+      {state.error && <span style={{ fontSize: 11.5, color: "var(--bad)" }}>{state.error}</span>}
     </div>
   );
 }

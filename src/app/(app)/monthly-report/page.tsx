@@ -13,6 +13,9 @@ export default async function MonthlyReportPage({
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.role !== "TEACHER") redirect("/dashboard");
+  // مدرّس القراءة العربية لا تقرير شهريًا له
+  const me = await prisma.user.findUnique({ where: { id: session.userId }, select: { track: true } });
+  if (me?.track === "ARABIC") redirect("/recitation");
 
   const { month: monthParam, halqa: halqaParam } = await searchParams;
   const months = recentMonths(3);
@@ -68,7 +71,7 @@ export default async function MonthlyReportPage({
     <>
       <PageHeader title="التقرير الشهري" subtitle="تقرير حلقتك الشهري كاملًا — أرقامه محسوبة، وعمود الملاحظات تكتبه أنت." />
       <MonthlyReportClient
-        halaqat={halaqat}
+        halaqat={halaqat.map((h) => ({ id: h.id, name: h.name }))}
         halqaId={halqaId}
         months={months.map((m) => ({ id: m, label: monthLabel(m) }))}
         month={month}

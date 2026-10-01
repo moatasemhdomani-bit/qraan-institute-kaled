@@ -11,6 +11,7 @@ import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { normalizePhone, isValidMobile } from "@/lib/phone";
 import { uploadFile, mimeFromExt } from "@/lib/storage";
+import { cleanNationalId, MARITAL_OPTIONS, EDUCATION_OPTIONS, QURAN_LEVEL_OPTIONS } from "@/lib/staff";
 
 export type FormState = { error?: string; ok?: boolean; generatedPassword?: string };
 
@@ -29,8 +30,14 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
 
   const id = String(formData.get("id") || "") || null;
   const role = String(formData.get("role") || "TEACHER") as "DIRECTOR" | "ADMIN" | "TEACHER" | "EXAMINER";
-  // نوع التدريس يخص المدرّس والمختبِر وحدهما
-  const track = (role === "TEACHER" || role === "EXAMINER") && formData.get("track") === "ARABIC" ? ("ARABIC" as const) : ("QURAN" as const);
+  // نوع التدريس يخص المدرّس (أحد المستويات الأربعة) والمختبِر (قرآن أو قراءة عربية) وحدهما
+  const rawTrack = String(formData.get("track") || "QURAN");
+  const track: "ARABIC" | "AMMA" | "QURAN" | "QURAN_GHAIB" =
+    role === "TEACHER" && (rawTrack === "ARABIC" || rawTrack === "AMMA" || rawTrack === "QURAN_GHAIB")
+      ? rawTrack
+      : role === "EXAMINER" && rawTrack === "ARABIC"
+        ? "ARABIC"
+        : "QURAN";
   const name = String(formData.get("name") || "").trim();
   const username = String(formData.get("username") || "").trim();
   const password = String(formData.get("password") || "").trim();
@@ -57,13 +64,45 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     familyName: String(formData.get("family") || "") || null,
     phone,
     birthDate: String(formData.get("birth") || "") || null,
-    nationalId: String(formData.get("nid") || "") || null,
+    nationalId: cleanNationalId(String(formData.get("nid") || "")) || null,
     address: String(formData.get("address") || "") || null,
     currentJob: String(formData.get("job") || "") || null,
     maritalStatus: String(formData.get("marital") || "") || null,
     education: String(formData.get("education") || "") || null,
     quranLevel: String(formData.get("quran") || "") || null,
   };
+
+  const rawNid = String(formData.get("nid") || "").trim();
+  if (rawNid && !/^\d+$/.test(rawNid.replace(/[٠-٩]/g, "0"))) return { error: "الرقم الوطني أرقام فقط." };
+  if (data.maritalStatus && !MARITAL_OPTIONS.includes(data.maritalStatus) && data.maritalStatus !== existingValue(formData, "marital")) {
+    return { error: "اختاروا الحالة الاجتماعية من القائمة." };
+  }
+  if (data.education && !EDUCATION_OPTIONS.includes(data.education) && data.education !== existingValue(formData, "education")) {
+    return { error: "اختاروا التحصيل العلمي من القائمة." };
+  }
+  if (data.quranLevel && !QURAN_LEVEL_OPTIONS.includes(data.quranLevel) && data.quranLevel !== existingValue(formData, "quran")) {
+    return { error: "اختاروا المستوى القرآني من القائمة." };
+  }
+
+  // موظف جديد: كل المعلومات إجبارية ما عدا الصورة الشخصية
+  if (!id) {
+    const required: [unknown, string][] = [
+      [username, "اسم المستخدم"],
+      [data.fatherName, "اسم الأب"],
+      [data.motherName, "اسم الأم"],
+      [data.familyName, "النسبة"],
+      [data.phone, "رقم التواصل"],
+      [data.birthDate, "تاريخ الميلاد"],
+      [data.nationalId, "الرقم الوطني"],
+      [data.address, "عنوان السكن"],
+      [data.currentJob, "العمل الحالي"],
+      [data.maritalStatus, "الحالة الاجتماعية"],
+      [data.education, "التحصيل العلمي"],
+      [data.quranLevel, "المستوى القرآني"],
+    ];
+    const missing = required.filter(([v]) => !v || !String(v).trim()).map(([, label]) => label);
+    if (missing.length) return { error: `كل المعلومات إجبارية ما عدا الصورة الشخصية — ناقص: ${missing.join("، ")}.` };
+  }
 
   let userId = id;
   let generatedPassword: string | undefined;
@@ -123,12 +162,34 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   return { ok: true, generatedPassword };
 }
 
+/** قيمة قديمة مخزَّنة قبل القوائم المنسدلة (نص حرّ) — تُقبل كما هي عند تعديل موظف قائم. */
+function existingValue(formData: FormData, key: string): string {
+  return String(formData.get(`${key}Existing`) || "");
+}
+
+/** تعليق الموظف: لا يدخل ولا تبقى جلسته (كالحذف)، لكن تبقى بياناته الشخصية كاملة، ويمكن إلغاء التعليق. */
+export async function setStaffSuspended(id: string, suspended: boolean): Promise<FormState> {
+  const session = await getSession();
+  if (!session || session.role !== "DIRECTOR") return { error: "تعليق الموظف من صلاحية مدير المعهد فقط." };
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target || target.deletedAt) return { error: "الموظف غير موجود." };
+  if (target.id === session.userId) return { error: "لا يمكنك تعليق حسابك الخاص." };
+
+  await prisma.user.update({ where: { id }, data: { suspendedAt: suspended ? new Date() : null } });
+  await logAction(
+    session.userId,
+    `${suspended ? "علّق" : "ألغى تعليق"} الموظف ${staffRoleLabel(target.role, target.track, ROLE_LABELS)} «${target.name}»`
+  );
+  revalidatePath("/users");
+  return { ok: true };
+}
+
 export async function deleteStaff(id: string): Promise<FormState> {
   const session = await getSession();
-  if (!session || session.role !== "DIRECTOR") return { error: "حذف الحساب من صلاحية مدير المعهد فقط." };
+  if (!session || session.role !== "DIRECTOR") return { error: "حذف الموظف من صلاحية مدير المعهد فقط." };
 
   const target = await prisma.user.findUnique({ where: { id } });
-  if (!target) return { error: "الحساب غير موجود." };
+  if (!target) return { error: "الموظف غير موجود." };
   if (target.id === session.userId) return { error: "لا يمكنك حذف حسابك الخاص." };
 
   try {
@@ -154,7 +215,7 @@ export async function deleteStaff(id: string): Promise<FormState> {
     await prisma.cohortTeacher.deleteMany({ where: { userId: id } });
   }
 
-  await logAction(session.userId, `حذف حساب ${staffRoleLabel(target.role, target.track, ROLE_LABELS)} «${target.name}»`);
+  await logAction(session.userId, `حذف الموظف ${staffRoleLabel(target.role, target.track, ROLE_LABELS)} «${target.name}»`);
   revalidatePath("/users");
   return { ok: true };
 }

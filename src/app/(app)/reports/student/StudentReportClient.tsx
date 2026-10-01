@@ -14,7 +14,7 @@ const initialState: FormState = {};
 function passFailCell(pass: number, fail: number) {
   return (
     <span>
-      <b style={{ color: "#6FBF8B" }}>{pass}</b> / <b style={{ color: "#E08A8A" }}>{fail}</b>
+      <b style={{ color: "var(--ok)" }}>{pass}</b> / <b style={{ color: "var(--bad)" }}>{fail}</b>
     </span>
   );
 }
@@ -164,19 +164,19 @@ export default function StudentReportClient({
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10, marginBottom: 14 }}>
               <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#6FBF8B" }}>{preview.attendance.present}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ok)" }}>{preview.attendance.present}</div>
                 <div style={{ fontSize: 11, color: "var(--ink-2)" }}>حاضر</div>
               </div>
               <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#D4AF37" }}>{preview.attendance.late}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>{preview.attendance.late}</div>
                 <div style={{ fontSize: 11, color: "var(--ink-2)" }}>متأخر</div>
               </div>
               <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#8FA8C8" }}>{preview.attendance.excused}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--info)" }}>{preview.attendance.excused}</div>
                 <div style={{ fontSize: 11, color: "var(--ink-2)" }}>إذن</div>
               </div>
               <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#E08A8A" }}>{preview.attendance.absent}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--bad)" }}>{preview.attendance.absent}</div>
                 <div style={{ fontSize: 11, color: "var(--ink-2)" }}>غائب</div>
               </div>
               <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>

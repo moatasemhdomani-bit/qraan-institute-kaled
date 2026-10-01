@@ -7,7 +7,7 @@ import PermitForm, { type ExistingPermit } from "./PermitForm";
 import { deletePermit } from "./actions";
 
 const KIND_LABELS: Record<string, string> = { ENTRY: "إذن دخول", EXIT: "إذن خروج" };
-const KIND_COLORS: Record<string, string> = { ENTRY: "#6FBF8B", EXIT: "#D4AF37" };
+const KIND_COLORS: Record<string, string> = { ENTRY: "var(--ok)", EXIT: "var(--gold)" };
 const KIND_VERBS: Record<string, string> = { ENTRY: "يدخل في", EXIT: "يخرج في" };
 
 type Permit = {
@@ -28,7 +28,7 @@ type Halqa = {
   permits: Permit[];
 };
 
-export default function PermitsClient({ scopeNote, halaqat }: { scopeNote: string; halaqat: Halqa[] }) {
+export default function PermitsClient({ scopeNote, halaqat, readOnly = false }: { scopeNote: string; halaqat: Halqa[]; readOnly?: boolean }) {
   const [kindFilter, setKindFilter] = useState<"all" | "ENTRY" | "EXIT">("all");
   const [formOpen, setFormOpen] = useState<{ existing: ExistingPermit | null } | null>(null);
   const [notice, setNotice] = useState("");
@@ -67,11 +67,13 @@ export default function PermitsClient({ scopeNote, halaqat }: { scopeNote: strin
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={() => setFormOpen({ existing: null })} style={primaryButtonStyle}>
-          إضافة إذن
-        </button>
-      </div>
+      {!readOnly && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={() => setFormOpen({ existing: null })} style={primaryButtonStyle}>
+            إضافة إذن
+          </button>
+        </div>
+      )}
 
       {notice && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(111,191,139,0.5)", background: "linear-gradient(135deg, rgba(111,191,139,0.16), rgba(111,191,139,0.03))", fontSize: 13.5 }}>
@@ -125,6 +127,7 @@ export default function PermitsClient({ scopeNote, halaqat }: { scopeNote: strin
                     أضافه {p.setByName} · قائم منذ {formatDateAr(p.since)}
                   </div>
                   {p.note && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>السبب: {p.note}</div>}
+                  {!readOnly && (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       onClick={() =>
@@ -139,11 +142,12 @@ export default function PermitsClient({ scopeNote, halaqat }: { scopeNote: strin
                     <button
                       onClick={() => handleRowDelete(p.id)}
                       disabled={deletingId === p.id}
-                      style={{ minHeight: 40, padding: "9px 15px", borderRadius: 9, border: "1px solid rgba(224,138,138,0.45)", background: "linear-gradient(135deg, rgba(224,138,138,0.16), rgba(224,138,138,0.03))", color: "#E6A0A0", fontSize: 12.5, cursor: "pointer", opacity: deletingId === p.id ? 0.6 : 1 }}
+                      style={{ minHeight: 40, padding: "9px 15px", borderRadius: 9, border: "1px solid rgba(224,138,138,0.45)", background: "linear-gradient(135deg, rgba(224,138,138,0.16), rgba(224,138,138,0.03))", color: "var(--bad-ink)", fontSize: 12.5, cursor: "pointer", opacity: deletingId === p.id ? 0.6 : 1 }}
                     >
                       {deletingId === p.id ? "جارٍ الحذف…" : "حذف الإذن"}
                     </button>
                   </div>
+                  )}
                 </div>
               ))}
             </div>

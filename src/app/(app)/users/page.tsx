@@ -43,6 +43,7 @@ export default async function UsersPage() {
     halqaLabel: u.halaqatTaught.length ? u.halaqatTaught.map((h) => `${halqaWithTrack(h.name, h.track)} · ${h.cohort.name}`).join("، ") : "—",
     cohortIds: u.teachableCohorts.map((c) => c.cohortId),
     currentPassword: decryptPassword(u.passwordEnc) || "",
+    suspended: !!u.suspendedAt,
   }));
 
   return (

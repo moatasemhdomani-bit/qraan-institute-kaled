@@ -54,8 +54,13 @@ export default async function PermitsPage() {
 
   return (
     <>
-      <PageHeader title="إذن" subtitle="أذونات دخول وخروج دائمة تلازم الطالب حتى تُحذف." />
-      <PermitsClient scopeNote={staffWide ? "ترى كل الحلقات — يمكنك إضافة إذن لأي طالب في المعهد." : "ترى حلقاتك وحدها — الإذن يُضاف لطلابك فقط."} halaqat={halaqat} />
+      <PageHeader title="إذن الطلاب" subtitle="أذونات دخول وخروج دائمة تلازم الطالب حتى تُحذف." />
+      {/* المدرّس يشاهد أذونات طلابه فقط — الإضافة والتعديل والحذف للإدارة */}
+      <PermitsClient
+        scopeNote={staffWide ? "ترى كل الحلقات — يمكنك إضافة إذن لأي طالب في المعهد." : "ترى أذونات طلاب حلقاتك للاطلاع فقط — تضيفها الإدارة."}
+        halaqat={halaqat}
+        readOnly={!staffWide}
+      />
     </>
   );
 }

@@ -24,7 +24,7 @@ export default function PhoneField({
     <div>
       <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>
         {label}
-        {required && <span style={{ color: "#E08A8A" }}> *</span>}
+        {required && <span style={{ color: "var(--bad)" }}> *</span>}
       </label>
       <input
         name={name}
@@ -37,7 +37,7 @@ export default function PhoneField({
         required={required}
         style={{ ...inputStyle(), textAlign: "left", letterSpacing: "0.04em" }}
       />
-      {invalid && <div style={{ fontSize: 11.5, color: "#E08A8A", marginTop: 4 }}>الصيغة: 10 أرقام تبدأ بـ 09 — مثل 0912 345 678</div>}
+      {invalid && <div style={{ fontSize: 11.5, color: "var(--bad)", marginTop: 4 }}>الصيغة: 10 أرقام تبدأ بـ 09 — مثل 0912 345 678</div>}
     </div>
   );
 }

@@ -15,7 +15,7 @@ const initialState: FormState = {};
 function passFailCell(pass: number, fail: number) {
   return (
     <span>
-      <b style={{ color: "#6FBF8B" }}>{pass}</b> / <b style={{ color: "#E08A8A" }}>{fail}</b>
+      <b style={{ color: "var(--ok)" }}>{pass}</b> / <b style={{ color: "var(--bad)" }}>{fail}</b>
     </span>
   );
 }

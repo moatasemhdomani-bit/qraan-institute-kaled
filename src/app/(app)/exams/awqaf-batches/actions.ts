@@ -8,6 +8,7 @@ import { isValidDate } from "@/lib/daily";
 import { awqafPassed, certStepLocked, type CertStep } from "@/lib/awqaf";
 import crypto from "crypto";
 import { uploadFile, mimeFromExt } from "@/lib/storage";
+import { promoteStudent } from "@/lib/promotion";
 
 export type FormState = { error?: string; ok?: boolean; batchId?: string };
 
@@ -82,6 +83,25 @@ export async function saveAwqafScore(_prev: FormState, formData: FormData): Prom
   const passed = awqafPassed(score, result.nominationPresent);
   const passNote = passed == null ? "" : passed ? " — ناجح" : " — راسب";
   await logAction(session.userId, `أدخل علامة سبر الأوقاف للطالب «${result.student.name}»: ${score ?? "—"}${passNote}`);
+
+  // الترفّع بعد النجاح في سبر الأوقاف الفعلي لـ 30 جزءًا (عدد الأجزاء من آخر ترشيح له بالمسار نفسه حتى تاريخ الدفعة):
+  // 30 حاضراً ← «قرآن غيباً» ويُخرَج من حلقته لإعادة فرزه، و30 غيباً ← «متخرِّج» تلقائيًا
+  if (passed) {
+    const nomination = await prisma.exam.findFirst({
+      where: { type: "WAQF_NOMINATION", studentId: result.studentId, nominationPresent: result.nominationPresent, date: { lte: result.batch.date } },
+      orderBy: { date: "desc" },
+      select: { nominationParts: true },
+    });
+    if (nomination?.nominationParts === 30) {
+      await promoteStudent(
+        result.studentId,
+        result.nominationPresent ? "QURAN" : "QURAN_GHAIB",
+        session.userId,
+        `نجح في سبر الأوقاف الفعلي (30 جزءًا ${result.nominationPresent ? "حاضراً" : "غيباً"})`
+      );
+      revalidatePath("/students");
+    }
+  }
 
   revalidateAwqafPaths();
   return { ok: true };

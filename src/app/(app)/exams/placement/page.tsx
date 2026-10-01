@@ -14,7 +14,7 @@ export default async function PlacementExamPage() {
   // مختبِر القراءة العربية له شاشة سبره وحدها
   if (track === "ARABIC") redirect("/exams/arabic");
   const examsRaw = await prisma.exam.findMany({
-    where: { type: "PLACEMENT", student: { halqaId: null, active: true, track: "QURAN" } },
+    where: { type: "PLACEMENT", student: { halqaId: null, active: true, track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] } } },
     include: { examiner: { select: { id: true, name: true } }, student: { select: { name: true } } },
     orderBy: { date: "desc" },
   });

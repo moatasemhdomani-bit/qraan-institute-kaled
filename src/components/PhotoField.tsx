@@ -117,7 +117,7 @@ function CropDialog({ file, onDone, onCancel }: { file: File; onDone: (f: File, 
         </div>
 
         {error ? (
-          <div style={{ fontSize: 13, color: "#E08A8A", padding: "30px 0" }}>{error}</div>
+          <div style={{ fontSize: 13, color: "var(--bad)", padding: "30px 0" }}>{error}</div>
         ) : (
           <canvas
             ref={canvasRef}
@@ -171,7 +171,7 @@ function CropDialog({ file, onDone, onCancel }: { file: File; onDone: (f: File, 
             onChange={(e) => setZoom(Number(e.target.value))}
             disabled={!bitmap}
             aria-label="درجة التكبير"
-            style={{ flex: 1, accentColor: "#d4af37" }}
+            style={{ flex: 1, accentColor: "var(--gold)" }}
           />
           <button type="button" aria-label="تكبير" onClick={() => setZoom(crop.zoom * 1.2)} style={btn} disabled={!bitmap}>
             +

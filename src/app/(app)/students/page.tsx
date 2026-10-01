@@ -51,6 +51,7 @@ export default async function StudentsPage() {
     active: s.active,
     isOrphan: s.isOrphan,
     track: s.track,
+    promoted: !!s.promotedAt,
     behaviorLog: s.behaviorLog.map((l) => ({
       previousValue: l.previousValue,
       newValue: l.newValue,
@@ -72,7 +73,7 @@ export default async function StudentsPage() {
 
   return (
     <>
-      <PageHeader title="الطلاب" subtitle="قائمة الطلاب وفرزهم على حلقة وفوج." />
+      <PageHeader title="شؤون الطلاب" subtitle="قائمة الطلاب وفرزهم على حلقة وفوج." />
       <StudentsClient students={students} halaqat={halaqat} />
     </>
   );

@@ -8,7 +8,7 @@ import { passFailLabel } from "@/lib/exam";
 import { formatDateAr } from "@/lib/daily";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 
-export default async function AwqafExamPage() {
+export default async function AwqafExamPage({ searchParams }: { searchParams: Promise<{ halqa?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
@@ -18,7 +18,7 @@ export default async function AwqafExamPage() {
   if (track === "ARABIC") redirect("/exams/arabic");
   const [halaqatRaw, examsRaw, awqafResultsRaw] = await Promise.all([
     prisma.halqa.findMany({
-      where: { track: "QURAN" },
+      where: { track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] } },
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
     }),
@@ -89,6 +89,7 @@ export default async function AwqafExamPage() {
         readOnly={false}
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}
+        initialHalqaId={(await searchParams).halqa}
         halaqat={halaqat}
         examsByStudent={examsByStudent}
         readyStudents={readyStudents}

@@ -9,7 +9,7 @@ import { copyToClipboard } from "@/lib/clipboard";
 import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import PhoneField from "@/components/PhoneField";
-import { TRACKS, TRACK_LABELS, type TrackId } from "@/lib/track";
+import { STUDENT_LEVELS, TRACK_LABELS, type TrackId } from "@/lib/track";
 import PhotoField from "@/components/PhotoField";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
@@ -23,6 +23,8 @@ type StudentRow = {
   active: boolean;
   isOrphan: boolean;
   track: TrackId;
+  /** أُخرج من حلقته بترفّعه إلى مستوى جديد (لا طالبًا جديدًا) */
+  promoted: boolean;
   father: string;
   mother: string;
   familyName: string;
@@ -45,10 +47,10 @@ type StudentRow = {
 
 const BEHAVIOR = ["ممتاز", "جيد جدًا", "جيد", "ضعيف"] as const;
 const BEHAVIOR_COLORS: Record<string, string> = {
-  "ممتاز": "#6FBF8B",
-  "جيد جدًا": "#D4AF37",
-  "جيد": "#8FA8C8",
-  "ضعيف": "#E08A8A",
+  "ممتاز": "var(--ok)",
+  "جيد جدًا": "var(--gold)",
+  "جيد": "var(--info)",
+  "ضعيف": "var(--bad)",
 };
 
 const initialState: FormState = {};
@@ -90,8 +92,6 @@ export default function StudentsClient({
       active: students.filter((s) => s.active).length,
       inactive: students.filter((s) => !s.active).length,
       orphans: students.filter((s) => s.isOrphan).length,
-      QURAN: students.filter((s) => s.track === "QURAN").length,
-      ARABIC: students.filter((s) => s.track === "ARABIC").length,
       unsorted: students.filter(isUnsorted).length,
     }),
     [students]
@@ -110,6 +110,7 @@ export default function StudentsClient({
         .filter((s) => !search.trim() || s.fullName.includes(search.trim()) || s.no.includes(search.trim())),
     [students, search, onlyUnsorted, statusFilter, onlyOrphans, teacherFilter, cohortFilter, halqaFilter, trackFilter]
   );
+  const levelCount = (t: TrackId) => students.filter((s) => s.track === t).length;
   const anyFilter = trackFilter !== "all" || statusFilter !== "all" || onlyOrphans || onlyUnsorted || !!search.trim() || !!teacherFilter || !!cohortFilter || !!halqaFilter;
 
   function openNew() {
@@ -142,23 +143,6 @@ export default function StudentsClient({
             style={inputStyle()}
           />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 12.5, color: "var(--ink-2)", marginInlineEnd: 2 }}>حالة الطالب:</span>
-            <button onClick={() => setStatusFilter("all")} style={chipStyle(statusFilter === "all")}>
-              الكل ({counts.all})
-            </button>
-            <button onClick={() => setStatusFilter("active")} style={chipStyle(statusFilter === "active")}>
-              نشط ({counts.active})
-            </button>
-            <button onClick={() => setStatusFilter("inactive")} style={chipStyle(statusFilter === "inactive")}>
-              منقطع ({counts.inactive})
-            </button>
-            <span style={{ width: 1, height: 22, background: "var(--line)", margin: "0 4px" }} />
-            <span style={{ width: 1, height: 22, background: "var(--line)", margin: "0 4px" }} />
-            {TRACKS.map((t) => (
-              <button key={t} onClick={() => setTrackFilter((v) => (v === t ? "all" : t))} style={chipStyle(trackFilter === t)}>
-                {TRACK_LABELS[t]} ({counts[t]})
-              </button>
-            ))}
             <button onClick={() => setOnlyOrphans((v) => !v)} style={chipStyle(onlyOrphans)}>
               أيتام ({counts.orphans})
             </button>
@@ -167,6 +151,29 @@ export default function StudentsClient({
             </button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>حالة الطالب</div>
+              <Select
+                value={statusFilter}
+                onChange={(v) => setStatusFilter(v as "all" | "active" | "inactive")}
+                options={[
+                  { value: "all", label: `الكل (${counts.all})` },
+                  { value: "active", label: `نشط (${counts.active})` },
+                  { value: "inactive", label: `منقطع (${counts.inactive})` },
+                ]}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>المستوى</div>
+              <Select
+                value={trackFilter}
+                onChange={(v) => setTrackFilter(v as "all" | TrackId)}
+                options={[
+                  { value: "all", label: `الكل (${counts.all})` },
+                  ...STUDENT_LEVELS.map((t) => ({ value: t, label: `${TRACK_LABELS[t]} (${levelCount(t)})` })),
+                ]}
+              />
+            </div>
             <div>
               <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>المدرس</div>
               <Select value={teacherFilter} onChange={setTeacherFilter} options={optionsOf("teacherName")} placeholder="الكل" />
@@ -187,8 +194,8 @@ export default function StudentsClient({
           )}
           {onlyUnsorted && (
             <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
-              هؤلاء أضافهم المختبِر عبر تحديد المستوى ولم يُفرزوا على حلقة وفوج بعد — الفرز هو ما يُنشئ حساب ولي
-              الأمر ويُلحق نتيجة السبر بملف الطالب.
+              «جديد»: طالب لم يُفرز على حلقة وفوج بعد (منهم من أضافه المختبِر عبر تحديد المستوى). «ترفّع»: نجح في سبر
+              مستواه فانتقل إلى المستوى التالي وأُخرج من حلقته — افرزوه على حلقة من مستواه الجديد.
             </div>
           )}
         </div>
@@ -246,7 +253,9 @@ export default function StudentsClient({
                   {s.fullName}
                   <StudentBadges s={s} />
                 </div>
-                <div style={{ color: s.halqaId || !s.active ? "var(--ink-2)" : "#E8A0A0", fontSize: 13 }}>{s.halqaId ? s.halqaName : s.active ? "غير مفروز" : "—"}</div>
+                <div style={{ color: s.halqaId || !s.active ? "var(--ink-2)" : "var(--bad-ink)", fontSize: 13 }}>
+                  <HalqaCell s={s} />
+                </div>
                 <div>
                   <span style={{ padding: "4px 10px", borderRadius: 999, background: "var(--chip)", border: "1px solid var(--line)", fontSize: 12 }}>
                     {s.cohortName}
@@ -288,7 +297,9 @@ export default function StudentsClient({
                     <StudentBadges s={s} />
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 12, color: s.halqaId || !s.active ? "var(--ink-2)" : "#E8A0A0" }}>{s.halqaId ? s.halqaName : s.active ? "غير مفروز" : "—"}</span>
+                    <span style={{ fontSize: 12, color: s.halqaId || !s.active ? "var(--ink-2)" : "var(--bad-ink)" }}>
+                      <HalqaCell s={s} />
+                    </span>
                     <span style={{ padding: "4px 10px", borderRadius: 999, background: "var(--chip)", border: "1px solid var(--line)", fontSize: 12 }}>
                       {s.cohortName}
                     </span>
@@ -318,9 +329,36 @@ export default function StudentsClient({
   );
 }
 
-/** «غير مفروز» يخص النشطين فقط — المنقطع خارج الحلقات عمدًا. */
+/**
+ * خانة الحلقة: اسمها، أو «غير مفروز» مع تمييز الطالب الجديد («جديد») عن الناجح في مستواه («ترفّع»)،
+ * أو «متخرِّج» لمن أنهى المستويات كلها.
+ */
+function HalqaCell({ s }: { s: StudentRow }) {
+  if (s.halqaId) return <>{s.halqaName}</>;
+  if (s.track === "GRADUATED") return <span style={{ color: "var(--ok-ink)" }}>متخرِّج</span>;
+  if (!s.active) return <>—</>;
+  return (
+    <>
+      غير مفروز{" "}
+      <span
+        style={{
+          padding: "1px 8px",
+          borderRadius: 999,
+          fontSize: 11,
+          fontWeight: 700,
+          border: `1px solid ${s.promoted ? "var(--ok)" : "var(--gold)"}`,
+          color: s.promoted ? "var(--ok-ink)" : "var(--gold)",
+        }}
+      >
+        {s.promoted ? "ترفّع" : "جديد"}
+      </span>
+    </>
+  );
+}
+
+/** «غير مفروز» يخص النشطين فقط — المنقطع خارج الحلقات عمدًا، والمتخرّج أنهى المستويات. */
 function isUnsorted(s: StudentRow) {
-  return s.active && !s.halqaId;
+  return s.active && !s.halqaId && s.track !== "GRADUATED";
 }
 
 /** شارتا «منقطع» و«يتيم» بجانب اسم الطالب في القائمة. */
@@ -330,8 +368,8 @@ function StudentBadges({ s }: { s: StudentRow }) {
   );
   return (
     <>
-      {!s.active && badge("منقطع", "#E08A8A")}
-      {s.isOrphan && badge("يتيم", "#8FA8C8")}
+      {!s.active && badge("منقطع", "var(--bad)")}
+      {s.isOrphan && badge("يتيم", "var(--info)")}
     </>
   );
 }
@@ -360,6 +398,8 @@ function StudentForm({
 
   // الطالب يُفرز فقط في حلقة من نوعه (قرآن / قراءة عربية) — فتظهر مدرّسو نوعه وأفواجهم وحدهم
   const trackHalaqat = useMemo(() => halaqat.filter((h) => h.track === track), [halaqat, track]);
+  // المتخرّج لا حلقة له
+  const graduated = track === "GRADUATED";
   const teachers = useMemo(() => {
     const byId = new Map<string, string>();
     for (const h of trackHalaqat) if (!byId.has(h.teacherId)) byId.set(h.teacherId, h.teacherName);
@@ -397,7 +437,7 @@ function StudentForm({
 
       <form id="student-form" action={formAction} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <input type="hidden" name="id" value={initial?.id ?? ""} />
-        <input type="hidden" name="halqaId" value={active ? resolvedHalqa?.id ?? "" : ""} />
+        <input type="hidden" name="halqaId" value={active && !graduated ? resolvedHalqa?.id ?? "" : ""} />
         <input type="hidden" name="status" value={active ? "active" : "inactive"} />
         <input type="hidden" name="orphan" value={isOrphan ? "1" : "0"} />
         <input type="hidden" name="track" value={track} />
@@ -420,12 +460,12 @@ function StudentForm({
           <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
         </div>
 
-        {/* ما يدرسه، ثم حالة الطالب، وتحتها «يتيم» */}
+        {/* مستوى الطالب، ثم حالته، وتحتها «يتيم» */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
           <div>
-            <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>يدرس</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {TRACKS.map((t) => (
+            <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>مستوى الطالب</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {STUDENT_LEVELS.map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -466,7 +506,10 @@ function StudentForm({
           </div>
         )}
 
-        {active && (
+        {graduated && (
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>المتخرّج أنهى المستويات كلها — لا حلقة له.</div>
+        )}
+        {active && !graduated && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
           <div>
             <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>المدرس</label>
@@ -513,7 +556,7 @@ function DeleteStudentButton({ id, name, onDeleted }: { id: string; name: string
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        style={{ ...small, marginInlineStart: "auto", border: "1px solid var(--notice-line)", background: "transparent", color: "#E08A8A" }}
+        style={{ ...small, marginInlineStart: "auto", border: "1px solid var(--notice-line)", background: "transparent", color: "var(--bad)" }}
       >
         حذف الطالب
       </button>
@@ -522,7 +565,7 @@ function DeleteStudentButton({ id, name, onDeleted }: { id: string; name: string
 
   return (
     <div style={{ marginInlineStart: "auto", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 12, color: "#E08A8A", maxWidth: 230 }}>حذف «{name}» نهائيًا مع كل حضوره وتسميعه وسبره؟</span>
+      <span style={{ fontSize: 12, color: "var(--bad)", maxWidth: 230 }}>حذف «{name}» نهائيًا مع كل حضوره وتسميعه وسبره؟</span>
       <button
         type="button"
         disabled={pending}
@@ -541,7 +584,7 @@ function DeleteStudentButton({ id, name, onDeleted }: { id: string; name: string
       <button type="button" onClick={() => setConfirming(false)} style={{ ...small, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)" }}>
         تراجع
       </button>
-      {error && <span style={{ width: "100%", fontSize: 12, color: "#E08A8A" }}>{error}</span>}
+      {error && <span style={{ width: "100%", fontSize: 12, color: "var(--bad)" }}>{error}</span>}
     </div>
   );
 }
@@ -609,7 +652,7 @@ function BehaviorSection({ student }: { student: StudentRow }) {
                 style={{
                   padding: "6px 13px", borderRadius: 999, fontSize: 12.5, cursor: "pointer",
                   border: `1px solid ${value === b ? BEHAVIOR_COLORS[b] : "var(--line)"}`,
-                  background: value === b ? `${BEHAVIOR_COLORS[b]}22` : "transparent",
+                  background: value === b ? `color-mix(in srgb, ${BEHAVIOR_COLORS[b]} 13%, transparent)` : "transparent",
                   color: value === b ? BEHAVIOR_COLORS[b] : "var(--ink-2)",
                   fontWeight: value === b ? 600 : 400,
                 }}
@@ -686,7 +729,7 @@ function Field({
     <div>
       <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>
         {label}
-        {required && <span style={{ color: "#E08A8A" }}> *</span>}
+        {required && <span style={{ color: "var(--bad)" }}> *</span>}
       </label>
       <input
         name={name}

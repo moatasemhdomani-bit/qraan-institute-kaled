@@ -19,8 +19,13 @@ export const TYPE_LABELS: Record<ExamTypeId, string> = {
 };
 
 /** سبر القراءة العربية: ست مراحل — 1 إلى 5 بتقدير، والسادسة بعلامة من 100 (النجاح 90 فأكثر). */
-export const ARABIC_STAGES = [1, 2, 3, 4, 5, 6];
-export const ARABIC_MARK_STAGE = 6;
+export const ARABIC_STAGES = [1, 2, 3, 4, 5, 6, 7];
+/** المرحلة 7 «بينة للناس»: سور البينة إلى الناس — النجاح فيها يرفّع الطالب إلى «عمَّ غيباً». */
+export const ARABIC_FINAL_STAGE = 7;
+/** المرحلتان 6 و7 بعلامة من 100، وما قبلهما بتقدير. */
+export const isArabicMarkStage = (stage: number | null | undefined) => stage === 6 || stage === 7;
+/** اسم المرحلة: رقمها، والسابعة باسمها «بينة للناس». */
+export const arabicStageLabel = (stage: number) => (stage === ARABIC_FINAL_STAGE ? "بينة للناس" : `المرحلة ${stage}`);
 export const ARABIC_PASS_MARK = 90;
 /** «إعادة» = راسب؛ جيد وجيد جدًا وممتاز = ناجح. */
 export const ARABIC_GRADES = ["ممتاز", "جيد جدًا", "جيد", "إعادة"];
@@ -53,7 +58,7 @@ export function resultLabel(exam: ExamResultShape): string {
     const mode = exam.nominationPresent == null ? "" : exam.nominationPresent ? " — حاضرًا" : " — غيبًا";
     return `يبدأ من الجزء ${exam.juz}${mode}`;
   }
-  if (exam.type === "ARABIC" && exam.stage !== ARABIC_MARK_STAGE) return exam.grade || "—";
+  if (exam.type === "ARABIC" && !isArabicMarkStage(exam.stage)) return exam.grade || "—";
   return exam.resultMark != null ? `${exam.resultMark} / 100` : "—";
 }
 
@@ -76,7 +81,7 @@ type PassFailShape = ExamResultShape & { nominationPresent?: boolean | null };
 /** "ناجح" أو "راسب" — أو null لما لا حدّ نجاح له (تحديد مستوى، أو سبر بلا نتيجة بعد). */
 export function passFailLabel(exam: PassFailShape): "ناجح" | "راسب" | null {
   if (exam.type === "ARABIC") {
-    if (exam.stage === ARABIC_MARK_STAGE) return exam.resultMark == null ? null : exam.resultMark >= ARABIC_PASS_MARK ? "ناجح" : "راسب";
+    if (isArabicMarkStage(exam.stage)) return exam.resultMark == null ? null : exam.resultMark >= ARABIC_PASS_MARK ? "ناجح" : "راسب";
     if (!exam.grade) return null;
     return exam.grade === ARABIC_FAIL_GRADE ? "راسب" : "ناجح";
   }
@@ -100,9 +105,9 @@ export function validateExam(input: {
   grade?: string | null;
 }): string | null {
   if (input.type === "ARABIC") {
-    if (!input.stage || !ARABIC_STAGES.includes(input.stage)) return "اختاروا المرحلة (1 إلى 6).";
-    if (input.stage === ARABIC_MARK_STAGE) {
-      if (input.resultMark == null || input.resultMark < 0 || input.resultMark > 100) return "أدخلوا علامة المرحلة 6 من 0 إلى 100.";
+    if (!input.stage || !ARABIC_STAGES.includes(input.stage)) return "اختاروا المرحلة.";
+    if (isArabicMarkStage(input.stage)) {
+      if (input.resultMark == null || input.resultMark < 0 || input.resultMark > 100) return `أدخلوا علامة «${arabicStageLabel(input.stage)}» من 0 إلى 100.`;
     } else if (!input.grade || !ARABIC_GRADES.includes(input.grade)) return "اختاروا التقدير.";
     return null;
   }
@@ -153,7 +158,7 @@ export function examKindLabel(e: {
   nominationParts?: number | null;
   stage?: number | null;
 }): string {
-  if (e.type === "ARABIC") return e.stage != null ? `المرحلة ${e.stage}` : "";
+  if (e.type === "ARABIC") return e.stage != null ? arabicStageLabel(e.stage) : "";
   const mode = e.nominationPresent == null ? "" : e.nominationPresent ? "حاضرًا" : "غيبًا";
   if (e.type === "WAQF_NOMINATION" || e.type === "AWQAF_ACTUAL") {
     return [e.nominationParts ?? "", mode].filter(Boolean).join(" ");

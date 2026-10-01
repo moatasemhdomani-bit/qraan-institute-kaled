@@ -83,7 +83,7 @@ export function DeleteCohortButton({ id, name, halaqatCount }: { id: string; nam
         type="button"
         onClick={() => setConfirming(true)}
         title={halaqatCount > 0 ? "في هذا الفوج حلقات — انقلها أولًا" : "حذف الفوج"}
-        style={{ ...small, border: "1px solid var(--notice-line)", background: "transparent", color: "#E08A8A" }}
+        style={{ ...small, border: "1px solid var(--notice-line)", background: "transparent", color: "var(--bad)" }}
       >
         حذف الفوج
       </button>
@@ -94,7 +94,7 @@ export function DeleteCohortButton({ id, name, halaqatCount }: { id: string; nam
     <form action={formAction} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
       <input type="hidden" name="id" value={id} />
       {halaqatCount > 0 ? (
-        <span style={{ fontSize: 12, color: "#E08A8A" }}>
+        <span style={{ fontSize: 12, color: "var(--bad)" }}>
           لا يمكن حذف «{name}» — فيه {halaqatCount} حلقة، انقلها إلى فوج آخر أولًا.
         </span>
       ) : (
@@ -108,7 +108,7 @@ export function DeleteCohortButton({ id, name, halaqatCount }: { id: string; nam
       <button type="button" onClick={() => setConfirming(false)} style={{ ...small, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)" }}>
         {halaqatCount > 0 ? "حسنًا" : "تراجع"}
       </button>
-      {state.error && <span style={{ width: "100%", fontSize: 12, color: "#E08A8A" }}>{state.error}</span>}
+      {state.error && <span style={{ width: "100%", fontSize: 12, color: "var(--bad)" }}>{state.error}</span>}
     </form>
   );
 }

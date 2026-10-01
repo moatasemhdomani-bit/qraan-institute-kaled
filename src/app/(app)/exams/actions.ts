@@ -5,7 +5,9 @@ import { getSession } from "@/lib/session";
 import { examinerTrack } from "@/lib/examinerTrack";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { validateExam, passFailLabel, LOCAL_KIND_LABELS, ARABIC_MARK_STAGE, type ExamTypeId, type LocalKindId } from "@/lib/exam";
+import { validateExam, passFailLabel, LOCAL_KIND_LABELS, isArabicMarkStage, arabicStageLabel, ARABIC_FINAL_STAGE, type ExamTypeId, type LocalKindId } from "@/lib/exam";
+import { examFamily } from "@/lib/track";
+import { promoteStudent } from "@/lib/promotion";
 
 export type FormState = { error?: string; ok?: boolean; examId?: string };
 
@@ -119,8 +121,9 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   if (type === "ARABIC" || studentId) {
     const track = await examinerTrack(session);
     const target = studentId ? await prisma.student.findUnique({ where: { id: studentId }, select: { track: true } }) : null;
-    if (type === "ARABIC" && target?.track !== "ARABIC") return { error: "سبر القراءة العربية لطلاب القراءة العربية فقط." };
-    if (type !== "ARABIC" && target?.track === "ARABIC") return { error: "طالب القراءة العربية يُسبر بسبر القراءة العربية فقط." };
+    if (target?.track === "GRADUATED") return { error: "هذا الطالب متخرِّج — أنهى المستويات كلها." };
+    if (type === "ARABIC" && target && examFamily(target.track) !== "ARABIC") return { error: "سبر القراءة العربية لطلاب القراءة العربية فقط." };
+    if (type !== "ARABIC" && target && examFamily(target.track) === "ARABIC") return { error: "طالب القراءة العربية يُسبر بسبر القراءة العربية فقط." };
     if (track && (type === "ARABIC") !== (track === "ARABIC")) return { error: "هذا السبر ليس من نوع اختبارك." };
   }
 
@@ -145,9 +148,9 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     juz: usesJuz ? juz : null,
     pages: type === "LOCAL" || type === "WAQF_NOMINATION" ? pages : [],
     resultMark:
-      type === "WAQF_NOMINATION" || type === "LOCAL" || (type === "ARABIC" && stage === ARABIC_MARK_STAGE) ? resultMark : null,
+      type === "WAQF_NOMINATION" || type === "LOCAL" || (type === "ARABIC" && isArabicMarkStage(stage)) ? resultMark : null,
     stage: type === "ARABIC" ? stage : null,
-    grade: type === "ARABIC" && stage !== ARABIC_MARK_STAGE ? grade : null,
+    grade: type === "ARABIC" && !isArabicMarkStage(stage) ? grade : null,
     // حاضرًا/غيبًا: لترشيح الأوقاف ولتحديد المستوى
     nominationPresent: type === "WAQF_NOMINATION" || type === "PLACEMENT" ? nominationPresent : null,
     nominationParts: type === "WAQF_NOMINATION" ? nominationParts : null,
@@ -164,7 +167,18 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
 
   const passFail = passFailLabel({ type, localKind, resultMark, nominationPresent, stage, grade });
   const resultNote = passFail ? ` — النتيجة: ${passFail}` : "";
-  await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)}${type === "ARABIC" ? ` (المرحلة ${stage})` : ""} للطالب «${student?.name ?? ""}»${resultNote}`);
+  await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)}${type === "ARABIC" && stage ? ` (${arabicStageLabel(stage)})` : ""} للطالب «${student?.name ?? ""}»${resultNote}`);
+
+  // الترفّع التلقائي عند النجاح في سبر المستوى: يُخرَج الطالب من حلقته ويظهر عند الإدارة «ترفّع» لإعادة فرزه
+  if (passFail === "ناجح" && finalStudentId) {
+    if (type === "ARABIC" && stage === ARABIC_FINAL_STAGE) {
+      await promoteStudent(finalStudentId, "ARABIC", session.userId, "نجح في «بينة للناس»");
+    } else if (type === "LOCAL" && localKind === "AMMA_GHAYBAN") {
+      await promoteStudent(finalStudentId, "AMMA", session.userId, "نجح في سبر جزء عمّ غيباً");
+    }
+    revalidatePath("/students");
+    revalidatePath("/recitation");
+  }
 
   revalidateExamPaths();
   return { ok: true, examId };

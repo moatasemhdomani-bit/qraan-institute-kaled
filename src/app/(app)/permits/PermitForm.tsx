@@ -93,7 +93,7 @@ export default function PermitForm({
               type="button"
               onClick={handleDelete}
               disabled={deleting}
-              style={{ minHeight: 48, padding: "12px 16px", borderRadius: 11, border: "1px solid rgba(224,138,138,0.45)", background: "linear-gradient(135deg, rgba(224,138,138,0.18), rgba(224,138,138,0.04))", color: "#E6A0A0", fontSize: 13.5, cursor: "pointer", opacity: deleting ? 0.6 : 1 }}
+              style={{ minHeight: 48, padding: "12px 16px", borderRadius: 11, border: "1px solid rgba(224,138,138,0.45)", background: "linear-gradient(135deg, rgba(224,138,138,0.18), rgba(224,138,138,0.04))", color: "var(--bad-ink)", fontSize: 13.5, cursor: "pointer", opacity: deleting ? 0.6 : 1 }}
             >
               {deleting ? "جارٍ الحذف…" : "حذف"}
             </button>

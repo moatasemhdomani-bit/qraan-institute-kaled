@@ -12,7 +12,8 @@ import {
   LOCAL_KIND_LABELS,
   ARABIC_STAGES,
   ARABIC_GRADES,
-  ARABIC_MARK_STAGE,
+  isArabicMarkStage,
+  arabicStageLabel,
   ARABIC_PASS_MARK,
   ARABIC_FAIL_GRADE,
   TYPE_LABELS,
@@ -133,7 +134,7 @@ export default function ExamFormDrawer({
 
   const titles = TYPE_LABELS;
   const isArabic = type === "ARABIC";
-  const markStage = isArabic && stage === ARABIC_MARK_STAGE;
+  const markStage = isArabic && isArabicMarkStage(stage);
 
   const partsOptions = nominationPresent == null ? [] : NOMINATION_PARTS[nominationPresent ? "present" : "absent"];
 
@@ -202,8 +203,13 @@ export default function ExamFormDrawer({
               <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>المرحلة</div>
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
                 {ARABIC_STAGES.map((s) => (
-                  <button key={s} type="button" onClick={() => setStage(s)} style={{ ...chipStyle(stage === s), width: 48, minHeight: 44, padding: 0, fontSize: 16 }}>
-                    {s}
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStage(s)}
+                    style={{ ...chipStyle(stage === s), minWidth: 48, minHeight: 44, padding: s === 7 ? "0 14px" : 0, fontSize: s === 7 ? 14 : 16 }}
+                  >
+                    {s === 7 ? arabicStageLabel(s) : s}
                   </button>
                 ))}
               </div>
@@ -230,7 +236,7 @@ export default function ExamFormDrawer({
                   placeholder="0 — 100"
                   style={{ width: 120, minHeight: 46, padding: 11, fontSize: 17 }}
                 />
-                <div style={{ marginTop: 7, fontSize: 12, color: "var(--ink-3)" }}>المرحلة 6 بعلامة من 100 — ناجح بـ {ARABIC_PASS_MARK} فأكثر.</div>
+                <div style={{ marginTop: 7, fontSize: 12, color: "var(--ink-3)" }}>«{stage != null ? arabicStageLabel(stage) : ""}» بعلامة من 100 — ناجح بـ {ARABIC_PASS_MARK} فأكثر.{stage === 7 ? " والنجاح فيها ينقل الطالب إلى مستوى «عمَّ غيباً» ويُخرجه من حلقته لإعادة فرزه." : stage === 6 ? " والنجاح فيها يحوّل تسميعه إلى «بينة للناس» ويبقى في حلقته." : ""}</div>
               </div>
             )}
           </>
@@ -382,7 +388,7 @@ export default function ExamFormDrawer({
               fontWeight: 700,
               border: `1px solid ${currentPassFail === "ناجح" ? "rgba(111,191,139,0.5)" : "rgba(224,138,138,0.5)"}`,
               background: currentPassFail === "ناجح" ? "rgba(111,191,139,0.12)" : "rgba(224,138,138,0.12)",
-              color: currentPassFail === "ناجح" ? "#6FBF8B" : "#E08A8A",
+              color: currentPassFail === "ناجح" ? "var(--ok)" : "var(--bad)",
             }}
           >
             النتيجة: {currentPassFail}

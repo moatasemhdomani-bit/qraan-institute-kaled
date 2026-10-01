@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { today, isValidDate, formatDateAr, pageSpan } from "@/lib/daily";
+import { hasPastRecitation } from "@/lib/track";
 import PageHeader from "@/components/PageHeader";
 import RecitationMonitorClient from "./RecitationMonitorClient";
 
@@ -52,11 +53,14 @@ export default async function RecitationMonitorPage({
           no: st.studentNo,
           state: "done" as const,
           lines: [
-            r.noNew
-              ? "لم يسمّع جديدًا"
-              : `جديد: ${r.newFrom}→${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
-            // القراءة العربية تسميعها جديد فقط — لا سطر للماضي
-            ...(h.track === "ARABIC"
+            // تسميع بالسور (عمَّ غيباً / بينة للناس)
+            r.surahs.length > 0
+              ? `سور: ${r.surahs.join("، ")} — ${r.gradeNew ?? ""}`
+              : r.noNew
+                ? "لم يسمّع جديدًا"
+                : `جديد: ${r.newFrom}→${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
+            // الماضي لمستويَي القرآن حاضراً وغيباً وحدهما
+            ...(!hasPastRecitation(h.track)
               ? []
               : [
                   r.noPast

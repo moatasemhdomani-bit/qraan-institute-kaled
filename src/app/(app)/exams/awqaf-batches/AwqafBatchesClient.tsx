@@ -29,10 +29,10 @@ type SearchStudent = {
 };
 
 function batchBadge(b: Batch) {
-  if (!b.allScored) return { label: "بانتظار العلامات", color: "#D4AF37" };
+  if (!b.allScored) return { label: "بانتظار العلامات", color: "var(--gold)" };
   if (b.passedCount === 0) return { label: "لا ناجحين في هذه الدفعة", color: "var(--ink-3)" };
-  if (b.deliveredCount === b.passedCount) return { label: "دورة الشهادة مكتملة", color: "#6FBF8B" };
-  return { label: "دورة الشهادة جارية", color: "#8FA8C8" };
+  if (b.deliveredCount === b.passedCount) return { label: "دورة الشهادة مكتملة", color: "var(--ok)" };
+  return { label: "دورة الشهادة جارية", color: "var(--info)" };
 }
 
 export default function AwqafBatchesClient({
@@ -107,9 +107,9 @@ export default function AwqafBatchesClient({
                     padding: "4px 12px",
                     borderRadius: 999,
                     fontSize: 12,
-                    border: `1px solid ${badge.color}66`,
+                    border: `1px solid color-mix(in srgb, ${badge.color} 40%, transparent)`,
                     color: badge.color,
-                    background: `${badge.color}1A`,
+                    background: `color-mix(in srgb, ${badge.color} 10%, transparent)`,
                   }}
                 >
                   {badge.label}
@@ -156,7 +156,7 @@ export default function AwqafBatchesClient({
                           fontSize: 11.5,
                           fontWeight: 700,
                           border: `1px solid ${h.passed ? "rgba(111,191,139,0.5)" : "rgba(224,138,138,0.5)"}`,
-                          color: h.passed ? "#6FBF8B" : "#E08A8A",
+                          color: h.passed ? "var(--ok)" : "var(--bad)",
                         }}
                       >
                         {h.passed ? "ناجح" : "راسب"}
@@ -260,7 +260,7 @@ function NewBatchDrawer({
                     </span>
                     <span style={{ marginInlineStart: "auto", fontSize: 11, color: "var(--ink-3)" }}>{on ? "✓ مختار" : ""}</span>
                   </div>
-                  {c.priorFailNote && <div style={{ fontSize: 11.5, color: "#E0B4B4" }}>{c.priorFailNote}</div>}
+                  {c.priorFailNote && <div style={{ fontSize: 11.5, color: "var(--bad-ink)" }}>{c.priorFailNote}</div>}
                 </button>
               );
             })}

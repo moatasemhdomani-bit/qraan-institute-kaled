@@ -83,7 +83,7 @@ export default function IssuedNotice({ reportId, name, duplicate }: { reportId: 
       <button type="button" onClick={download} disabled={busy} style={{ ...btn, opacity: busy ? 0.7 : 1 }}>
         {busy ? "جارٍ التنزيل…" : "تنزيل PDF"}
       </button>
-      {err && <span style={{ width: "100%", fontSize: 12, color: "#E08A8A" }}>{err}</span>}
+      {err && <span style={{ width: "100%", fontSize: 12, color: "var(--bad)" }}>{err}</span>}
     </div>
   );
 }

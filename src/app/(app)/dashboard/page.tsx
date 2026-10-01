@@ -12,8 +12,8 @@ const QUICK_LINKS: Record<string, { href: string; label: string; note: string }>
   cohorts: { href: "/cohorts", label: "إدارة الأفواج", note: "توقيت الأفواج وإضافتها" },
   halaqat: { href: "/halaqat", label: "إدارة الحلقات", note: "إنشاء حلقة وإسناد مدرّسها" },
   schedule: { href: "/schedule", label: "الدوام والعطل", note: "أيام الدوام وقائمة العطل" },
-  students: { href: "/students", label: "الطلاب", note: "قائمة الطلاب وفرزهم" },
-  permits: { href: "/permits", label: "إذن", note: "أذونات دخول وخروج دائمة" },
+  students: { href: "/students", label: "شؤون الطلاب", note: "قائمة الطلاب وفرزهم" },
+  permits: { href: "/permits", label: "إذن الطلاب", note: "أذونات دخول وخروج دائمة" },
   "exam-monitor": { href: "/exam-monitor", label: "متابعة السبر", note: "سبورات كل الحلقات، وما لم يُسبَر بعد" },
   "exams-local-view": { href: "/exams/local-view", label: "متابعة السبر المحلي", note: "نتائج السبر المحلي — عرض فقط" },
 };

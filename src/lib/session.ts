@@ -4,6 +4,8 @@ import type { RoleId } from "./ui";
 import { prisma } from "./db";
 
 const COOKIE_NAME = "khs_session";
+/** مدة الجلسة: شهران من تسجيل الدخول — يبقى المستخدم داخلًا طوالها ما لم يسجّل خروجه. */
+const SESSION_DAYS = 60;
 const secret = new TextEncoder().encode(process.env.SESSION_SECRET || "dev-secret-change-me");
 
 export type SessionPayload = {
@@ -16,7 +18,7 @@ export async function createSession(payload: SessionPayload) {
   const token = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("30d")
+    .setExpirationTime(`${SESSION_DAYS}d`)
     .sign(secret);
 
   const store = await cookies();
@@ -25,7 +27,7 @@ export async function createSession(payload: SessionPayload) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: 60 * 60 * 24 * SESSION_DAYS,
   });
 }
 
@@ -40,8 +42,9 @@ export async function getSession(): Promise<SessionPayload | null> {
     return null;
   }
   // حساب حُذف بعد دخوله: تسقط جلسته فورًا بدل أن تبقى صالحة حتى انتهاء مدتها
-  const user = await prisma.user.findUnique({ where: { id: payload.userId }, select: { deletedAt: true } });
-  if (!user || user.deletedAt) return null;
+  // وكذلك الموظف المعلَّق
+  const user = await prisma.user.findUnique({ where: { id: payload.userId }, select: { deletedAt: true, suspendedAt: true } });
+  if (!user || user.deletedAt || user.suspendedAt) return null;
   return payload;
 }
 

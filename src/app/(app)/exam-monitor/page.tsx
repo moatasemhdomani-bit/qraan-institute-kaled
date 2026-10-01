@@ -94,15 +94,27 @@ export default async function ExamMonitorPage() {
     };
   });
 
+  // المدرّس يرى في الفلترة أنواع السبر التي يُختبر بها طلابه فقط: القراءة العربية لمدرّسها، وأنواع القرآن لمدرّس القرآن
+  const me = session.role === "TEACHER" ? await prisma.user.findUnique({ where: { id: session.userId }, select: { track: true } }) : null;
+  const typeFilters: ("LOCAL" | "WAQF_NOMINATION" | "AWQAF_ACTUAL" | "ARABIC")[] = !me
+    ? ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL", "ARABIC"]
+    : me.track === "ARABIC"
+      ? ["ARABIC"]
+      : ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL"];
+
   return (
     <>
-      <PageHeader title="متابعة السبر" subtitle="سبورات كل الحلقات، وما لم يُسبَر بعد." />
+      <PageHeader
+        title="متابعة السبر"
+        subtitle={"سبورات كل الحلقات، وما لم يُسبَر بعد" + (session.role === "DIRECTOR" ? " — يمكنك إجراء سبر لأي حلقة." : ".")}
+      />
       <ExamMonitorClient
         canEdit={session.role === "DIRECTOR"}
         isDirector={session.role === "DIRECTOR"}
         canManageAwqaf={session.role === "DIRECTOR" || session.role === "ADMIN"}
         currentUserId={session.userId}
         blocks={blocks}
+        typeFilters={typeFilters}
       />
     </>
   );

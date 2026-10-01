@@ -10,6 +10,16 @@ body {
   padding: 0;
 }
 
+/* لون أساس كحلي تحت كل شيء: عند السحب السريع على الجوال يعرض المتصفح ما تحت الصفحة قبل رسمها،
+   وكان الافتراضي أبيض فتظهر ومضة بيضاء */
+html {
+  background-color: var(--page-base);
+  color-scheme: dark;
+}
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
 /* تكبير الموقع كله 125% على شاشات الحاسوب (كزوم المتصفح) — الجوال مضبوط أصلًا على حجم شاشته.
    تحت الزوم تُضخَّم 100vh أيضًا، فكل ارتفاع «ملء الشاشة» يستعمل --full-h المعوَّض بدلها. */
 :root {
@@ -24,9 +34,18 @@ body {
   }
 }
 
-body {
+/* التدرّج في طبقة ثابتة مستقلة بدل background-attachment: fixed — تلك تُعيد رسم الخلفية كلها مع
+   كل حركة تمرير على الجوال، فتتأخر الصفحة وتظهر فجوات فارغة */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background: var(--bg-grad);
-  background-attachment: fixed;
+  pointer-events: none;
+}
+
+body {
   color: var(--ink);
   font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
   font-size: 15px;
@@ -84,6 +103,63 @@ a:hover {
   --warn-line: rgba(217, 180, 132, 0.45);
   --notice-soft: linear-gradient(135deg, rgba(224, 100, 100, 0.22), rgba(224, 100, 100, 0.06));
   --notice-line: rgba(224, 100, 100, 0.45);
+
+  /* ألوان دلالية: ناجح/حاضر، راسب/غائب، إذن، متأخر — ونصوص تنبيه فاتحة */
+  --ok: #6fbf8b;
+  --ok-ink: #8fd3a8;
+  --bad: #e08a8a;
+  --bad-ink: #f0b4b4;
+  --info: #8fa8c8;
+  --gold: #d4af37;
+  /* نص فوق لون الحالة نفسه (زر حاضر/غائب المختار) */
+  --on-status: #0a192f;
+  --page-base: #06111f;
+  --login-panel: linear-gradient(to left, #050d1c 0%, #0a192f 45%, #142c4d 100%);
+  --login-panel-mobile: #0c1e37;
+}
+
+/* ---------- العرض الفاتح: نفس هوية الكحلي والذهبي على أرضية عاجية — نص كحلي ولمسات ذهبية ---------- */
+:root[data-theme="light"] {
+  /* النصوص بالكحلي: العناوين كحلي داكن، والنص الثانوي كحلي هادئ بدل الرمادي */
+  --ink: #0f2a4d;
+  --ink-2: rgba(18, 48, 88, 0.8);
+  --ink-3: rgba(18, 48, 88, 0.56);
+  --line: rgba(160, 125, 28, 0.3);
+  --line-2: rgba(10, 25, 47, 0.09);
+  /* الأزرار الرئيسية والاختيارات المحدَّدة: كحلي بنص ذهبي — هوية المعهد */
+  --on-accent: #f1d27a;
+  --btn-grad: linear-gradient(135deg, #1a3d6b 0%, #0f2a4d 55%, #0a192f 100%);
+  --focus: #a07d1c;
+  --accent-line: rgba(160, 125, 28, 0.6);
+  --btn-border: rgba(10, 25, 47, 0.12);
+  --btn-shadow: 0 8px 20px rgba(10, 25, 47, 0.14);
+  --chip-strong: linear-gradient(135deg, rgba(212, 175, 55, 0.5), rgba(212, 175, 55, 0.16));
+  --sel: rgba(212, 175, 55, 0.32);
+  --link: #8a6a12;
+  --link-h: #5c470b;
+  --bg-grad: radial-gradient(110% 70% at 100% -10%, #f1e4bd 0%, rgba(250, 246, 236, 0) 58%),
+    linear-gradient(205deg, #fcfaf4 0%, #f5f0e4 55%, #ebe2cf 100%);
+  --card-grad: linear-gradient(152deg, rgba(212, 175, 55, 0.13) 0%, #ffffff 44%, #fcfaf5 100%);
+  --card-2-grad: linear-gradient(152deg, rgba(212, 175, 55, 0.06) 0%, rgba(255, 255, 255, 0.94) 60%);
+  --panel-solid: #fbf8f1;
+  /* لمسة كحلية في رؤوس الجداول والبطاقات — اللون الرئيسي للموقع حاضر في الوضع الفاتح أيضًا */
+  --head-grad: linear-gradient(90deg, rgba(18, 48, 88, 0.16) 0%, rgba(18, 48, 88, 0.06) 55%, rgba(212, 175, 55, 0.1) 100%);
+  --btn-soft: linear-gradient(135deg, rgba(212, 175, 55, 0.24), rgba(212, 175, 55, 0.08));
+  --chip: linear-gradient(135deg, rgba(212, 175, 55, 0.22), rgba(212, 175, 55, 0.07));
+  --input-grad: linear-gradient(160deg, #ffffff, #faf7ef);
+  --glow: 0 16px 40px rgba(10, 25, 47, 0.12);
+  --danger: #b23b3b;
+  --danger-line: rgba(178, 59, 59, 0.45);
+  --ok: #1e7a3d;
+  --ok-ink: #1e7a3d;
+  --bad: #b23b3b;
+  --bad-ink: #a33a3a;
+  --info: #3b5f8a;
+  --gold: #a07d1c;
+  --on-status: #ffffff;
+  --page-base: #f5f0e4;
+  --login-panel: linear-gradient(to left, #fcfaf4 0%, #f7f2e6 55%, #efe6d2 100%);
+  --login-panel-mobile: #fbf8f1;
 }
 
 * {
@@ -182,7 +258,7 @@ button {
     margin: 16px !important;
     border-radius: 16px;
     border: 1px solid rgba(212, 175, 55, 0.28);
-    background: #0c1e37 !important;
+    background: var(--login-panel-mobile) !important;
   }
   .login-hero {
     flex: 0 0 280px;
@@ -226,11 +302,57 @@ button {
     --hero-grad: linear-gradient(to bottom, #0a192f 0%, rgba(10, 25, 47, 0.72) 26%, rgba(10, 25, 47, 0.25) 58%, rgba(10, 25, 47, 0) 100%);
     --hero-glow: none;
   }
+  :root[data-theme="light"] {
+    --hero-grad: linear-gradient(to bottom, #f5f0e4 0%, rgba(245, 240, 228, 0.72) 26%, rgba(245, 240, 228, 0.2) 58%, rgba(245, 240, 228, 0) 100%);
+  }
 }
 
 /* ---------- Responsive shell: full sidebar (desktop) <-> narrow icon rail (mobile) ---------- */
+.app-shell {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: var(--full-h);
+  transition: grid-template-columns 0.28s ease;
+}
 .app-sidebar {
   display: flex;
+  min-width: 0;
+}
+/* عرض ثابت لمحتوى الشريط كي ينسحب كاملًا إلى اليمين بدل أن ينضغط أثناء الطيّ */
+.app-sidebar > * {
+  width: 247px;
+}
+
+/* زر ☰ — طيّ قائمة الشاشات: تنسحب إلى أقصى اليمين وتتسع الشاشة */
+.nav-toggle {
+  position: fixed;
+  top: 14px;
+  inset-inline-start: 14px;
+  z-index: 35;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-solid);
+  color: var(--ink);
+  box-shadow: var(--btn-shadow);
+  cursor: pointer;
+}
+.nav-toggle:hover {
+  border-color: var(--accent-line);
+}
+.app-shell.nav-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+.app-shell.nav-collapsed .app-sidebar {
+  border-inline-start: none !important;
+}
+/* القائمة مطويّة: هامش ضيق على يمين المحتوى يبقى للزر وحده، فلا يقع تحته شيء أثناء التمرير */
+.app-shell.nav-collapsed .app-content-pad {
+  padding-inline-start: 66px !important;
 }
 .app-mobile-nav {
   display: none;
@@ -253,6 +375,24 @@ button {
   }
   .app-mobile-nav {
     display: flex;
+    max-width: 140px;
+    padding-top: 50px !important;
+    transition: max-width 0.25s ease, padding 0.25s ease;
+  }
+  .app-shell.nav-collapsed .app-mobile-nav {
+    max-width: 0;
+    padding-inline: 0 !important;
+    border-inline-start: none !important;
+    overflow: hidden !important;
+  }
+  .nav-toggle {
+    top: 8px;
+    inset-inline-start: 8px;
+    width: 34px;
+    height: 34px;
+  }
+  .app-shell.nav-collapsed .app-content-pad {
+    padding-inline-start: 50px !important;
   }
   .app-content-pad {
     padding: 14px !important;

@@ -7,10 +7,10 @@ export const MAX_PAGE = 604;
 export const GRADES = ["ممتاز", "جيد جدًا", "جيد", "ضعيف", "إعادة"] as const;
 
 export const ATT_STATES = [
-  { id: "PRESENT", label: "حاضر", color: "#6FBF8B" },
-  { id: "LATE", label: "متأخر", color: "#D4AF37" },
-  { id: "EXCUSED", label: "إذن", color: "#8FA8C8" },
-  { id: "ABSENT", label: "غائب", color: "#E08A8A" },
+  { id: "PRESENT", label: "حاضر", color: "var(--ok)" },
+  { id: "LATE", label: "متأخر", color: "var(--gold)" },
+  { id: "EXCUSED", label: "إذن", color: "var(--info)" },
+  { id: "ABSENT", label: "غائب", color: "var(--bad)" },
 ] as const;
 
 export type AttStatusId = (typeof ATT_STATES)[number]["id"];

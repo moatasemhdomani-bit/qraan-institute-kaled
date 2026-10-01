@@ -18,7 +18,7 @@ function ExamStages({ exams }: { exams: ArabicExamMark[] }) {
   return (
     <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
       {exams.map((e, i) => (
-        <b key={i} style={{ color: e.passed === false ? "#E08A8A" : e.passed ? "#6FBF8B" : "var(--ink-2)" }}>
+        <b key={i} style={{ color: e.passed === false ? "var(--bad)" : e.passed ? "var(--ok)" : "var(--ink-2)" }}>
           {e.stage}
         </b>
       ))}
@@ -155,7 +155,7 @@ export default function ArabicHalaqatReportClient({ halaqat, initial }: { halaqa
           ))}
 
           <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
-            الاختبارات بأرقام مراحلها: <b style={{ color: "#6FBF8B" }}>الأخضر ناجح</b>، <b style={{ color: "#E08A8A" }}>الأحمر راسب</b>.
+            الاختبارات بأرقام مراحلها: <b style={{ color: "var(--ok)" }}>الأخضر ناجح</b>، <b style={{ color: "var(--bad)" }}>الأحمر راسب</b>.
           </div>
 
           <button type="submit" disabled={issuing} style={{ ...primaryButtonStyle, alignSelf: "flex-start", opacity: issuing ? 0.7 : 1 }}>

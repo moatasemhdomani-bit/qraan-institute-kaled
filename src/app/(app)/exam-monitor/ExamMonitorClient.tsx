@@ -9,6 +9,25 @@ import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
 
 type RowType = ExamTypeId | "AWQAF_ACTUAL";
+
+/** أنواع السبر التي يُجريها المدير من «متابعة السبر». */
+const EXAM_SCREENS = [
+  { href: "/exams/local", label: "سبر محلي" },
+  { href: "/exams/awqaf", label: "ترشيح الأوقاف" },
+  { href: "/exams/placement", label: "تحديد مستوى" },
+  { href: "/exams/arabic", label: "سبر القراءة العربية" },
+];
+
+const examBtnStyle = {
+  padding: "6px 13px",
+  borderRadius: 9,
+  fontSize: 12.5,
+  fontWeight: 600,
+  border: "1px solid var(--btn-border)",
+  background: "var(--btn-grad)",
+  color: "var(--on-accent)",
+  whiteSpace: "nowrap" as const,
+};
 type Row = ExistingExam & {
   type: RowType;
   studentName: string;
@@ -31,18 +50,22 @@ export default function ExamMonitorClient({
   canEdit,
   isDirector,
   canManageAwqaf,
+  typeFilters,
   currentUserId,
   blocks,
 }: {
   canEdit: boolean;
   isDirector: boolean;
   canManageAwqaf: boolean;
+  /** أنواع السبر الظاهرة في الفلترة — للمدرّس أنواع طلابه فقط */
+  typeFilters: Exclude<RowType, "PLACEMENT">[];
   currentUserId: string;
   blocks: Block[];
 }) {
   const [typeFilter, setTypeFilter] = useState<"all" | RowType>("all");
   const [examinerFilter, setExaminerFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [examMenu, setExamMenu] = useState(false);
   const [editing, setEditing] = useState<{ row: Row & { type: ExamTypeId }; halqaName: string } | null>(null);
 
   const examinerNames = useMemo(() => {
@@ -67,6 +90,45 @@ export default function ExamMonitorClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {isDirector && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          {/* المدير يُجري السبر من هنا كما يسجّل التسميع من متابعة التسميع: زر واحد ثم يختار نوع السبر */}
+          <div style={{ position: "relative" }}>
+            <button type="button" onClick={() => setExamMenu((v) => !v)} style={{ ...examBtnStyle, cursor: "pointer", padding: "9px 18px", fontSize: 13.5 }}>
+              إجراء سبر ▾
+            </button>
+            {examMenu && (
+              <div
+                style={{
+                  position: "absolute",
+                  insetInlineEnd: 0,
+                  top: "calc(100% + 6px)",
+                  zIndex: 20,
+                  minWidth: 200,
+                  padding: 6,
+                  borderRadius: 12,
+                  border: "1px solid var(--line)",
+                  background: "var(--panel-solid)",
+                  boxShadow: "var(--glow)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
+                {EXAM_SCREENS.map((x) => (
+                  <Link
+                    key={x.href}
+                    href={x.href}
+                    style={{ padding: "10px 12px", borderRadius: 8, color: "var(--ink)", fontSize: 13.5, display: "block" }}
+                  >
+                    {x.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
         <input
           value={search}
@@ -75,7 +137,7 @@ export default function ExamMonitorClient({
           style={inputStyle()}
         />
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {(["all", "LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL", "ARABIC"] as const).map((t) => (
+          {(["all", ...typeFilters] as const).map((t) => (
             <button key={t} onClick={() => setTypeFilter(t)} style={chipStyle(typeFilter === t)}>
               {t === "all" ? "كل الأنواع" : t === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[t]}
             </button>
@@ -104,7 +166,7 @@ export default function ExamMonitorClient({
           <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-2)" }}>
             <div style={{ fontSize: 16, fontWeight: 700 }}>{b.name}</div>
             <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 2 }}>{b.meta}</div>
-            {b.neverLabel && <div style={{ fontSize: 12, color: "#F0B4B4", marginTop: 6 }}>{b.neverLabel}</div>}
+            {b.neverLabel && <div style={{ fontSize: 12, color: "var(--bad-ink)", marginTop: 6 }}>{b.neverLabel}</div>}
           </div>
           {b.rows.length === 0 ? (
             <div style={{ padding: "16px", fontSize: 13, color: "var(--ink-3)" }}>لا نتائج مطابقة للفلاتر الحالية.</div>
@@ -143,7 +205,7 @@ export default function ExamMonitorClient({
                         fontSize: 11.5,
                         fontWeight: 700,
                         border: `1px solid ${passFail === "ناجح" ? "rgba(111,191,139,0.5)" : "rgba(224,138,138,0.5)"}`,
-                        color: passFail === "ناجح" ? "#6FBF8B" : "#E08A8A",
+                        color: passFail === "ناجح" ? "var(--ok)" : "var(--bad)",
                       }}
                     >
                       {passFail}

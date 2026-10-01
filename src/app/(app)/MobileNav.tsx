@@ -4,11 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "./actions";
 import type { RoleId } from "@/lib/ui";
-import { NAV, activeNavId } from "./nav";
+import { navItemsFor, activeNavId } from "./nav";
+import ThemeToggle from "@/components/ThemeToggle";
+import type { ThemeId } from "@/lib/theme";
+import type { TrackId } from "@/lib/track";
 
-export default function MobileNav({ role, name, track }: { role: RoleId; name: string; track?: "QURAN" | "ARABIC" }) {
+export default function MobileNav({ role, name, track, theme }: { role: RoleId; name: string; track?: TrackId; theme: ThemeId }) {
   const pathname = usePathname();
-  const items = NAV.filter((n) => n.roles.includes(role) && (!n.track || n.track === (track ?? "QURAN")));
+  const items = navItemsFor(role, track);
   const activeId = activeNavId(pathname);
 
   return (
@@ -93,6 +96,7 @@ export default function MobileNav({ role, name, track }: { role: RoleId; name: s
         >
           {role === "GUARDIAN" ? name : `أ. ${name}`}
         </div>
+        <ThemeToggle initial={theme} compact />
         <form action={logout} style={{ width: "100%" }}>
           <button
             type="submit"

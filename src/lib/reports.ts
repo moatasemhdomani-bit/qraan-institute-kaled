@@ -129,9 +129,9 @@ export type HalaqatPreviewRow = {
 export type HalaqatPreviewBlock = { halqaId: string; halqaName: string; teacherName: string; cohortName: string; rows: HalaqatPreviewRow[] };
 
 export async function buildHalaqatBlocks(from: string, to: string, halqaScope: string): Promise<HalaqatPreviewBlock[]> {
-  // تقرير تسميع حلقات القرآن — حلقات القرآن وحدها
+  // تقرير تسميع حلقات القرآن — حلقات مستويات القرآن الثلاثة (عمَّ غيباً، قرآن حاضراً، قرآن غيباً)
   const halaqat = await prisma.halqa.findMany({
-    where: halqaScope === "all" ? { track: "QURAN" } : { id: halqaScope, track: "QURAN" },
+    where: halqaScope === "all" ? { track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] } } : { id: halqaScope, track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] } },
     include: { teacher: { select: { name: true } }, cohort: { select: { name: true } } },
     orderBy: { name: "asc" },
   });
@@ -203,7 +203,7 @@ export type TeachersPreviewRow = {
 export async function buildTeachersRows(from: string, to: string): Promise<TeachersPreviewRow[]> {
   // التقرير الشهري لمدرسي القرآن — مدرّسو القرآن وحدهم
   const teachers = await prisma.user.findMany({
-    where: { role: "TEACHER", track: "QURAN" },
+    where: { role: "TEACHER", track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] } },
     orderBy: { name: "asc" },
     include: { halaqatTaught: { select: { id: true, name: true } } },
   });

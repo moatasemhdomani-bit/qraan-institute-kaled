@@ -1,4 +1,4 @@
-import { pageRange, hasPastRecitation, type TrackId } from "./track";
+import { pageRange, hasPastRecitation, AMMA_SURAHS, type TrackId } from "./track";
 
 export type RecEntry = {
   studentId: string;
@@ -28,18 +28,22 @@ export function validateEntry(e: RecEntry, maxPriorNewTo?: number | null, track:
     if (e.noNew) return "لم يسمّع جديدًا — استخدم خيار «لم يسمّع اليوم».";
     e = { ...e, noPast: true };
   }
+  // القراءة العربية: «التسميع» وحده بلا وصف «الجديد»
+  const T = hasPastRecitation(track) ? "التسميع الجديد" : "التسميع";
+  const from = hasPastRecitation(track) ? "من صفحة" : "من الصفحة";
+  const to = hasPastRecitation(track) ? "إلى صفحة" : "إلى الصفحة";
   if (e.noNew && e.noPast) return "لم يسمّع جديدًا ولا ماضيًا — استخدم خيار «لم يسمّع اليوم».";
 
   if (!e.noNew) {
-    if (e.newFrom == null || e.newTo == null) return "لم يتم تحديد صفحات التسميع الجديد (من صفحة / إلى صفحة).";
-    if (!inRange(e.newFrom) || !inRange(e.newTo)) return `صفحات التسميع الجديد بين ${MIN_PAGE} و${MAX_PAGE} فقط.`;
+    if (e.newFrom == null || e.newTo == null) return `لم يتم تحديد صفحات ${T} (${from} / ${to}).`;
+    if (!inRange(e.newFrom) || !inRange(e.newTo)) return `صفحات ${T} بين ${MIN_PAGE} و${MAX_PAGE} فقط.`;
     if (e.newTo < e.newFrom) {
-      return `إدخال التسميع الجديد غير صحيح — «إلى صفحة» (${e.newTo}) أصغر من «من صفحة» (${e.newFrom}).`;
+      return `إدخال ${T} غير صحيح — «${to}» (${e.newTo}) أصغر من «${from}» (${e.newFrom}).`;
     }
     if (maxPriorNewTo != null && e.newFrom <= maxPriorNewTo) {
-      return `لا يمكن تسميع صفحة مسمَّعة مسبقًا — آخر صفحة سُمِّعت جديدًا: ${maxPriorNewTo}، فابدأ من ${maxPriorNewTo + 1}.`;
+      return `لا يمكن تسميع صفحة مسمَّعة مسبقًا — آخر صفحة سُمِّعت${hasPastRecitation(track) ? " جديدًا" : ""}: ${maxPriorNewTo}، فابدأ من ${maxPriorNewTo + 1}.`;
     }
-    if (!e.gradeNew) return "لم يتم تحديد تقييم التسميع الجديد.";
+    if (!e.gradeNew) return `لم يتم تحديد تقدير ${T}.`;
   }
   if (!e.noPast) {
     if (e.pastFrom == null || e.pastTo == null) return "لم يتم تحديد صفحات الماضي (من صفحة / إلى صفحة).";
@@ -49,5 +53,17 @@ export function validateEntry(e: RecEntry, maxPriorNewTo?: number | null, track:
     }
     if (!e.gradePast) return "لم يتم تحديد تقييم الماضي.";
   }
+  return null;
+}
+
+/**
+ * تسميع بالسور (عمَّ غيباً، و«بينة للناس» لطالب القراءة العربية بعد المرحلة 6): سورة أو أكثر من القائمة،
+ * مع تقدير التسميع. يُرجع سبب الرفض أو null.
+ */
+export function validateSurahEntry(e: { none: boolean; surahs: string[]; gradeNew: string | null }): string | null {
+  if (e.none) return null;
+  if (e.surahs.length === 0) return "اختاروا سورة واحدة على الأقل.";
+  if (e.surahs.some((s) => !AMMA_SURAHS.includes(s))) return "سورة غير معروفة.";
+  if (!e.gradeNew) return "لم يتم تحديد تقدير التسميع.";
   return null;
 }

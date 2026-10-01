@@ -5,6 +5,8 @@ import { today, isValidDate, dayLockReason, rotationSlot, timeRangeLabel, format
 import PageHeader from "@/components/PageHeader";
 import DailyShell from "@/components/DailyShell";
 import RecitationClient from "./RecitationClient";
+import { recitationMode, TRACK_LABELS } from "@/lib/track";
+import { passedArabicStage6 } from "@/lib/arabicProgress";
 
 export default async function RecitationPage({
   searchParams,
@@ -51,6 +53,8 @@ export default async function RecitationPage({
       select: { studentId: true, pastTo: true },
     }),
   ]);
+  // طلاب القراءة العربية الناجحون في المرحلة 6 يسمّعون «بينة للناس» بالسور
+  const stage6 = halqa?.track === "ARABIC" ? await passedArabicStage6(studentIds) : new Set<string>();
   const maxNewToMap = Object.fromEntries(maxNewToRows.map((r) => [r.studentId, r._max.newTo]));
   const lastPastMap = Object.fromEntries(lastPastRows.map((r) => [r.studentId, r.pastTo]));
   const lastPages: Record<string, { newTo: number | null; pastTo: number | null }> = {};
@@ -70,7 +74,7 @@ export default async function RecitationPage({
         subtitle={
           (isDirector ? `ما سمّعه طلاب ${halqa?.name ?? "الحلقة"} يوم ` : "ما سمّعه طلابك يوم ") +
           formatDateAr(date) +
-          (halqa?.track === "ARABIC" ? " — تسميعًا جديدًا (قراءة عربية)." : " — جديدًا وماضيًا.")
+          (halqa && halqa.track !== "QURAN" && halqa.track !== "QURAN_GHAIB" ? ` — ${TRACK_LABELS[halqa.track]}.` : " — جديدًا وماضيًا.")
         }
       />
       <DailyShell
@@ -91,6 +95,7 @@ export default async function RecitationPage({
             id: s.id,
             no: s.studentNo,
             name: s.name,
+            mode: recitationMode(halqa.track, stage6.has(s.id)),
             saved: savedMap[s.id]
               ? {
                   none: savedMap[s.id].none,
@@ -102,6 +107,7 @@ export default async function RecitationPage({
                   rt: savedMap[s.id].pastTo?.toString() ?? "",
                   gradeNew: savedMap[s.id].gradeNew ?? "",
                   gradePast: savedMap[s.id].gradePast ?? "",
+                  surahs: savedMap[s.id].surahs.join("|"),
                 }
               : null,
             lastNewTo: lastPages[s.id]?.newTo ?? null,

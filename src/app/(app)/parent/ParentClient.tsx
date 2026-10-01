@@ -60,7 +60,7 @@ export default function ParentClient({
               fontSize: 14,
               fontWeight: 700,
               border: `1px solid ${todayState.color}`,
-              background: `${todayState.color}22`,
+              background: `color-mix(in srgb, ${todayState.color} 13%, transparent)`,
               color: todayState.color,
             }}
           >
@@ -116,9 +116,9 @@ export default function ParentClient({
                   padding: "4px 12px",
                   borderRadius: 999,
                   fontSize: 12.5,
-                  border: `1px solid ${h.color}66`,
+                  border: `1px solid color-mix(in srgb, ${h.color} 40%, transparent)`,
                   color: h.color,
-                  background: `${h.color}1A`,
+                  background: `color-mix(in srgb, ${h.color} 10%, transparent)`,
                 }}
               >
                 {h.label}

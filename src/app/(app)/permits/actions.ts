@@ -12,8 +12,9 @@ export type DeleteState = { error?: string; ok?: boolean };
 const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
 const KIND_LABELS: Record<string, string> = { ENTRY: "إذن دخول", EXIT: "إذن خروج" };
 
+/** إضافة الإذن وتعديله وحذفه للإدارة وحدها — المدرّس يشاهد أذونات طلابه فقط. */
 function canManage(session: { userId: string; role: string }) {
-  return session.role === "TEACHER" || session.role === "ADMIN" || session.role === "DIRECTOR";
+  return session.role === "ADMIN" || session.role === "DIRECTOR";
 }
 
 /** يمنع المدرّس من إضافة/تعديل/حذف إذن لطالب خارج حلقاته. */

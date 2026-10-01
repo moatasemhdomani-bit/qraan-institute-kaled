@@ -52,7 +52,7 @@ function DeleteButton({ id }: { id: string }) {
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        style={{ padding: "8px 12px", borderRadius: 9, border: "1px solid var(--notice-line)", background: "transparent", color: "#E08A8A", fontSize: 12.5, cursor: "pointer" }}
+        style={{ padding: "8px 12px", borderRadius: 9, border: "1px solid var(--notice-line)", background: "transparent", color: "var(--bad)", fontSize: 12.5, cursor: "pointer" }}
       >
         حذف
       </button>
@@ -69,7 +69,7 @@ function DeleteButton({ id }: { id: string }) {
       <button type="button" onClick={() => setConfirming(false)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>
         تراجع
       </button>
-      {state.error && <span style={{ fontSize: 11.5, color: "#E08A8A" }}>{state.error}</span>}
+      {state.error && <span style={{ fontSize: 11.5, color: "var(--bad)" }}>{state.error}</span>}
     </form>
   );
 }
@@ -109,7 +109,7 @@ function RenameControl({ id, name }: { id: string; name: string }) {
       <button type="button" onClick={() => setEditing(false)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>
         تراجع
       </button>
-      {state.error && <span style={{ fontSize: 11.5, color: "#E08A8A" }}>{state.error}</span>}
+      {state.error && <span style={{ fontSize: 11.5, color: "var(--bad)" }}>{state.error}</span>}
     </form>
   );
 }

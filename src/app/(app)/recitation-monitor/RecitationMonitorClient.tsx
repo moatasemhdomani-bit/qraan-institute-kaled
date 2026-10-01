@@ -60,7 +60,7 @@ export default function RecitationMonitorClient({
             background: "linear-gradient(135deg, rgba(224,138,138,0.20), rgba(224,138,138,0.04))",
           }}
         >
-          <span style={{ width: 9, height: 9, borderRadius: 99, background: "#E08A8A", flex: "none", marginTop: 6 }} />
+          <span style={{ width: 9, height: 9, borderRadius: 99, background: "var(--bad)", flex: "none", marginTop: 6 }} />
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 3 }}>
               {pendingCount} من {totalCount} حلقة لم ترفع التسميع بعد
@@ -165,7 +165,7 @@ export default function RecitationMonitorClient({
                     borderRadius: 999,
                     fontSize: 12,
                     border: b.uploaded ? "1px solid rgba(111,191,139,0.5)" : "1px solid rgba(224,138,138,0.6)",
-                    color: b.uploaded ? "#8FD3A8" : "#F0B4B4",
+                    color: b.uploaded ? "var(--ok-ink)" : "var(--bad-ink)",
                     background: b.uploaded ? "rgba(111,191,139,0.12)" : "rgba(224,138,138,0.12)",
                   }}
                 >

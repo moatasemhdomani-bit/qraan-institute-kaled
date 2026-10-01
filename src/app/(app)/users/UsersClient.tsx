@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useActionState, useEffect } from "react";
-import { saveStaff, deleteStaff, type FormState } from "./actions";
+import { useMemo, useState, useActionState, useEffect, startTransition } from "react";
+import { saveStaff, deleteStaff, setStaffSuspended, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle, cardStyle, ROLE_LABELS, type RoleId } from "@/lib/ui";
 import { staffRoleLabel, type TrackId } from "@/lib/track";
 
@@ -9,8 +9,10 @@ import { staffRoleLabel, type TrackId } from "@/lib/track";
 const STAFF_KINDS: { id: string; role: RoleId; track: TrackId }[] = [
   { id: "DIRECTOR", role: "DIRECTOR", track: "QURAN" },
   { id: "ADMIN", role: "ADMIN", track: "QURAN" },
-  { id: "TEACHER", role: "TEACHER", track: "QURAN" },
   { id: "TEACHER_AR", role: "TEACHER", track: "ARABIC" },
+  { id: "TEACHER_AMMA", role: "TEACHER", track: "AMMA" },
+  { id: "TEACHER", role: "TEACHER", track: "QURAN" },
+  { id: "TEACHER_GHAIB", role: "TEACHER", track: "QURAN_GHAIB" },
   { id: "EXAMINER", role: "EXAMINER", track: "QURAN" },
   { id: "EXAMINER_AR", role: "EXAMINER", track: "ARABIC" },
 ];
@@ -23,6 +25,8 @@ import PasswordField from "@/components/PasswordField";
 import DateField from "@/components/DateField";
 import PhoneField from "@/components/PhoneField";
 import { formatMobile } from "@/lib/phone";
+import Select from "@/components/Select";
+import { cleanNationalId, MARITAL_OPTIONS, EDUCATION_OPTIONS, QURAN_LEVEL_OPTIONS } from "@/lib/staff";
 
 type StaffRow = {
   id: string;
@@ -46,7 +50,16 @@ type StaffRow = {
   halqaLabel: string;
   cohortIds: string[];
   currentPassword: string;
+  suspended: boolean;
 };
+
+function SuspendedBadge() {
+  return (
+    <span style={{ padding: "3px 9px", borderRadius: 999, fontSize: 11, fontWeight: 700, border: "1px solid var(--danger-line)", color: "var(--danger)", flex: "none" }}>
+      معلَّق
+    </span>
+  );
+}
 
 const initialState: FormState = {};
 
@@ -182,6 +195,7 @@ export default function UsersClient({
                       )}
                     </span>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.fullName}</span>
+                    {u.suspended && <SuspendedBadge />}
                   </div>
                   <div>
                     <span
@@ -255,6 +269,7 @@ export default function UsersClient({
                   <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 15, fontWeight: 600 }}>{u.fullName}</span>
+                      {u.suspended && <SuspendedBadge />}
                       <span
                         style={{
                           padding: "4px 10px",
@@ -300,7 +315,7 @@ export default function UsersClient({
 
       <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
         {isDirector
-          ? "بصفتك مدير المعهد: تسند أي دور، وتعدّل أي حساب، ويظهر زر «حذف الحساب» عند فتح أي حساب."
+          ? "بصفتك مدير المعهد: تسند أي دور، وتعدّل أي حساب، ويظهر زرّا «تعليق الموظف» و«حذف الموظف» عند فتح أي حساب. المعلَّق لا يدخل الموقع وتبقى بياناته كاملة، ويمكن إلغاء تعليقه."
           : "بصفتك إداريًا: تسجّل عاملًا جديدًا وتسند له أي دور عدا «مدير المعهد»، ولا تعدّل حساب مدير المعهد ولا تنقل حسابًا إلى دوره."}
       </div>
 
@@ -333,12 +348,23 @@ function StaffForm({
   const role = STAFF_KINDS.find((k) => k.id === kind)?.role ?? "TEACHER";
   const track = STAFF_KINDS.find((k) => k.id === kind)?.track ?? "QURAN";
   const [cohortIds, setCohortIds] = useState<string[]>(initial?.cohortIds ?? []);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // تأكيد قبل «حذف الموظف» أو «تعليق الموظف» (أو إلغاء تعليقه)
+  const [confirmAction, setConfirmAction] = useState<null | "delete" | "suspend">(null);
   const [deleteState, deleteAction, deletePending] = useActionState(
-    async (_prev: FormState, _f: FormData): Promise<FormState> =>
-      initial ? deleteStaff(initial.id) : { error: "" },
+    async (_prev: FormState, _f: FormData): Promise<FormState> => {
+      if (!initial) return { error: "" };
+      return confirmAction === "suspend" ? setStaffSuspended(initial.id, !initial.suspended) : deleteStaff(initial.id);
+    },
     initialState
   );
+  const [marital, setMarital] = useState(initial?.marital ?? "");
+  const [education, setEducation] = useState(initial?.education ?? "");
+  const [quran, setQuran] = useState(initial?.quran ?? "");
+  const [nid, setNid] = useState(initial?.nid ?? "");
+  // قيمة قديمة مكتوبة نصًّا حرًّا قبل القوائم المنسدلة تبقى خيارًا ظاهرًا كي لا تضيع
+  const withExisting = (opts: string[], existing?: string) =>
+    (existing && !opts.includes(existing) ? [existing, ...opts] : opts).map((o) => ({ value: o, label: o }));
+  const req = !initial;
 
   useEffect(() => {
     if (state.ok && !state.generatedPassword) onClose();
@@ -363,12 +389,29 @@ function StaffForm({
           <button type="button" onClick={onClose} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 14, cursor: "pointer" }}>
             إلغاء
           </button>
-          {showDelete && !confirmDelete && (
+          {showDelete && !confirmAction && (
             <button
               type="button"
-              onClick={() => setConfirmDelete(true)}
+              onClick={() => setConfirmAction("suspend")}
               style={{
                 marginInlineStart: "auto",
+                padding: "10px 16px",
+                borderRadius: 10,
+                border: "1px solid var(--line)",
+                background: "transparent",
+                color: "var(--ink-2)",
+                fontSize: 13,
+                cursor: "pointer",
+              }}
+            >
+              {initial?.suspended ? "إلغاء التعليق" : "تعليق الموظف"}
+            </button>
+          )}
+          {showDelete && !confirmAction && (
+            <button
+              type="button"
+              onClick={() => setConfirmAction("delete")}
+              style={{
                 padding: "10px 16px",
                 borderRadius: 10,
                 border: "1px solid var(--danger-line)",
@@ -378,15 +421,21 @@ function StaffForm({
                 cursor: "pointer",
               }}
             >
-              حذف الحساب
+              حذف الموظف
             </button>
           )}
-          {showDelete && confirmDelete && (
+          {showDelete && confirmAction && (
             <form action={deleteAction} style={{ marginInlineStart: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12.5, color: "var(--danger)" }}>حذف حساب «{initial?.name}» نهائيًا؟</span>
+              <span style={{ fontSize: 12.5, color: "var(--danger)" }}>
+                {confirmAction === "delete"
+                  ? `حذف الموظف «${initial?.name}» نهائيًا؟`
+                  : initial?.suspended
+                    ? `إلغاء تعليق «${initial?.name}» — يعود إليه الدخول؟`
+                    : `تعليق «${initial?.name}» — لا يدخل الموقع وتبقى بياناته كاملة؟`}
+              </span>
               <button
                 type="button"
-                onClick={() => setConfirmDelete(false)}
+                onClick={() => setConfirmAction(null)}
                 style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}
               >
                 تراجع
@@ -404,7 +453,7 @@ function StaffForm({
                   cursor: "pointer",
                 }}
               >
-                {deletePending ? "جارٍ الحذف…" : "نعم، احذف"}
+                {deletePending ? "جارٍ التنفيذ…" : confirmAction === "delete" ? "نعم، احذف" : initial?.suspended ? "نعم، ألغِ التعليق" : "نعم، علّق"}
               </button>
             </form>
           )}
@@ -419,7 +468,7 @@ function StaffForm({
 
       {state.ok && state.generatedPassword && (
         <div style={{ padding: "14px", borderRadius: 11, border: "1px solid rgba(111,191,139,0.4)", background: "rgba(111,191,139,0.1)", display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#6FBF8B" }}>تم إنشاء الحساب — كلمة المرور المولَّدة:</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ok)" }}>تم إنشاء الحساب — كلمة المرور المولَّدة:</div>
           <PasswordField name="generatedPasswordView" defaultValue={state.generatedPassword} />
           <div style={{ fontSize: 12, color: "var(--ink-2)" }}>احفظوها الآن — لن تظهر بهذا الشكل مرة أخرى إلا من هنا عند التعديل لاحقًا.</div>
           <button
@@ -432,7 +481,16 @@ function StaffForm({
         </div>
       )}
 
-      <form id="staff-form" action={formAction} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* إرسال بلا تفريغ تلقائي للحقول: إن رُفض الحفظ (معلومة ناقصة) يبقى كل ما كُتب كما هو */}
+      <form
+        id="staff-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
+          startTransition(() => formAction(fd));
+        }}
+        style={{ display: "flex", flexDirection: "column", gap: 18 }}
+      >
         <input type="hidden" name="id" value={initial?.id ?? ""} />
         <input type="hidden" name="role" value={role} />
         <input type="hidden" name="track" value={track} />
@@ -483,7 +541,7 @@ function StaffForm({
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-          <Field label="اسم المستخدم" name="username" defaultValue={initial?.username} />
+          <Field label="اسم المستخدم" name="username" defaultValue={initial?.username} required={req} />
           {initial ? (
             <PasswordField label="كلمة المرور الحالية" name="currentPasswordView" defaultValue={initial.currentPassword} readOnly />
           ) : (
@@ -508,18 +566,42 @@ function StaffForm({
         )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-          <Field label="الاسم" name="name" defaultValue={initial?.name} />
-          <Field label="اسم الأب" name="father" defaultValue={initial?.father} />
-          <Field label="اسم الأم" name="mother" defaultValue={initial?.mother} />
-          <Field label="النسبة (الكنية/العائلة)" name="family" defaultValue={initial?.family} />
-          <PhoneField label="رقم التواصل" name="phone" defaultValue={initial?.phone} />
-          <Field label="تاريخ الميلاد" name="birth" type="date" defaultValue={initial?.birth} />
-          <Field label="الرقم الوطني" name="nid" defaultValue={initial?.nid} />
-          <Field label="عنوان السكن" name="address" defaultValue={initial?.address} />
-          <Field label="العمل الحالي" name="job" defaultValue={initial?.job} />
-          <Field label="الحالة الاجتماعية" name="marital" defaultValue={initial?.marital} />
-          <Field label="التحصيل العلمي" name="education" defaultValue={initial?.education} />
-          <Field label="المستوى القرآني" name="quran" defaultValue={initial?.quran} />
+          <Field label="الاسم" name="name" defaultValue={initial?.name} required />
+          <Field label="اسم الأب" name="father" defaultValue={initial?.father} required={req} />
+          <Field label="اسم الأم" name="mother" defaultValue={initial?.mother} required={req} />
+          <Field label="النسبة (الكنية/العائلة)" name="family" defaultValue={initial?.family} required={req} />
+          <PhoneField label={req ? "رقم التواصل *" : "رقم التواصل"} name="phone" defaultValue={initial?.phone} />
+          <Field label={req ? "تاريخ الميلاد *" : "تاريخ الميلاد"} name="birth" type="date" defaultValue={initial?.birth} />
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الرقم الوطني{req ? " *" : ""}</label>
+            {/* أرقام فقط، ويبقى الصفر على اليسار (يُحفظ نصًّا) */}
+            <input
+              name="nid"
+              value={nid}
+              onChange={(e) => setNid(cleanNationalId(e.target.value))}
+              inputMode="numeric"
+              dir="ltr"
+              placeholder="أرقام فقط"
+              style={{ ...inputStyle(), textAlign: "right" }}
+            />
+          </div>
+          <Field label="عنوان السكن" name="address" defaultValue={initial?.address} required={req} />
+          <Field label="العمل الحالي" name="job" defaultValue={initial?.job} required={req} />
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الحالة الاجتماعية{req ? " *" : ""}</label>
+            <Select name="marital" value={marital} onChange={setMarital} options={withExisting(MARITAL_OPTIONS, initial?.marital)} />
+            <input type="hidden" name="maritalExisting" value={initial?.marital ?? ""} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>التحصيل العلمي{req ? " *" : ""}</label>
+            <Select name="education" value={education} onChange={setEducation} options={withExisting(EDUCATION_OPTIONS, initial?.education)} />
+            <input type="hidden" name="educationExisting" value={initial?.education ?? ""} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>المستوى القرآني{req ? " *" : ""}</label>
+            <Select name="quran" value={quran} onChange={setQuran} options={withExisting(QURAN_LEVEL_OPTIONS, initial?.quran)} />
+            <input type="hidden" name="quranExisting" value={initial?.quran ?? ""} />
+          </div>
         </div>
 
         {role === "TEACHER" && (
@@ -554,19 +636,24 @@ function Field({
   defaultValue,
   placeholder,
   type = "text",
+  required = false,
 }: {
   label: string;
   name: string;
   defaultValue?: string;
   placeholder?: string;
   type?: string;
+  required?: boolean;
 }) {
   if (type === "date") {
     return <DateField label={label} name={name} defaultValue={defaultValue} width="100%" />;
   }
   return (
     <div>
-      <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>{label}</label>
+      <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>
+        {label}
+        {required ? " *" : ""}
+      </label>
       <input name={name} type={type} defaultValue={defaultValue} placeholder={placeholder} style={inputStyle()} />
     </div>
   );

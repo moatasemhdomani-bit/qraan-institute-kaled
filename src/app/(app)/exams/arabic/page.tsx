@@ -6,7 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import ExamBrowseClient from "../ExamBrowseClient";
 
 /** سبر مختصر القراءة العربية — لمختبِر القراءة العربية، وللمدير بالصلاحية نفسها. حلقات القراءة العربية وحدها. */
-export default async function ArabicExamPage() {
+export default async function ArabicExamPage({ searchParams }: { searchParams: Promise<{ halqa?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
@@ -58,12 +58,13 @@ export default async function ArabicExamPage() {
 
   return (
     <>
-      <PageHeader title="سبر القراءة العربية" subtitle="مختصر القراءة العربية — المرحلة 1 إلى 6: تقدير للمراحل 1–5، وعلامة من 100 للمرحلة 6 (ناجح بـ 90 فأكثر)." />
+      <PageHeader title="سبر القراءة العربية" subtitle="مختصر القراءة العربية — المراحل 1 إلى 6 ثم «بينة للناس»: تقدير للمراحل 1–5، وعلامة من 100 للمرحلة 6 و«بينة للناس» (ناجح بـ 90 فأكثر)." />
       <ExamBrowseClient
         type="ARABIC"
         readOnly={false}
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}
+        initialHalqaId={(await searchParams).halqa}
         halaqat={halaqat}
         examsByStudent={examsByStudent}
       />

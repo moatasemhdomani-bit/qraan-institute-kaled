@@ -4,11 +4,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "./actions";
 import type { RoleId } from "@/lib/ui";
-import { NAV, activeNavId } from "./nav";
+import { navItemsFor, activeNavId } from "./nav";
+import ThemeToggle from "@/components/ThemeToggle";
+import type { ThemeId } from "@/lib/theme";
+import type { TrackId } from "@/lib/track";
 
-export default function Sidebar({ role, name, roleLabel, track }: { role: RoleId; name: string; roleLabel: string; track?: "QURAN" | "ARABIC" }) {
+export default function Sidebar({
+  role,
+  name,
+  roleLabel,
+  track,
+  theme,
+}: {
+  role: RoleId;
+  name: string;
+  roleLabel: string;
+  track?: TrackId;
+  theme: ThemeId;
+}) {
   const pathname = usePathname();
-  const items = NAV.filter((n) => n.roles.includes(role) && (!n.track || n.track === (track ?? "QURAN")));
+  const items = navItemsFor(role, track);
   const activeId = activeNavId(pathname);
 
   return (
@@ -25,7 +40,7 @@ export default function Sidebar({ role, name, roleLabel, track }: { role: RoleId
       }}
     >
       {/* اسم المعهد وشعاره ثابتان أعلى الشريط — يتحرك تحتهما القسم السفلي وحده */}
-      <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 10, padding: "20px 20px 14px", borderBottom: "1px solid var(--line-2)" }}>
+      <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 10, padding: "20px 64px 14px 20px", borderBottom: "1px solid var(--line-2)" }}>
         <img src="/logo-mark.png" alt="شعار المعهد" width={48} height={34} style={{ display: "block", flex: "none", objectFit: "contain" }} />
         <div style={{ fontSize: 12, color: "var(--ink-2)", lineHeight: 1.35 }}>
           معهد الصحابي الجليل
@@ -84,11 +99,12 @@ export default function Sidebar({ role, name, roleLabel, track }: { role: RoleId
         <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 6 }}>الحساب الحالي</div>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{role === "GUARDIAN" ? name : `أ. ${name}`}</div>
         <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{roleLabel}</div>
+        <ThemeToggle initial={theme} style={{ marginTop: 10 }} />
         <form action={logout}>
           <button
             type="submit"
             style={{
-              marginTop: 10,
+              marginTop: 6,
               width: "100%",
               padding: 7,
               borderRadius: 8,

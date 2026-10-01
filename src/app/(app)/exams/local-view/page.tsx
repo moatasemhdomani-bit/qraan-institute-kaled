@@ -11,7 +11,7 @@ export default async function LocalExamViewPage() {
 
   const [halaqatRaw, examsRaw] = await Promise.all([
     prisma.halqa.findMany({
-      where: { track: "QURAN" },
+      where: { track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] } },
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
     }),

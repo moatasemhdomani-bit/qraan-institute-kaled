@@ -21,6 +21,8 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) return { error: "بيانات الدخول غير صحيحة." };
+  // موظف معلَّق: يُبلَّغ بعد التحقق من كلمة المرور فقط، كي لا تُكشف الحسابات لمن لا يعرف كلمتها
+  if (user.suspendedAt) return { error: "هذا الحساب معلَّق — راجعوا إدارة المعهد." };
 
   await createSession({ userId: user.id, role: user.role as RoleId, name: user.name });
   redirect("/dashboard");

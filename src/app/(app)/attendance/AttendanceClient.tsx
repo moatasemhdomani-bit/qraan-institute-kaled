@@ -121,7 +121,7 @@ export default function AttendanceClient({
                       borderRadius: 999,
                       fontSize: 11,
                       border: "1px solid rgba(224,138,138,0.6)",
-                      color: "#F0B4B4",
+                      color: "var(--bad-ink)",
                     }}
                   >
                     بلا حالة
@@ -146,7 +146,7 @@ export default function AttendanceClient({
                         cursor: "pointer",
                         border: on ? `1px solid ${a.color}` : "1px solid var(--line)",
                         background: on ? a.color : "var(--btn-soft)",
-                        color: on ? "#0A192F" : "var(--ink-2)",
+                        color: on ? "var(--on-status)" : "var(--ink-2)",
                         fontWeight: on ? 700 : 400,
                       }}
                     >

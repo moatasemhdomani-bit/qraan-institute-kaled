@@ -12,10 +12,10 @@ import { readSheet, previewImport, commitImport, type PreviewRow, type RowStatus
 type Option = { id: string; name: string };
 
 const STATUS_STYLE: Record<RowStatus, { label: string; color: string }> = {
-  new: { label: "جديد — يُسجَّل", color: "#6FBF8B" },
-  update: { label: "مسجّل — تُحدَّث معلوماته", color: "#D4AF37" },
-  same: { label: "مسجّل — بلا تغيير", color: "#8FA8C8" },
-  skip: { label: "لن يُمسّ", color: "#E08A8A" },
+  new: { label: "جديد — يُسجَّل", color: "var(--ok)" },
+  update: { label: "مسجّل — تُحدَّث معلوماته", color: "var(--gold)" },
+  same: { label: "مسجّل — بلا تغيير", color: "var(--info)" },
+  skip: { label: "لن يُمسّ", color: "var(--bad)" },
 };
 
 const alertBox = (text: string) => (
@@ -261,7 +261,7 @@ export default function ImportClient({ teachers, cohorts }: { teachers: Option[]
                     <td style={{ padding: 8, color: "var(--ink-3)" }}>{r.line}</td>
                     <td style={{ padding: 8, fontWeight: 600 }}>
                       {r.name}
-                      {r.orphan && <span style={{ marginInlineStart: 6, fontSize: 11, color: "#8FA8C8" }}>(يتيم)</span>}
+                      {r.orphan && <span style={{ marginInlineStart: 6, fontSize: 11, color: "var(--info)" }}>(يتيم)</span>}
                     </td>
                     <td style={{ padding: 8 }}>{r.father || "—"}</td>
                     <td style={{ padding: 8 }}>{r.mother || "—"}</td>
