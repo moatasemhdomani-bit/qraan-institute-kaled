@@ -4,6 +4,7 @@ import { useActionState, startTransition } from "react";
 import { login, type LoginState } from "./actions";
 import { primaryButtonStyle } from "@/lib/ui";
 import PasswordField from "@/components/PasswordField";
+import InstallAppButton from "@/components/InstallAppButton";
 
 const initialState: LoginState = {};
 
@@ -89,6 +90,8 @@ export default function LoginForm() {
           <div className="login-foot" style={{ color: "var(--ink-3)" }}>
             التوجيه بعد الدخول يختلف بحسب الدور.
           </div>
+
+          <InstallAppButton style={{ marginTop: 18, padding: 10, fontSize: 14 }} />
         </form>
       </div>
 

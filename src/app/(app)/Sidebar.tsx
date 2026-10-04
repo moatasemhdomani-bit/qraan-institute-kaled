@@ -6,6 +6,7 @@ import { logout } from "./actions";
 import type { RoleId } from "@/lib/ui";
 import { navItemsFor, activeNavId } from "./nav";
 import ThemeToggle from "@/components/ThemeToggle";
+import InstallAppButton from "@/components/InstallAppButton";
 import type { ThemeId } from "@/lib/theme";
 import type { TrackId } from "@/lib/track";
 
@@ -100,6 +101,7 @@ export default function Sidebar({
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{role === "GUARDIAN" ? name : `أ. ${name}`}</div>
         <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{roleLabel}</div>
         <ThemeToggle initial={theme} style={{ marginTop: 10 }} />
+        <InstallAppButton style={{ marginTop: 6 }} />
         <form action={logout}>
           <button
             type="submit"

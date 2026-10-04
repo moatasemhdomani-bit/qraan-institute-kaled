@@ -6,6 +6,7 @@ import { logout } from "./actions";
 import type { RoleId } from "@/lib/ui";
 import { navItemsFor, activeNavId } from "./nav";
 import ThemeToggle from "@/components/ThemeToggle";
+import InstallAppButton from "@/components/InstallAppButton";
 import type { ThemeId } from "@/lib/theme";
 import type { TrackId } from "@/lib/track";
 
@@ -97,6 +98,7 @@ export default function MobileNav({ role, name, track, theme }: { role: RoleId; 
           {role === "GUARDIAN" ? name : `أ. ${name}`}
         </div>
         <ThemeToggle initial={theme} compact />
+        <InstallAppButton compact />
         <form action={logout} style={{ width: "100%" }}>
           <button
             type="submit"
