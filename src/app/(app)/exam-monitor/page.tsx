@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import ExamMonitorClient from "./ExamMonitorClient";
@@ -7,11 +8,17 @@ import ExamMonitorClient from "./ExamMonitorClient";
 export default async function ExamMonitorPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "DIRECTOR" && session.role !== "ADMIN" && session.role !== "TEACHER") redirect("/dashboard");
+  if (session.role !== "DIRECTOR" && session.role !== "ADMIN" && session.role !== "TEACHER" && session.role !== "EXAM_SUPERVISOR") redirect("/dashboard");
 
   const [halaqatRaw, examsRaw, awqafResultsRaw] = await Promise.all([
     prisma.halqa.findMany({
-      where: session.role === "TEACHER" ? { teacherId: session.userId } : undefined,
+      // المدرّس حلقاته في أفواج حسابه؛ مشرف مختبرين القرآن حلقات القرآن في أفواجه — المدير والإداري الكل
+      where:
+        session.role === "TEACHER"
+          ? { teacherId: session.userId, ...cohortScope(session) }
+          : session.role === "EXAM_SUPERVISOR"
+            ? { track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] }, ...cohortScope(session) }
+            : undefined,
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { select: { id: true } } },
       orderBy: { name: "asc" },
     }),
@@ -44,6 +51,7 @@ export default async function ExamMonitorPage() {
         startPage: e.startPage,
         pages: e.pages,
         resultMark: e.resultMark,
+        repeat: e.repeat,
         nominationPresent: e.nominationPresent,
         nominationParts: e.nominationParts,
         stage: e.stage,
@@ -96,7 +104,7 @@ export default async function ExamMonitorPage() {
   });
 
   // المدرّس يرى في الفلترة أنواع السبر التي يُختبر بها طلابه فقط: القراءة العربية لمدرّسها، وأنواع القرآن لمدرّس القرآن
-  const me = session.role === "TEACHER" ? await prisma.user.findUnique({ where: { id: session.userId }, select: { track: true } }) : null;
+  const me = session.role === "TEACHER" || session.role === "EXAM_SUPERVISOR" ? { track: session.track } : null;
   const typeFilters: ("LOCAL" | "WAQF_NOMINATION" | "AWQAF_ACTUAL" | "ARABIC")[] = !me
     ? ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL", "ARABIC"]
     : me.track === "ARABIC"

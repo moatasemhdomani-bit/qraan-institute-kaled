@@ -58,7 +58,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     familyName: String(formData.get("familyName") || "") || null,
     birthDate: String(formData.get("birth") || "") || null,
     address: String(formData.get("address") || "") || null,
-    fatherJob: String(formData.get("job") || "") || null,
+    // الطالب اليتيم: عمل الوالد «متوفى»
+    fatherJob: isOrphan ? "متوفى" : String(formData.get("job") || "") || null,
     studentPhone,
     guardianPhone,
     halqaId,

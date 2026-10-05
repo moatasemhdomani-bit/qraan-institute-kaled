@@ -34,7 +34,7 @@ export async function uploadAttendance(_prev: FormState, formData: FormData): Pr
     include: { students: { select: { id: true } } },
   });
   if (!halqa) return { error: "الحلقة غير موجودة." };
-  if (session.role === "TEACHER" && halqa.teacherId !== session.userId) {
+  if (session.role === "TEACHER" && (halqa.teacherId !== session.userId || !session.cohortIds.includes(halqa.cohortId))) {
     return { error: "هذه ليست حلقتك." };
   }
 

@@ -4,7 +4,7 @@ import { prisma, rawPrisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { TRACK_LABELS } from "@/lib/track";
+import { TRACK_LABELS, teacherTrackFor } from "@/lib/track";
 
 export type FormState = { error?: string; ok?: boolean };
 
@@ -32,14 +32,14 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   // العميل الخام: مقارنة الاسم المخزَّن نفسه (العرض العادي يُلحق به نوع الحلقة)
   const current = id ? await rawPrisma.halqa.findUnique({ where: { id }, include: { _count: { select: { students: true } } } }) : null;
 
-  // استثناء مؤقت للإعداد الأول (سيُحذف بعد توزيع الطلاب): تغيير نوع حلقة قائمة مع إبقاء مدرّسها يغيّر مستوى طلابها
-  // ودور مدرّسها إلى النوع الجديد دون نقل أحد من حلقته — وحلقات المدرّس الأخرى معها، لأن للمدرّس نوعًا واحدًا
-  const cascade = !!current && current.track !== track && current.teacherId === teacherId;
+  // استثناء مؤقت للإعداد الأول (سيُحذف بعد توزيع الطلاب): تغيير نوع حلقة قائمة مع إبقاء مدرّسها وفوجها يغيّر مستوى
+  // طلابها ودور مدرّسها في هذا الفوج إلى النوع الجديد، دون نقل أحد من حلقته
+  const cascade = !!current && current.track !== track && current.teacherId === teacherId && current.cohortId === cohortId;
 
-  // غير ذلك: المدرّس من نوع الحلقة نفسه
-  const teacher = await prisma.user.findUnique({ where: { id: teacherId }, select: { track: true } });
-  if (!teacher || (!cascade && teacher.track !== track)) {
-    return { error: `حلقة «${TRACK_LABELS[track]}» يدرّسها مدرس ${TRACK_LABELS[track]} فقط.` };
+  // غير ذلك: المدرّس «مدرس» من نوع الحلقة في فوجها
+  const teacher = await prisma.staffAssignment.findUnique({ where: { userId_cohortId: { userId: teacherId, cohortId } } });
+  if (!teacher || teacher.role !== "TEACHER" || (!cascade && teacher.track !== teacherTrackFor(track))) {
+    return { error: `حلقة «${TRACK_LABELS[track]}» يدرّسها مدرس ${TRACK_LABELS[teacherTrackFor(track)]} فقط.` };
   }
 
   if (!current || current.name !== name) {
@@ -60,15 +60,13 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   }
 
   if (id && cascade) {
-    const teacherHalaqat = await prisma.halqa.findMany({ where: { teacherId }, select: { id: true } });
-    const ids = teacherHalaqat.map((h) => h.id);
+    // للمدرّس حلقة واحدة في كل فوج، فيتغيّر دوره في هذا الفوج وحده
     await prisma.$transaction([
-      prisma.halqa.update({ where: { id }, data: { name, teacherId, cohortId } }),
-      prisma.halqa.updateMany({ where: { id: { in: ids } }, data: { track } }),
-      prisma.student.updateMany({ where: { halqaId: { in: ids } }, data: { track } }),
-      prisma.user.update({ where: { id: teacherId }, data: { track } }),
+      prisma.halqa.update({ where: { id }, data: { name, teacherId, cohortId, track } }),
+      prisma.student.updateMany({ where: { halqaId: id }, data: { track } }),
+      prisma.staffAssignment.update({ where: { userId_cohortId: { userId: teacherId, cohortId } }, data: { track: teacherTrackFor(track) } }),
     ]);
-    await logAction(session.userId, `غيّر نوع الحلقة «${name}» إلى «${TRACK_LABELS[track]}» — ومعه مستوى طلابها ودور مدرّسها (حلقات المدرّس المتغيّرة: ${ids.length})`);
+    await logAction(session.userId, `غيّر نوع الحلقة «${name}» إلى «${TRACK_LABELS[track]}» — ومعه مستوى طلابها ودور مدرّسها في فوجها`);
   } else if (id) {
     await prisma.halqa.update({ where: { id }, data: { name, teacherId, cohortId, track } });
     await logAction(session.userId, `عدّل الحلقة «${name}»`);

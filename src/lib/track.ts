@@ -81,9 +81,18 @@ export function halqaWithTrack(name: string, track: TrackId | null | undefined):
   return `${name} (${TRACK_LABELS[track ?? "QURAN"]})`;
 }
 
-/** تسمية دور الموظف مع نوعه: «مدرس عمَّ غيباً»، «مختبِر قرآن»، «مختبِر قراءة عربية». */
+/** أنواع المدرّسين: قراءة عربية، عمَّ غيباً، وقرآن — «مدرس قرآن» يدرّس حلقات «قرآن حاضراً» و«قرآن غيباً» معًا. */
+export const TEACHER_TRACKS: TrackId[] = ["ARABIC", "AMMA", "QURAN"];
+
+/** نوع المدرّس الذي يدرّس حلقة من هذا النوع. */
+export function teacherTrackFor(halqaTrack: TrackId): TrackId {
+  return halqaTrack === "QURAN_GHAIB" ? "QURAN" : halqaTrack;
+}
+
+/** تسمية دور الموظف مع نوعه: «مدرس عمَّ غيباً»، «مدرس قرآن»، «مختبِر قرآن»، «مختبِر قراءة عربية». */
 export function staffRoleLabel(role: string, track: TrackId | null | undefined, roleLabels: Record<string, string>): string {
-  if (role === "TEACHER") return `مدرس ${TRACK_LABELS[track ?? "QURAN"]}`;
+  if (role === "TEACHER") return track === "ARABIC" ? "مدرس قراءة عربية" : track === "AMMA" ? "مدرس عمَّ غيباً" : "مدرس قرآن";
   if (role === "EXAMINER") return track === "ARABIC" ? "مختبِر قراءة عربية" : "مختبِر قرآن";
+  if (role === "EXAM_SUPERVISOR") return "مشرف مختبرين القرآن";
   return roleLabels[role] ?? role;
 }

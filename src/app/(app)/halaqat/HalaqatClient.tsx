@@ -6,10 +6,11 @@ import { saveHalqa, moveHalqaStudents, deleteHalqa, type FormState } from "./act
 import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import Select from "@/components/Select";
-import { HALQA_TRACKS, TRACK_LABELS, halqaWithTrack, type TrackId } from "@/lib/track";
+import { HALQA_TRACKS, TRACK_LABELS, halqaWithTrack, teacherTrackFor, staffRoleLabel, type TrackId } from "@/lib/track";
 
 type HalqaRow = { id: string; name: string; track: TrackId; teacherId: string; teacherName: string; cohortId: string; cohortName: string; count: number };
-type TeacherOption = { id: string; name: string; track: TrackId };
+/** دور «مدرس» لموظف في فوج — بنوعه في ذلك الفوج. */
+type TeacherOption = { id: string; name: string; track: TrackId; cohortId: string };
 type CohortRow = { id: string; name: string; isRotating: boolean };
 const initialState: FormState = {};
 
@@ -177,8 +178,10 @@ function HalqaForm({
   const [cohortId, setCohortId] = useState(initial?.cohortId ?? initialCohortId ?? "");
   // مدرّس الحلقة من نوعها. عند تغيير نوع حلقة قائمة مع إبقاء مدرّسها، يبقى مدرّسها خيارًا (ينتقل معها إلى النوع الجديد)
   const typeChanging = !!initial && initial.track !== track;
-  const otherTeacherHalaqat = initial ? allHalaqat.filter((h) => h.teacherId === initial.teacherId && h.id !== initial.id) : [];
-  const trackTeachers = teachers.filter((t) => t.track === track || (typeChanging && t.id === initial?.teacherId));
+  // مدرّس الحلقة: «مدرس» من نوعها في فوجها (قد يختلف دور الموظف باختلاف الأفواج)
+  const trackTeachers = teachers.filter(
+    (t) => t.cohortId === cohortId && (t.track === teacherTrackFor(track) || (typeChanging && t.id === initial?.teacherId))
+  );
 
   useEffect(() => {
     if (state.ok) onClose();
@@ -219,7 +222,7 @@ function HalqaForm({
                 onClick={() => {
                   setTrack(t);
                   // حلقة جديدة: يُفرَّغ مدرّس من نوع آخر. حلقة قائمة: يبقى مدرّسها لينتقل معها
-                  if (!initial && teachers.find((x) => x.id === teacherId)?.track !== t) setTeacherId("");
+                  if (!initial && !teachers.some((x) => x.id === teacherId && x.cohortId === cohortId && x.track === teacherTrackFor(t))) setTeacherId("");
                   if (initial && t === initial.track) setTeacherId(initial.teacherId);
                 }}
                 style={chipStyle(track === t)}
@@ -232,9 +235,7 @@ function HalqaForm({
             // استثناء مؤقت للإعداد الأول — سيُحذف بعد توزيع الطلاب على حلقاتهم المناسبة
             <div style={{ fontSize: 12, color: "var(--bad-ink)", marginTop: 7, lineHeight: 1.7 }}>
               <b>خيار مؤقت للإعداد الأول:</b> يبقى الطلاب في حلقتهم — يتغيّر مستوى كل طلابها ({initial?.count}) إلى «{TRACK_LABELS[track]}»،
-              ويصبح دور المدرّس «{initial?.teacherName}» «مدرس {TRACK_LABELS[track]}».
-              {otherTeacherHalaqat.length > 0 &&
-                ` ولأن للمدرّس نوعًا واحدًا، تتغيّر معها حلقاته الأخرى (${otherTeacherHalaqat.map((h) => h.name).join("، ")}) ومستوى طلابها أيضًا.`}
+              ويصبح دور المدرّس «{initial?.teacherName}» «{staffRoleLabel("TEACHER", teacherTrackFor(track), {})}».
             </div>
           )}
         </div>
@@ -249,7 +250,7 @@ function HalqaForm({
             value={teacherId}
             onChange={setTeacherId}
             options={trackTeachers.map((t) => ({ value: t.id, label: t.name }))}
-            placeholder="من العاملين المسجّلين كمدرّس"
+            placeholder={cohortId ? "المدرّسون من نوع الحلقة في هذا الفوج" : "اختاروا الفوج أولًا"}
           />
         </div>
         <div>
@@ -257,7 +258,11 @@ function HalqaForm({
           <Select
             name="cohortId"
             value={cohortId}
-            onChange={setCohortId}
+            onChange={(v) => {
+              setCohortId(v);
+              // المدرّس يبقى إن كان مدرّسًا من نوع الحلقة في الفوج الجديد أيضًا
+              if (!teachers.some((x) => x.id === teacherId && x.cohortId === v && x.track === teacherTrackFor(track))) setTeacherId("");
+            }}
             options={cohorts.map((c) => ({ value: c.id, label: `${c.name} — ${c.isRotating ? "قلّاب" : "ثابت"}` }))}
             placeholder="اختر الفوج"
           />

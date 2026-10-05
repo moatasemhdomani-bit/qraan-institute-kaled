@@ -35,6 +35,23 @@ export async function savePermit(_prev: FormState, formData: FormData): Promise<
   const note = String(formData.get("note") || "").trim() || null;
 
   if (kind !== "ENTRY" && kind !== "EXIT") return { error: "اختاروا نوع الإذن: دخول أو خروج." };
+
+  // أيام الإذن: من أيام الدوام الرسمية وحدها، يوم واحد على الأقل
+  let days: string[] = [];
+  try {
+    days = JSON.parse(String(formData.get("daysJson") || "[]"));
+  } catch {
+    days = [];
+  }
+  const workRow = await prisma.workingDays.findUnique({ where: { id: 1 } });
+  let workDays: string[] = [];
+  try {
+    workDays = workRow ? JSON.parse(workRow.days) : [];
+  } catch {
+    workDays = [];
+  }
+  days = workDays.filter((d) => days.includes(d));
+  if (days.length === 0) return { error: "اختاروا يومًا واحدًا على الأقل من أيام الإذن." };
   if (!TIME_RE.test(time)) return { error: "اكتبوا وقت الإذن بصيغة 24 ساعة، مثل 09:15 أو 11:30." };
 
   let existing = null;
@@ -63,11 +80,11 @@ export async function savePermit(_prev: FormState, formData: FormData): Promise<
   const student = await prisma.student.findUnique({ where: { id: finalStudentId } });
 
   if (id) {
-    await prisma.permit.update({ where: { id }, data: { kind, time, note, setById: session.userId } });
+    await prisma.permit.update({ where: { id }, data: { kind, time, note, days, setById: session.userId } });
     await logAction(session.userId, `عدّل ${KIND_LABELS[kind]} للطالب «${student?.name ?? ""}»`);
   } else {
     await prisma.permit.create({
-      data: { studentId: finalStudentId, kind, time, note, since: today(), setById: session.userId },
+      data: { studentId: finalStudentId, kind, time, note, days, since: today(), setById: session.userId },
     });
     await logAction(session.userId, `أضاف ${KIND_LABELS[kind]} للطالب «${student?.name ?? ""}»`);
   }

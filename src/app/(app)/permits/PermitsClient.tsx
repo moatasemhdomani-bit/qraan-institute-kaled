@@ -17,6 +17,8 @@ type Permit = {
   time: string;
   note: string | null;
   since: string;
+  /** أيام الإذن — فارغة في الأذونات القديمة = كل أيام الدوام */
+  days: string[];
   setByName: string;
 };
 type Halqa = {
@@ -28,9 +30,20 @@ type Halqa = {
   permits: Permit[];
 };
 
-export default function PermitsClient({ scopeNote, halaqat, readOnly = false }: { scopeNote: string; halaqat: Halqa[]; readOnly?: boolean }) {
+export default function PermitsClient({
+  scopeNote,
+  halaqat,
+  workDays,
+  readOnly = false,
+}: {
+  scopeNote: string;
+  halaqat: Halqa[];
+  workDays: string[];
+  readOnly?: boolean;
+}) {
   const [kindFilter, setKindFilter] = useState<"all" | "ENTRY" | "EXIT">("all");
-  const [formOpen, setFormOpen] = useState<{ existing: ExistingPermit | null } | null>(null);
+  // initialStudentId: فُتح النموذج من نتيجة البحث «لا يوجد إذن» على طالب بعينه
+  const [formOpen, setFormOpen] = useState<{ existing: ExistingPermit | null; initialStudentId?: string } | null>(null);
   const [notice, setNotice] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -84,7 +97,7 @@ export default function PermitsClient({ scopeNote, halaqat, readOnly = false }: 
         </div>
       )}
 
-      <StudentPermitSearch halaqat={halaqat} />
+      <StudentPermitSearch halaqat={halaqat} onAdd={readOnly ? undefined : (id) => setFormOpen({ existing: null, initialStudentId: id })} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 9, padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -127,12 +140,13 @@ export default function PermitsClient({ scopeNote, halaqat, readOnly = false }: 
                     أضافه {p.setByName} · قائم منذ {formatDateAr(p.since)}
                   </div>
                   {p.note && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>السبب: {p.note}</div>}
+                  <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>الأيام: {p.days.length ? p.days.join("، ") : "كل أيام الدوام"}</div>
                   {!readOnly && (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       onClick={() =>
                         setFormOpen({
-                          existing: { id: p.id, studentId: p.studentId, studentName: p.name, since: p.since, kind: p.kind, time: p.time, note: p.note },
+                          existing: { id: p.id, studentId: p.studentId, studentName: p.name, since: p.since, kind: p.kind, time: p.time, note: p.note, days: p.days },
                         })
                       }
                       style={{ minHeight: 40, padding: "9px 15px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12.5, cursor: "pointer" }}
@@ -156,13 +170,15 @@ export default function PermitsClient({ scopeNote, halaqat, readOnly = false }: 
       )}
 
       <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
-        الإذن ليس يوميًا: يلازم الطالب من تاريخ إضافته ويُطبَّق في كل أيام الدوام حتى يُحذف من هذه الشاشة.
+        الإذن ليس يوميًا: يلازم الطالب من تاريخ إضافته ويُطبَّق في أيامه المختارة حتى يُحذف من هذه الشاشة.
       </div>
 
       {formOpen && (
         <PermitForm
           halaqat={halaqat}
+          workDays={workDays}
           existing={formOpen.existing}
+          initialStudentId={formOpen.initialStudentId}
           onClose={() => setFormOpen(null)}
           onSaved={(wasNew) =>
             setNotice(
@@ -179,7 +195,7 @@ export default function PermitsClient({ scopeNote, halaqat, readOnly = false }: 
 }
 
 /** بحث عن طالب بالاسم أو الرقم — يُظهر فورًا إن كان لديه إذن دخول/خروج أم لا. */
-function StudentPermitSearch({ halaqat }: { halaqat: Halqa[] }) {
+function StudentPermitSearch({ halaqat, onAdd }: { halaqat: Halqa[]; onAdd?: (studentId: string) => void }) {
   const [q, setQ] = useState("");
   const query = q.trim();
 
@@ -205,8 +221,13 @@ function StudentPermitSearch({ halaqat }: { halaqat: Halqa[] }) {
           <span style={{ fontSize: 14.5, fontWeight: 600 }}>{s.name}</span>
           <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>#{s.no} · {s.halqaName}</span>
           {s.permits.length === 0 ? (
-            <span style={{ marginInlineStart: "auto", padding: "4px 11px", borderRadius: 999, fontSize: 12, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
-              لا يوجد إذن
+            <span style={{ marginInlineStart: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ padding: "4px 11px", borderRadius: 999, fontSize: 12, border: "1px solid var(--line)", color: "var(--ink-2)" }}>لا يوجد إذن</span>
+              {onAdd && (
+                <button type="button" onClick={() => onAdd(s.id)} style={{ ...primaryButtonStyle, padding: "6px 13px", fontSize: 12.5 }}>
+                  إضافة إذن لهذا الطالب
+                </button>
+              )}
             </span>
           ) : (
             <span style={{ marginInlineStart: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>

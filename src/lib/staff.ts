@@ -9,3 +9,22 @@ export const QURAN_LEVEL_OPTIONS = ["30 تلاوة", "5 غيبًا", "10 غيب�
 export function cleanNationalId(raw: string): string {
   return toWesternDigits(raw).replace(/\D/g, "");
 }
+
+/** أنواع الموظفين (الدور مع النوع) كما تُختار لكل فوج — والمعرّف «kind» المحفوظ في النموذج. */
+export const STAFF_KIND_ROLES: Record<string, { role: "DIRECTOR" | "ADMIN" | "TEACHER" | "EXAMINER" | "EXAM_SUPERVISOR"; track: "ARABIC" | "AMMA" | "QURAN" }> = {
+  DIRECTOR: { role: "DIRECTOR", track: "QURAN" },
+  ADMIN: { role: "ADMIN", track: "QURAN" },
+  TEACHER_AR: { role: "TEACHER", track: "ARABIC" },
+  TEACHER_AMMA: { role: "TEACHER", track: "AMMA" },
+  TEACHER: { role: "TEACHER", track: "QURAN" },
+  EXAMINER: { role: "EXAMINER", track: "QURAN" },
+  EXAMINER_AR: { role: "EXAMINER", track: "ARABIC" },
+  EXAM_SUPERVISOR: { role: "EXAM_SUPERVISOR", track: "QURAN" },
+};
+
+/** معرّف النوع من الدور والنوع المحفوظين. */
+export function staffKindOf(role: string, track: string): string {
+  if (role === "TEACHER") return track === "ARABIC" ? "TEACHER_AR" : track === "AMMA" ? "TEACHER_AMMA" : "TEACHER";
+  if (role === "EXAMINER") return track === "ARABIC" ? "EXAMINER_AR" : "EXAMINER";
+  return role;
+}

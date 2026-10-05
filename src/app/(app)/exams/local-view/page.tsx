@@ -42,6 +42,7 @@ export default async function LocalExamViewPage() {
       juz: e.juz,
       pages: e.pages,
       resultMark: e.resultMark,
+      repeat: e.repeat,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       notes: e.notes,

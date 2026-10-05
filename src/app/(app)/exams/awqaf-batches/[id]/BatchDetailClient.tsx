@@ -120,7 +120,7 @@ function ResultRow({ result }: { result: Result }) {
               background: passed ? "rgba(111,191,139,0.1)" : "rgba(224,138,138,0.14)",
             }}
           >
-            {passed ? "ناجح" : "راسب"}
+            {passed ? "ناجح" : "إعادة"}
           </span>
         )}
       </div>
@@ -141,7 +141,7 @@ function ResultRow({ result }: { result: Result }) {
       </form>
 
       {passed === false && (
-        <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>راسب — لا دورة شهادة له في هذه الدفعة.</div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>إعادة — لا دورة شهادة له في هذه الدفعة.</div>
       )}
 
       {passed === true && (

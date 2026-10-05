@@ -27,7 +27,7 @@ export const isArabicMarkStage = (stage: number | null | undefined) => stage ===
 /** اسم المرحلة: رقمها، والسابعة باسمها «بينة للناس». */
 export const arabicStageLabel = (stage: number) => (stage === ARABIC_FINAL_STAGE ? "بينة للناس" : `المرحلة ${stage}`);
 export const ARABIC_PASS_MARK = 90;
-/** «إعادة» = راسب؛ جيد وجيد جدًا وممتاز = ناجح. */
+/** «إعادة» = إعادة؛ جيد وجيد جدًا وممتاز = ناجح. */
 export const ARABIC_GRADES = ["ممتاز", "جيد جدًا", "جيد", "إعادة"];
 export const ARABIC_FAIL_GRADE = "إعادة";
 
@@ -51,6 +51,8 @@ type ExamResultShape = {
   grade?: string | null;
   /** تحديد المستوى بالقراءة العربية: صفحة البداية (5–48) بدل الجزء */
   startPage?: number | null;
+  /** نتيجة «إعادة» (بلا علامة) */
+  repeat?: boolean | null;
 };
 
 /** نص نتيجة موحّد للعرض. */
@@ -61,6 +63,7 @@ export function resultLabel(exam: ExamResultShape): string {
     const mode = exam.nominationPresent == null ? "" : exam.nominationPresent ? " — حاضرًا" : " — غيبًا";
     return `يبدأ من الجزء ${exam.juz}${mode}`;
   }
+  if (exam.repeat) return "إعادة";
   if (exam.type === "ARABIC" && !isArabicMarkStage(exam.stage)) return exam.grade || "—";
   return exam.resultMark != null ? `${exam.resultMark} / 100` : "—";
 }
@@ -81,17 +84,18 @@ export function passThreshold(
 
 type PassFailShape = ExamResultShape & { nominationPresent?: boolean | null };
 
-/** "ناجح" أو "راسب" — أو null لما لا حدّ نجاح له (تحديد مستوى، أو سبر بلا نتيجة بعد). */
-export function passFailLabel(exam: PassFailShape): "ناجح" | "راسب" | null {
+/** "ناجح" أو "إعادة" — أو null لما لا حدّ نجاح له (تحديد مستوى، أو سبر بلا نتيجة بعد). */
+export function passFailLabel(exam: PassFailShape): "ناجح" | "إعادة" | null {
+  if (exam.repeat && exam.type !== "PLACEMENT") return "إعادة";
   if (exam.type === "ARABIC") {
-    if (isArabicMarkStage(exam.stage)) return exam.resultMark == null ? null : exam.resultMark >= ARABIC_PASS_MARK ? "ناجح" : "راسب";
+    if (isArabicMarkStage(exam.stage)) return exam.resultMark == null ? null : exam.resultMark >= ARABIC_PASS_MARK ? "ناجح" : "إعادة";
     if (!exam.grade) return null;
-    return exam.grade === ARABIC_FAIL_GRADE ? "راسب" : "ناجح";
+    return exam.grade === ARABIC_FAIL_GRADE ? "إعادة" : "ناجح";
   }
   const threshold = passThreshold(exam.type, exam.localKind, exam.nominationPresent);
   if (threshold == null) return null;
   if (exam.resultMark == null) return null;
-  return exam.resultMark >= threshold ? "ناجح" : "راسب";
+  return exam.resultMark >= threshold ? "ناجح" : "إعادة";
 }
 
 /** يُرجع رسالة الرفض، أو null إن كانت بيانات السبر صحيحة وكاملة. */
@@ -107,11 +111,13 @@ export function validateExam(input: {
   stage?: number | null;
   grade?: string | null;
   startPage?: number | null;
+  repeat?: boolean | null;
 }): string | null {
   if (input.type === "ARABIC") {
     if (!input.stage || !ARABIC_STAGES.includes(input.stage)) return "اختاروا المرحلة.";
     if (isArabicMarkStage(input.stage)) {
-      if (input.resultMark == null || input.resultMark < 0 || input.resultMark > 100) return `أدخلوا علامة «${arabicStageLabel(input.stage)}» من 0 إلى 100.`;
+      const bad = outcomeProblem(input.repeat, input.resultMark, ARABIC_PASS_MARK);
+      if (bad) return bad;
     } else if (!input.grade || !ARABIC_GRADES.includes(input.grade)) return "اختاروا التقدير.";
     return null;
   }
@@ -127,13 +133,7 @@ export function validateExam(input: {
     }
   }
 
-  if (input.type === "LOCAL" || input.type === "WAQF_NOMINATION") {
-    const pages = input.pages ?? [];
-    if (pages.length === 0) return "أضيفوا صفحة واحدة على الأقل.";
-    for (const p of pages) {
-      if (!Number.isFinite(p) || p < MIN_PAGE || p > MAX_PAGE) return `أرقام الصفحات بين ${MIN_PAGE} و${MAX_PAGE}.`;
-    }
-  }
+  // الصفحات التي اختُبر فيها الطالب أُلغيت من كل أنواع السبر — لا تُطلب ولا تُسجَّل
 
   if (input.type === "LOCAL") {
     if (!input.localKind) return "اختاروا نوع السبر المحلي: غيباً أو حاضراً أو عمّ غيباً.";
@@ -142,16 +142,29 @@ export function validateExam(input: {
       if (!input.juz || input.juz < 1 || input.juz > 30) return "اختاروا الجزء الذي سُبر فيه الطالب.";
     }
 
-    if (input.resultMark == null || input.resultMark < 0 || input.resultMark > 100) return "أدخلوا علامة من 0 إلى 100.";
+    const bad = outcomeProblem(input.repeat, input.resultMark, passThreshold("LOCAL", input.localKind, null) ?? 0);
+    if (bad) return bad;
   }
 
   if (input.type === "WAQF_NOMINATION") {
     if (input.nominationPresent == null) return "اختاروا حاضرًا أو غيبًا.";
     const allowed = NOMINATION_PARTS[input.nominationPresent ? "present" : "absent"];
     if (!input.nominationParts || !allowed.includes(input.nominationParts)) return "اختاروا عدد الأجزاء.";
-    if (input.resultMark == null || input.resultMark < 0 || input.resultMark > 100) return "أدخلوا علامة من 0 إلى 100.";
+    const bad = outcomeProblem(input.repeat, input.resultMark, passThreshold("WAQF_NOMINATION", null, input.nominationPresent) ?? 0);
+    if (bad) return bad;
   }
 
+  return null;
+}
+
+/**
+ * نتيجة السبر: يختار المختبِر «ناجح» أو «إعادة» أولًا. «إعادة» بلا علامة، و«ناجح» بعلامة ضمن علامات النجاح
+ * (من حدّ النجاح إلى 100). repeat = null يعني لم يُختر بعد.
+ */
+function outcomeProblem(repeat: boolean | null | undefined, mark: number | null | undefined, passMark: number): string | null {
+  if (repeat == null) return "اختاروا نتيجة السبر: ناجح أو إعادة.";
+  if (repeat) return null;
+  if (mark == null || !Number.isFinite(mark) || mark < passMark || mark > 100) return `علامة النجاح من ${passMark} إلى 100.`;
   return null;
 }
 

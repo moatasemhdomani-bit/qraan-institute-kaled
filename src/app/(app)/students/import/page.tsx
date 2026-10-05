@@ -10,7 +10,7 @@ export default async function StudentImportPage() {
   if (session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
 
   const [teachers, cohorts] = await Promise.all([
-    prisma.user.findMany({ where: { role: "TEACHER", deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({ where: { assignments: { some: { role: "TEACHER" } }, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.cohort.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 

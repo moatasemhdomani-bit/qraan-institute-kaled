@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { examinerTrack } from "@/lib/examinerTrack";
+import { examinerTrack, examinerLike } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import PlacementClient from "./PlacementClient";
@@ -8,7 +8,7 @@ import PlacementClient from "./PlacementClient";
 export default async function PlacementExamPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
+  if (!examinerLike(session.role) && session.role !== "DIRECTOR") redirect("/dashboard");
 
   const track = await examinerTrack(session);
   // مختبِر القراءة العربية له شاشة سبره وحدها

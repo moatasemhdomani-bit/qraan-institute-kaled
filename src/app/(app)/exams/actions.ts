@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { examinerTrack } from "@/lib/examinerTrack";
+import { examinerTrack, examinerLike } from "@/lib/examinerTrack";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { validateExam, passFailLabel, LOCAL_KIND_LABELS, isArabicMarkStage, arabicStageLabel, ARABIC_FINAL_STAGE, type ExamTypeId, type LocalKindId } from "@/lib/exam";
@@ -30,7 +30,7 @@ function revalidateExamPaths() {
 /** يضيف طالبًا جديدًا لسبر تحديد المستوى فقط — الاسم وحده، بلا حلقة ولا حساب ولي أمر بعد. */
 export async function addPlacementStudent(name: string): Promise<{ error?: string; studentId?: string }> {
   const session = await getSession();
-  if (!session || (session.role !== "EXAMINER" && session.role !== "DIRECTOR")) {
+  if (!session || (!examinerLike(session.role) && session.role !== "DIRECTOR")) {
     return { error: "غير مصرَّح لك بهذا الإجراء." };
   }
   const trimmed = name.trim();
@@ -57,7 +57,7 @@ function examLabel(type: ExamTypeId, localKind: LocalKindId | null): string {
 
 export async function saveExam(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();
-  if (!session || (session.role !== "EXAMINER" && session.role !== "DIRECTOR")) {
+  if (!session || (!examinerLike(session.role) && session.role !== "DIRECTOR")) {
     return { error: "غير مصرَّح لك بهذا الإجراء." };
   }
 
@@ -90,8 +90,13 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     pages = [];
   }
 
+  // نتيجة السبر: «ناجح» (بعلامة ضمن علامات النجاح) أو «إعادة» (بلا علامة) — للسبر المحلي وترشيح الأوقاف
+  // ومرحلتَي العلامة في القراءة العربية
+  const outcome = String(formData.get("outcome") || "");
+  const usesOutcome = type === "LOCAL" || type === "WAQF_NOMINATION" || type === "ARABIC";
+  const repeat = !usesOutcome ? null : outcome === "repeat" ? true : outcome === "pass" ? false : null;
   const resultMarkRaw = String(formData.get("resultMark") || "");
-  const resultMark = resultMarkRaw ? parseInt(resultMarkRaw, 10) : null;
+  const resultMark = repeat ? null : resultMarkRaw ? parseInt(resultMarkRaw, 10) : null;
 
   const nominationPresentRaw = String(formData.get("nominationPresent") || "");
   const nominationPresent = nominationPresentRaw === "" ? null : nominationPresentRaw === "1";
@@ -119,6 +124,7 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     stage,
     grade,
     startPage,
+    repeat,
   });
   if (validationError) return { error: validationError };
 
@@ -154,9 +160,10 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     localKind: type === "LOCAL" ? localKind : null,
     juz: usesJuz && !arabicPlacement ? juz : null,
     startPage: arabicPlacement ? startPage : null,
-    pages: type === "LOCAL" || type === "WAQF_NOMINATION" ? pages : [],
+    pages: [],
     resultMark:
       type === "WAQF_NOMINATION" || type === "LOCAL" || (type === "ARABIC" && isArabicMarkStage(stage)) ? resultMark : null,
+    repeat: !!repeat && (type !== "ARABIC" || isArabicMarkStage(stage)),
     stage: type === "ARABIC" ? stage : null,
     grade: type === "ARABIC" && !isArabicMarkStage(stage) ? grade : null,
     // حاضرًا/غيبًا: لترشيح الأوقاف ولتحديد المستوى
@@ -180,7 +187,7 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     : await prisma.exam.create({ data: { ...data, examinerId: session.userId } });
   const examId = exam.id;
 
-  const passFail = passFailLabel({ type, localKind, resultMark, nominationPresent, stage, grade });
+  const passFail = passFailLabel({ type, localKind, resultMark, nominationPresent, stage, grade, repeat: data.repeat });
   const resultNote = passFail ? ` — النتيجة: ${passFail}` : "";
   await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)}${type === "ARABIC" && stage ? ` (${arabicStageLabel(stage)})` : ""} للطالب «${student?.name ?? ""}»${resultNote}`);
 

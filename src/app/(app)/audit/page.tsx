@@ -17,7 +17,7 @@ export default async function AuditPage() {
       take: 200,
     }),
     prisma.student.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
-    prisma.user.findMany({ where: { role: "EXAMINER" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({ where: { assignments: { some: { role: { in: ["EXAMINER", "EXAM_SUPERVISOR"] } } } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   const audit = rows.map((r) => ({

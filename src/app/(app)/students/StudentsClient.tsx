@@ -455,7 +455,12 @@ function StudentForm({
           <Field label="النسبة" name="familyName" defaultValue={initial?.familyName} />
           <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} />
           <Field label="عنوان السكن" name="address" defaultValue={initial?.address} />
-          <Field label="عمل الوالد الحالي" name="job" defaultValue={initial?.job} />
+          {/* اليتيم: عمل الوالد «متوفى» تلقائيًا */}
+          {isOrphan ? (
+            <ReadOnly label="عمل الوالد الحالي" value="متوفى" />
+          ) : (
+            <Field label="عمل الوالد الحالي" name="job" defaultValue={initial?.job === "متوفى" ? "" : initial?.job} />
+          )}
           <PhoneField label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} />
           <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
         </div>

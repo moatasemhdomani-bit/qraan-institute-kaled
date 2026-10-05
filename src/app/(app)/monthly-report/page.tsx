@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import { monthRange, monthLabel, recentMonths, pagesSummary, localSplit, nominationSplit, realAwqafSplit } from "@/lib/reports";
@@ -14,15 +15,14 @@ export default async function MonthlyReportPage({
   if (!session) redirect("/login");
   if (session.role !== "TEACHER") redirect("/dashboard");
   // مدرّس القراءة العربية لا تقرير شهريًا له
-  const me = await prisma.user.findUnique({ where: { id: session.userId }, select: { track: true } });
-  if (me?.track === "ARABIC") redirect("/recitation");
+  if (session.track === "ARABIC") redirect("/recitation");
 
   const { month: monthParam, halqa: halqaParam } = await searchParams;
   const months = recentMonths(3);
   const month = monthParam && months.includes(monthParam) ? monthParam : months[0];
 
   const halaqat = await prisma.halqa.findMany({
-    where: { teacherId: session.userId },
+    where: { teacherId: session.userId, ...cohortScope(session) },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });

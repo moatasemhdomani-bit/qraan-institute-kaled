@@ -195,7 +195,7 @@ export default function ExamBrowseClient({
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 13.5, fontWeight: 700 }}>{a.score != null ? `${a.score} / 100` : "بانتظار العلامة"}</span>
                     {a.passed != null && (
-                      <span style={{ fontSize: 11, fontWeight: 700, color: a.passed ? "var(--ok)" : "var(--bad)" }}>{a.passed ? "ناجح" : "راسب"}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: a.passed ? "var(--ok)" : "var(--bad)" }}>{a.passed ? "ناجح" : "إعادة"}</span>
                     )}
                     <span style={{ marginInlineStart: "auto", fontSize: 11.5, color: "var(--ink-3)", direction: "ltr" }}>{a.batchDate}</span>
                   </div>
@@ -217,6 +217,7 @@ export default function ExamBrowseClient({
                 type,
                 localKind: e.localKind,
                 resultMark: e.resultMark,
+                repeat: e.repeat,
                 nominationPresent: e.nominationPresent,
                 stage: e.stage,
                 grade: e.grade,
@@ -225,9 +226,9 @@ export default function ExamBrowseClient({
                 <div key={e.id} style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 15, fontWeight: 700 }}>
-                      {resultLabel({ type, localKind: e.localKind, resultMark: e.resultMark, stage: e.stage, grade: e.grade })}
+                      {resultLabel({ type, localKind: e.localKind, resultMark: e.resultMark, stage: e.stage, grade: e.grade, repeat: e.repeat })}
                     </span>
-                    {passFail && (
+                    {passFail && !e.repeat && (
                       <span
                         style={{
                           padding: "3px 10px",
@@ -244,11 +245,6 @@ export default function ExamBrowseClient({
                     {examKindLabel({ ...e, type }) && (
                       <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: "1px solid var(--accent-line)", color: "var(--ink)" }}>
                         {examKindLabel({ ...e, type })}
-                      </span>
-                    )}
-                    {e.pages != null && e.pages.length > 0 && (
-                      <span style={{ fontSize: 12, color: "var(--ink-2)", direction: "ltr" }}>
-                        صفحات: {e.pages.join("، ")}
                       </span>
                     )}
                     {canEdit && (

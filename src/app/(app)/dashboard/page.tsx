@@ -38,6 +38,7 @@ export default async function DashboardPage() {
   // المدرّس وولي الأمر ومختِبر لهم شاشات فعلية الآن — يُوجَّهون إليها مباشرة
   if (session.role === "TEACHER") redirect("/attendance");
   if (session.role === "GUARDIAN") redirect("/parent");
+  if (session.role === "EXAM_SUPERVISOR") redirect("/exams/local");
   if (session.role === "EXAMINER") redirect((await examinerTrack(session)) === "ARABIC" ? "/exams/arabic" : "/exams/local");
 
   if (!staffMode) {
@@ -85,7 +86,7 @@ export default async function DashboardPage() {
   }
 
   const [staffCount, halaqatCount, studentsCount, cohortsCount] = await Promise.all([
-    prisma.user.count({ where: { role: { in: ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER"] }, deletedAt: null } }),
+    prisma.user.count({ where: { role: { not: "GUARDIAN" }, deletedAt: null } }),
     prisma.halqa.count(),
     prisma.student.count(),
     prisma.cohort.count(),

@@ -15,7 +15,12 @@ export default async function HalaqatPage() {
       include: { teacher: true, cohort: true, _count: { select: { students: true } } },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.user.findMany({ where: { role: "TEACHER", deletedAt: null }, orderBy: { name: "asc" } }),
+    // المدرّسون بأدوارهم في الأفواج: مدرّس الحلقة «مدرس» من نوعها في فوجها
+    prisma.staffAssignment.findMany({
+      where: { role: "TEACHER", user: { deletedAt: null } },
+      include: { user: { select: { name: true } } },
+      orderBy: { user: { name: "asc" } },
+    }),
     prisma.cohort.findMany({ orderBy: { name: "asc" } }),
   ]);
 
@@ -35,7 +40,7 @@ export default async function HalaqatPage() {
       <PageHeader title="إدارة الحلقات" subtitle="الحلقات مجمّعة حسب الفوج — الأفواج نفسها تُدار من «إدارة الأفواج»." />
       <HalaqatClient
         halaqat={halaqat}
-        teachers={teachers.map((t) => ({ id: t.id, name: t.name, track: t.track }))}
+        teachers={teachers.map((t) => ({ id: t.userId, name: t.user.name, track: t.track, cohortId: t.cohortId }))}
         cohorts={cohorts.map((c) => ({ id: c.id, name: c.name, isRotating: c.isRotating }))}
       />
     </>

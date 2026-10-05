@@ -95,7 +95,7 @@ export default function ArabicTeachersReportClient({ initial }: { initial: Revie
                   <th style={{ padding: 8, textAlign: "start" }}>المدرس</th>
                   <th style={{ padding: 8 }}>الحلقات</th>
                   <th style={{ padding: 8 }}>مجموع الصفحات</th>
-                  <th style={{ padding: 8 }}>الاختبارات (ناجحة / راسبة)</th>
+                  <th style={{ padding: 8 }}>الاختبارات (ناجحة / إعادة)</th>
                   <th style={{ padding: 8 }}>عدد الطلاب</th>
                   <th style={{ padding: 8, minWidth: 200 }}>الملاحظات</th>
                 </tr>

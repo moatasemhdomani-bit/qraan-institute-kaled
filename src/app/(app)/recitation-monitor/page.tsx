@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import { today, isValidDate, formatDateAr, pageSpan } from "@/lib/daily";
 import { hasPastRecitation } from "@/lib/track";
@@ -13,12 +14,14 @@ export default async function RecitationMonitorPage({
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
+  if (session.role !== "DIRECTOR" && session.role !== "ADMIN" && session.role !== "EXAM_SUPERVISOR") redirect("/dashboard");
 
   const sp = await searchParams;
   const date = sp.date && isValidDate(sp.date) ? sp.date : today();
 
+  // مشرف مختبرين القرآن: حلقات القرآن في أفواج حسابه — اطلاع فقط
   const halaqat = await prisma.halqa.findMany({
+    where: session.role === "EXAM_SUPERVISOR" ? { track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] }, ...cohortScope(session) } : undefined,
     include: {
       teacher: { select: { name: true } },
       cohort: { select: { name: true } },

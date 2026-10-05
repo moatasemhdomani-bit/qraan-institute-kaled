@@ -11,7 +11,7 @@ export default async function CohortsPage() {
 
   const [cohortsRaw, teachers] = await Promise.all([
     prisma.cohort.findMany({ include: { teachers: { include: { user: true } }, _count: { select: { halaqat: true } } }, orderBy: { name: "asc" } }),
-    prisma.user.findMany({ where: { role: "TEACHER" }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({ where: { assignments: { some: { role: "TEACHER" } }, deletedAt: null }, orderBy: { name: "asc" } }),
   ]);
 
   const cohorts = cohortsRaw.map((c) => ({

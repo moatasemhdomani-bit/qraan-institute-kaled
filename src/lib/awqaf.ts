@@ -1,6 +1,6 @@
 import { passThreshold } from "./exam";
 
-/** ناجح/راسب — حدّ النجاح ثابت: 90 حاضرًا (تلاوة) أو 80 غيبًا (حفظ)، بحسب مسار ترشيحه. null ما دامت العلامة لم تُدخل بعد. */
+/** ناجح/إعادة — حدّ النجاح ثابت: 90 حاضرًا (تلاوة) أو 80 غيبًا (حفظ)، بحسب مسار ترشيحه. null ما دامت العلامة لم تُدخل بعد. */
 export function awqafPassed(score: number | null | undefined, nominationPresent: boolean): boolean | null {
   if (score == null) return null;
   return score >= (passThreshold("WAQF_NOMINATION", null, nominationPresent) ?? 100);

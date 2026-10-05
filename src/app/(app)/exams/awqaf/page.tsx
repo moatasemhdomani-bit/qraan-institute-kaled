@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { examinerTrack } from "@/lib/examinerTrack";
+import { examinerTrack, examinerLike, cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import ExamBrowseClient from "../ExamBrowseClient";
@@ -11,14 +11,14 @@ import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 export default async function AwqafExamPage({ searchParams }: { searchParams: Promise<{ halqa?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
+  if (!examinerLike(session.role) && session.role !== "DIRECTOR") redirect("/dashboard");
 
   const track = await examinerTrack(session);
   // مختبِر القراءة العربية له شاشة سبره وحدها
   if (track === "ARABIC") redirect("/exams/arabic");
   const [halaqatRaw, examsRaw, awqafResultsRaw] = await Promise.all([
     prisma.halqa.findMany({
-      where: { track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] } },
+      where: { track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] }, ...cohortScope(session) },
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
     }),
@@ -72,6 +72,7 @@ export default async function AwqafExamPage({ searchParams }: { searchParams: Pr
       juz: e.juz,
       pages: e.pages,
       resultMark: e.resultMark,
+      repeat: e.repeat,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       notes: e.notes,

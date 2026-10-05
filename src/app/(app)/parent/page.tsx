@@ -170,7 +170,7 @@ export default async function ParentPage({
                     exams.find((e) => e.type === "WAQF_NOMINATION" && e.nominationPresent === r.nominationPresent && e.date <= r.batch.date)?.nominationParts ?? null,
                 }),
               ].join(" — "),
-              result: r.score != null ? `${r.score} / 100${passed != null ? ` — ${passed ? "ناجح" : "راسب"}` : ""}` : "بانتظار العلامة",
+              result: r.score != null ? `${r.score} / 100${passed != null ? ` — ${passed ? "ناجح" : "إعادة"}` : ""}` : "بانتظار العلامة",
               rawDate: r.batch.date,
               examinerName: "",
               notes: null as string | null,

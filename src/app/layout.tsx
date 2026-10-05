@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import NoZoom from "@/components/NoZoom";
 import { getTheme } from "@/lib/themeServer";
 import { THEME_BAR_COLOR } from "@/lib/theme";
 import { PWA_BOOT_SCRIPT } from "@/lib/pwa";
@@ -17,7 +18,15 @@ export const metadata: Metadata = {
 /** لون شريط المتصفح وحواف السحب على الجوال — بلون وضع العرض المختار بدل الأبيض */
 export async function generateViewport(): Promise<Viewport> {
   const theme = await getTheme();
-  return { themeColor: THEME_BAR_COLOR[theme], colorScheme: theme };
+  // منع التكبير (القرص بإصبعين والنقر المزدوج) — حجم الموقع مضبوط أصلًا لكل شاشة
+  return {
+    themeColor: THEME_BAR_COLOR[theme],
+    colorScheme: theme,
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  };
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -34,7 +43,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         />
         <script dangerouslySetInnerHTML={{ __html: PWA_BOOT_SCRIPT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <NoZoom />
+        {children}
+      </body>
     </html>
   );
 }

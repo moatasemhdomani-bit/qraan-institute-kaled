@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { examinerTrack } from "@/lib/examinerTrack";
+import { examinerTrack, examinerLike, cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import ExamBrowseClient from "../ExamBrowseClient";
@@ -9,12 +9,12 @@ import ExamBrowseClient from "../ExamBrowseClient";
 export default async function ArabicExamPage({ searchParams }: { searchParams: Promise<{ halqa?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "EXAMINER" && session.role !== "DIRECTOR") redirect("/dashboard");
+  if (!examinerLike(session.role) && session.role !== "DIRECTOR") redirect("/dashboard");
   if ((await examinerTrack(session)) === "QURAN") redirect("/exams/local");
 
   const [halaqatRaw, examsRaw] = await Promise.all([
     prisma.halqa.findMany({
-      where: { track: "ARABIC" },
+      where: { track: "ARABIC", ...cohortScope(session) },
       include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
     }),
@@ -45,6 +45,7 @@ export default async function ArabicExamPage({ searchParams }: { searchParams: P
       juz: e.juz,
       pages: e.pages,
       resultMark: e.resultMark,
+      repeat: e.repeat,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       stage: e.stage,

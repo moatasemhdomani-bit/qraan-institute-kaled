@@ -12,12 +12,29 @@ const STAFF_KINDS: { id: string; role: RoleId; track: TrackId }[] = [
   { id: "TEACHER_AR", role: "TEACHER", track: "ARABIC" },
   { id: "TEACHER_AMMA", role: "TEACHER", track: "AMMA" },
   { id: "TEACHER", role: "TEACHER", track: "QURAN" },
-  { id: "TEACHER_GHAIB", role: "TEACHER", track: "QURAN_GHAIB" },
   { id: "EXAMINER", role: "EXAMINER", track: "QURAN" },
   { id: "EXAMINER_AR", role: "EXAMINER", track: "ARABIC" },
+  { id: "EXAM_SUPERVISOR", role: "EXAM_SUPERVISOR", track: "QURAN" },
 ];
-const kindOf = (role: RoleId, track: TrackId) =>
-  STAFF_KINDS.find((k) => k.role === role && (k.role === "TEACHER" || k.role === "EXAMINER" ? k.track === track : true))?.id ?? role;
+
+/** دور الموظف في فوج: kind من STAFF_KINDS. */
+type Assignment = { cohortId: string; kind: string };
+/** ملخّص أدوار الموظف في الأفواج للقائمة: «مدرس قرآن (ثابت 1، قلّاب 2) · مختبِر قرآن (ثابت 3)». */
+function assignmentsSummary(assignments: Assignment[], cohorts: { id: string; name: string }[]): string {
+  const byKind = new Map<string, string[]>();
+  for (const a of assignments) {
+    const name = cohorts.find((c) => c.id === a.cohortId)?.name ?? "";
+    byKind.set(a.kind, [...(byKind.get(a.kind) ?? []), name]);
+  }
+  const all = cohorts.length;
+  return [...byKind]
+    .map(([kind, names]) => {
+      const k = STAFF_KINDS.find((x) => x.id === kind);
+      const label = k ? kindLabel(k) : kind;
+      return names.length === all ? `${label} (كل الأفواج)` : `${label} (${names.join("، ")})`;
+    })
+    .join(" · ");
+}
 const kindLabel = (k: (typeof STAFF_KINDS)[number]) => staffRoleLabel(k.role, k.track, ROLE_LABELS);
 import Drawer from "@/components/Drawer";
 import PhotoField from "@/components/PhotoField";
@@ -48,7 +65,7 @@ type StaffRow = {
   education: string;
   quran: string;
   halqaLabel: string;
-  cohortIds: string[];
+  assignments: Assignment[];
   currentPassword: string;
   suspended: boolean;
 };
@@ -81,7 +98,7 @@ export default function UsersClient({
     () =>
       staff
         .filter((u) => !search.trim() || u.fullName.includes(search.trim()))
-        .filter((u) => roleFilter === "ALL" || kindOf(u.role, u.track) === roleFilter),
+        .filter((u) => roleFilter === "ALL" || u.assignments.some((a) => a.kind === roleFilter)),
     [staff, search, roleFilter]
   );
 
@@ -209,7 +226,7 @@ export default function UsersClient({
                         fontWeight: u.role === "DIRECTOR" ? 600 : 400,
                       }}
                     >
-                      {staffRoleLabel(u.role, u.track, ROLE_LABELS)}
+                      {assignmentsSummary(u.assignments, cohorts)}
                     </span>
                   </div>
                   <div style={{ color: "var(--ink-2)", fontSize: 13, direction: "ltr", textAlign: "right" }}>{u.phone ? formatMobile(u.phone) : "—"}</div>
@@ -281,7 +298,7 @@ export default function UsersClient({
                           fontWeight: u.role === "DIRECTOR" ? 600 : 400,
                         }}
                       >
-                        {staffRoleLabel(u.role, u.track, ROLE_LABELS)}
+                        {assignmentsSummary(u.assignments, cohorts)}
                       </span>
                     </div>
                     <div style={{ fontSize: 12, color: "var(--ink-2)", direction: "ltr", textAlign: "right" }}>{u.phone ? formatMobile(u.phone) : "—"}</div>
@@ -344,10 +361,15 @@ function StaffForm({
   onClose: () => void;
 }) {
   const [state, formAction, pending] = useActionState(saveStaff, initialState);
-  const [kind, setKind] = useState<string>(initial ? kindOf(initial.role, initial.track) : "TEACHER");
-  const role = STAFF_KINDS.find((k) => k.id === kind)?.role ?? "TEACHER";
-  const track = STAFF_KINDS.find((k) => k.id === kind)?.track ?? "QURAN";
-  const [cohortIds, setCohortIds] = useState<string[]>(initial?.cohortIds ?? []);
+  // الدور في كل فوج — الموظف قد يأخذ أدوارًا مختلفة باختلاف الأفواج («» = لا دور له في هذا الفوج)
+  const [roles, setRoles] = useState<Record<string, string>>(
+    () => Object.fromEntries((initial?.assignments ?? []).map((a) => [a.cohortId, a.kind])) as Record<string, string>
+  );
+  const assignments: Assignment[] = cohorts.filter((c) => roles[c.id]).map((c) => ({ cohortId: c.id, kind: roles[c.id] }));
+  const kindOptions = [
+    { value: "", label: "— لا دور في هذا الفوج —" },
+    ...STAFF_KINDS.filter((k) => isDirector || k.role !== "DIRECTOR").map((k) => ({ value: k.id, label: kindLabel(k) })),
+  ];
   // تأكيد قبل «حذف الموظف» أو «تعليق الموظف» (أو إلغاء تعليقه)
   const [confirmAction, setConfirmAction] = useState<null | "delete" | "suspend">(null);
   const [deleteState, deleteAction, deletePending] = useActionState(
@@ -492,52 +514,30 @@ function StaffForm({
         style={{ display: "flex", flexDirection: "column", gap: 18 }}
       >
         <input type="hidden" name="id" value={initial?.id ?? ""} />
-        <input type="hidden" name="role" value={role} />
-        <input type="hidden" name="track" value={track} />
-        {cohortIds.map((c) => (
-          <input key={c} type="hidden" name="cohortIds" value={c} />
-        ))}
+        <input type="hidden" name="assignmentsJson" value={JSON.stringify(assignments)} />
 
         <PhotoField name="photo" label={initial ? "صورة شخصية" : "صورة شخصية"} existingUrl={initial?.photoUrl} />
 
         <div>
-          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 8 }}>الدور</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {STAFF_KINDS.map((k) => {
-              const r = k.role;
-              const locked = r === "DIRECTOR" && !isDirector;
-              const on = kind === k.id;
-              return (
-                <button
-                  key={k.id}
-                  type="button"
-                  disabled={locked}
-                  title={locked ? "إسناد هذا الدور من اختصاص مدير المعهد" : ""}
-                  onClick={() => setKind(k.id)}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 999,
-                    fontSize: 13,
-                    whiteSpace: "nowrap",
-                    border: locked ? "1px dashed var(--line)" : on ? "1px solid var(--accent-line)" : "1px solid var(--line)",
-                    background: locked ? "transparent" : on ? "var(--btn-grad)" : "var(--btn-soft)",
-                    color: locked ? "var(--ink-3)" : on ? "var(--on-accent)" : "var(--ink-2)",
-                    opacity: locked ? 0.6 : 1,
-                    fontWeight: on && !locked ? 600 : 400,
-                    cursor: locked ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {kindLabel(k)}
-                  {locked ? " · مقفل" : ""}
-                </button>
-              );
-            })}
+          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 4 }}>الدور في كل فوج</div>
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 10 }}>
+            قد يختلف دور الموظف باختلاف الأفواج — ويتنقّل بين حساباته أعلى الشاشة. الأفواج ذات الدور نفسه تجتمع في حساب واحد.
           </div>
-          {!isDirector && (
-            <div style={{ marginTop: 8, fontSize: 12, color: "var(--ink-3)" }}>
-              يمكنك إسناد أي دور عدا «مدير المعهد»، ولا يمكنك نقل حساب قائم إلى هذا الدور — صلاحية مدير المعهد وحده.
-            </div>
-          )}
+          <div style={{ marginBottom: 10, maxWidth: 360 }}>
+            <Select
+              value=""
+              onChange={(v) => setRoles(Object.fromEntries(cohorts.map((c) => [c.id, v])))}
+              options={[{ value: "", label: "تطبيق دور واحد على كل الأفواج…" }, ...kindOptions.slice(1)]}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {cohorts.map((c) => (
+              <div key={c.id} style={{ display: "grid", gridTemplateColumns: "110px minmax(0,1fr)", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 600 }}>{c.name}</span>
+                <Select value={roles[c.id] ?? ""} onChange={(v) => setRoles((prev) => ({ ...prev, [c.id]: v }))} options={kindOptions} />
+              </div>
+            ))}
+          </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
@@ -604,27 +604,6 @@ function StaffForm({
           </div>
         </div>
 
-        {role === "TEACHER" && (
-          <div>
-            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 4 }}>الأفواج التي يمكنه التدريس فيها</div>
-            <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>اختيار متعدد.</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {cohorts.map((c) => {
-                const on = cohortIds.includes(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setCohortIds((prev) => (on ? prev.filter((x) => x !== c.id) : [...prev, c.id]))}
-                    style={chipStyle(on)}
-                  >
-                    {c.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </form>
     </Drawer>
   );

@@ -1,0 +1,1 @@
+ALTER TABLE "Permit" ADD COLUMN "days" TEXT[] DEFAULT ARRAY[]::TEXT[];

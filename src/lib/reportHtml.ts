@@ -122,7 +122,7 @@ export function halaqatReportHtml(input: {
           <th rowspan="2">ملاحظات</th>
         </tr>
         <tr>
-          <th>ناجح</th><th>راسب</th><th>ناجح</th><th>راسب</th><th>ناجح</th><th>راسب</th>
+          <th>ناجح</th><th>إعادة</th><th>ناجح</th><th>إعادة</th><th>ناجح</th><th>إعادة</th>
         </tr>
       </thead>
       <tbody>
@@ -161,7 +161,7 @@ export type ArabicHalaqatReportBlock = {
   rows: { studentName: string; studentNo: number; from: number | null; to: number | null; total: number; exams: { stage: number; passed: boolean | null }[] }[];
 };
 
-/** أرقام مراحل الاختبارات: الأخضر ناجح والأحمر راسب. */
+/** أرقام مراحل الاختبارات: الأخضر ناجح والأحمر إعادة. */
 function examStagesHtml(exams: { stage: number; passed: boolean | null }[]): string {
   if (exams.length === 0) return "—";
   return exams.map((e) => `<span class="${e.passed === false ? "fail" : e.passed ? "pass" : ""}">${e.stage}</span>`).join("، ");
@@ -200,7 +200,7 @@ export function arabicHalaqatReportHtml(input: {
     htmlHead(input.name) +
     reportHeader(input.name, "HALAQAT_AR", input.from, input.to, input.issuedBy, input.issuedAt) +
     blocksHtml +
-    `<div style="margin-top:10px;font-size:10.5px;color:#666">الاختبارات بأرقام مراحلها: <span class="pass">الأخضر ناجح</span>، <span class="fail">الأحمر راسب</span>.</div>` +
+    `<div style="margin-top:10px;font-size:10.5px;color:#666">الاختبارات بأرقام مراحلها: <span class="pass">الأخضر ناجح</span>، <span class="fail">الأحمر إعادة</span>.</div>` +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير تسميع حلقات القراءة العربية</div></body></html>`
   );
 }
@@ -218,7 +218,7 @@ export function arabicTeachersReportHtml(input: {
           <th rowspan="2">المدرس</th><th rowspan="2">الحلقات</th><th rowspan="2">مجموع الصفحات</th>
           <th colspan="2">الاختبارات</th><th rowspan="2">عدد الطلاب</th><th rowspan="2">الملاحظات</th>
         </tr>
-        <tr><th>ناجحة</th><th>راسبة</th></tr>
+        <tr><th>ناجحة</th><th>إعادة</th></tr>
       </thead>
       <tbody>
         ${input.rows
@@ -262,7 +262,7 @@ export function teachersReportHtml(input: {
     <table>
       <thead><tr>
         <th>المدرس</th><th>الحلقة</th><th>صفحات جديد لكل الطلاب</th><th>صفحات ماضٍ لكل الطلاب</th>
-        <th>اختبارات محلية (ناجحة/راسبة)</th><th>اختبارات الأوقاف (ناجحة/راسبة)</th>
+        <th>اختبارات محلية (ناجحة/إعادة)</th><th>اختبارات الأوقاف (ناجحة/إعادة)</th>
         <th>عدد الطلاب</th><th>ملاحظات</th>
       </tr></thead>
       <tbody>
@@ -371,7 +371,7 @@ export function awqafMarksReportHtml(input: {
               <td>${escapeHtml(r.halqaName)}</td>
               <td>${escapeHtml(r.cohortName)}</td>
               <td>${r.score ?? "—"}</td>
-              <td>${r.passed == null ? "—" : r.passed ? `<span class="pass">ناجح</span>` : `<span class="fail">راسب</span>`}</td>
+              <td>${r.passed == null ? "—" : r.passed ? `<span class="pass">ناجح</span>` : `<span class="fail">إعادة</span>`}</td>
             </tr>`
           )
           .join("")}

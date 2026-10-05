@@ -159,7 +159,7 @@ export default function AwqafBatchesClient({
                           color: h.passed ? "var(--ok)" : "var(--bad)",
                         }}
                       >
-                        {h.passed ? "ناجح" : "راسب"}
+                        {h.passed ? "ناجح" : "إعادة"}
                       </span>
                     )}
                     <span style={{ marginInlineStart: "auto", fontSize: 12, color: "var(--ink-3)", direction: "ltr" }}>{h.batchDate}</span>

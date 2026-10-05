@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import { today, isValidDate, dayLockReason, rotationSlot, timeRangeLabel, formatDateAr } from "@/lib/daily";
 import PageHeader from "@/components/PageHeader";
@@ -22,7 +23,7 @@ export default async function RecitationPage({
   const date = sp.date && isValidDate(sp.date) ? sp.date : today();
 
   const halaqat = await prisma.halqa.findMany({
-    where: isDirector ? {} : { teacherId: session.userId },
+    where: isDirector ? {} : { teacherId: session.userId, ...cohortScope(session) },
     include: { cohort: true },
     orderBy: { name: "asc" },
   });

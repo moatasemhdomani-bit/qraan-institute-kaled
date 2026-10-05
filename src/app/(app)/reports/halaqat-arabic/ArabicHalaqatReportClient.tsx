@@ -12,7 +12,7 @@ import { previewArabicHalaqatReport, issueArabicHalaqatReport, type FormState } 
 
 const initialState: FormState = {};
 
-/** أرقام مراحل الاختبارات: الأخضر ناجح والأحمر راسب. */
+/** أرقام مراحل الاختبارات: الأخضر ناجح والأحمر إعادة. */
 function ExamStages({ exams }: { exams: ArabicExamMark[] }) {
   if (exams.length === 0) return <span style={{ color: "var(--ink-3)" }}>—</span>;
   return (
@@ -155,7 +155,7 @@ export default function ArabicHalaqatReportClient({ halaqat, initial }: { halaqa
           ))}
 
           <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
-            الاختبارات بأرقام مراحلها: <b style={{ color: "var(--ok)" }}>الأخضر ناجح</b>، <b style={{ color: "var(--bad)" }}>الأحمر راسب</b>.
+            الاختبارات بأرقام مراحلها: <b style={{ color: "var(--ok)" }}>الأخضر ناجح</b>، <b style={{ color: "var(--bad)" }}>الأحمر إعادة</b>.
           </div>
 
           <button type="submit" disabled={issuing} style={{ ...primaryButtonStyle, alignSelf: "flex-start", opacity: issuing ? 0.7 : 1 }}>

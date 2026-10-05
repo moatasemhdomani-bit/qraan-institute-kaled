@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { prisma, rawPrisma, nameWithNasab } from "@/lib/db";
 import { halqaWithTrack } from "@/lib/track";
 import { decryptPassword } from "@/lib/guardian";
+import { staffKindOf } from "@/lib/staff";
 import PageHeader from "@/components/PageHeader";
 import UsersClient from "./UsersClient";
 
@@ -14,11 +15,11 @@ export default async function UsersPage() {
   const [staffRaw, cohorts] = await Promise.all([
     // العميل الخام: نموذج التعديل يحتاج الاسم المخزَّن بلا نسبة، والنسبة في حقلها المستقل
     rawPrisma.user.findMany({
-      where: { role: { in: ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER"] }, deletedAt: null },
-      include: { halaqatTaught: { include: { cohort: true } }, teachableCohorts: true },
+      where: { role: { not: "GUARDIAN" }, deletedAt: null },
+      include: { halaqatTaught: { include: { cohort: true } }, assignments: true },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.cohort.findMany({ orderBy: { id: "asc" } }),
+    prisma.cohort.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   const staff = staffRaw.map((u) => ({
@@ -41,7 +42,8 @@ export default async function UsersPage() {
     education: u.education || "",
     quran: u.quranLevel || "",
     halqaLabel: u.halaqatTaught.length ? u.halaqatTaught.map((h) => `${halqaWithTrack(h.name, h.track)} · ${h.cohort.name}`).join("، ") : "—",
-    cohortIds: u.teachableCohorts.map((c) => c.cohortId),
+    // دوره في كل فوج
+    assignments: u.assignments.map((a) => ({ cohortId: a.cohortId, kind: staffKindOf(a.role, a.track) })),
     currentPassword: decryptPassword(u.passwordEnc) || "",
     suspended: !!u.suspendedAt,
   }));

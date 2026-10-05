@@ -24,6 +24,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   // موظف معلَّق: يُبلَّغ بعد التحقق من كلمة المرور فقط، كي لا تُكشف الحسابات لمن لا يعرف كلمتها
   if (user.suspendedAt) return { error: "هذا الحساب معلَّق — راجعوا إدارة المعهد." };
 
-  await createSession({ userId: user.id, role: user.role as RoleId, name: user.name });
+  // يدخل على آخر حساب استعمله (دوره ونوعه) — وتعرض الصفحات بعدها التنقّل بين حساباته في الأفواج
+  await createSession({ userId: user.id, role: user.role as RoleId, name: user.name, track: user.track });
   redirect("/dashboard");
 }

@@ -16,7 +16,7 @@ export default async function ArabicTeachersReportPage({ searchParams }: { searc
     <>
       <PageHeader
         title="التقرير الشهري لمدرسي القراءة العربية"
-        subtitle="صف لكل مدرّس: حلقاته في كل الأفواج، مجموع صفحات طلابه، اختباراتهم الناجحة والراسبة، عدد طلابه، وملاحظات الإدارة."
+        subtitle="صف لكل مدرّس: حلقاته في كل الأفواج، مجموع صفحات طلابه، اختباراتهم الناجحة والمُعادة، عدد طلابه، وملاحظات الإدارة."
       />
       <ArabicTeachersReportClient key={review ?? "new"} initial={initial} />
     </>

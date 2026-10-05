@@ -179,7 +179,7 @@ export default function ExamMonitorClient({
                   ? null
                   : awqafPassed(r.resultMark, r.nominationPresent ?? false)
                     ? "ناجح"
-                    : "راسب"
+                    : "إعادة"
                 : passFailLabel(examRow);
               const resultText = isAwqafActual
                 ? r.resultMark != null ? `${r.resultMark} / 100` : "بانتظار العلامة"
@@ -197,7 +197,7 @@ export default function ExamMonitorClient({
                     </span>
                   )}
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{resultText}</span>
-                  {passFail && (
+                  {passFail && resultText !== passFail && (
                     <span
                       style={{
                         padding: "3px 10px",
@@ -213,11 +213,6 @@ export default function ExamMonitorClient({
                   )}
                   {isAwqafActual && passFail === "ناجح" && (
                     <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>{certCycleLabel(r)}</span>
-                  )}
-                  {r.pages != null && r.pages.length > 0 && (
-                    <span style={{ fontSize: 12, color: "var(--ink-2)", direction: "ltr" }}>
-                      صفحات: {r.pages.join("، ")}
-                    </span>
                   )}
                   {!isAwqafActual && canEdit && (isDirector || r.examinerId === currentUserId) && (
                     <button

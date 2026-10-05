@@ -41,6 +41,13 @@ export async function addTeacherToCohort(cohortId: string, userId: string) {
     update: {},
     create: { cohortId, userId },
   });
+  // دوره في هذا الفوج: «مدرس» بنوعه في أفواجه الأخرى — إن لم يكن له دور فيه بعد
+  const other = await prisma.staffAssignment.findFirst({ where: { userId, role: "TEACHER" }, select: { track: true } });
+  await prisma.staffAssignment.upsert({
+    where: { userId_cohortId: { userId, cohortId } },
+    update: {},
+    create: { userId, cohortId, role: "TEACHER", track: other?.track ?? "QURAN" },
+  });
   const [cohort, user] = await Promise.all([
     prisma.cohort.findUnique({ where: { id: cohortId } }),
     prisma.user.findUnique({ where: { id: userId } }),
@@ -56,6 +63,9 @@ export async function removeTeacherFromCohort(cohortId: string, userId: string) 
     prisma.user.findUnique({ where: { id: userId } }),
   ]);
   await prisma.cohortTeacher.delete({ where: { cohortId_userId: { cohortId, userId } } }).catch(() => {});
+  // ويُحذف دوره «مدرس» في هذا الفوج ما لم تكن له حلقة فيه
+  const hasHalqa = await prisma.halqa.count({ where: { teacherId: userId, cohortId } });
+  if (!hasHalqa) await prisma.staffAssignment.deleteMany({ where: { userId, cohortId, role: "TEACHER" } });
   await logAction(session.userId, `أزال إسناد المدرّس «${user?.name ?? ""}» عن الفوج «${cohort?.name ?? ""}»`);
   revalidatePath("/cohorts");
 }

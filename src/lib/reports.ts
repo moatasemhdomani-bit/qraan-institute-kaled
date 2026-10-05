@@ -28,35 +28,35 @@ export function pagesSummary(recitations: RecitationRow[]): { from: number | nul
   };
 }
 
-type LocalExamRow = { localKind: "GHAYBAN" | "HADIRAN" | "AMMA_GHAYBAN" | null; resultMark: number | null };
+type LocalExamRow = { localKind: "GHAYBAN" | "HADIRAN" | "AMMA_GHAYBAN" | null; resultMark: number | null; repeat?: boolean };
 
-/** عدد اختبارات السبر المحلي الناجحة/الراسبة — بحدود النجاح الفعلية حسب فرع السبر (90 حاضراً، 80 غيباً/عمّ غيباً). */
+/** عدد اختبارات السبر المحلي الناجحة/المُعادة — بحدود النجاح الفعلية حسب فرع السبر (90 حاضراً، 80 غيباً/عمّ غيباً). */
 export function localSplit(exams: LocalExamRow[]): { pass: number; fail: number } {
   let pass = 0, fail = 0;
   for (const e of exams) {
-    const label = passFailLabel({ type: "LOCAL", localKind: e.localKind, resultMark: e.resultMark });
+    const label = passFailLabel({ type: "LOCAL", localKind: e.localKind, resultMark: e.resultMark, repeat: e.repeat });
     if (label === "ناجح") pass++;
-    else if (label === "راسب") fail++;
+    else if (label === "إعادة") fail++;
   }
   return { pass, fail };
 }
 
-type NominationExamRow = { resultMark: number | null; nominationPresent: boolean | null };
+type NominationExamRow = { resultMark: number | null; nominationPresent: boolean | null; repeat?: boolean };
 
-/** عدد اختبارات ترشيح الأوقاف الداخلي الناجحة/الراسبة — 90 حاضرًا (تلاوة) أو 80 غيبًا (حفظ). */
+/** عدد اختبارات ترشيح الأوقاف الداخلي الناجحة/المُعادة — 90 حاضرًا (تلاوة) أو 80 غيبًا (حفظ). */
 export function nominationSplit(exams: NominationExamRow[]): { pass: number; fail: number } {
   let pass = 0, fail = 0;
   for (const e of exams) {
-    const label = passFailLabel({ type: "WAQF_NOMINATION", resultMark: e.resultMark, nominationPresent: e.nominationPresent });
+    const label = passFailLabel({ type: "WAQF_NOMINATION", resultMark: e.resultMark, nominationPresent: e.nominationPresent, repeat: e.repeat });
     if (label === "ناجح") pass++;
-    else if (label === "راسب") fail++;
+    else if (label === "إعادة") fail++;
   }
   return { pass, fail };
 }
 
 type AwqafResultRow = { score: number | null; nominationPresent: boolean };
 
-/** عدد نتائج سبر الأوقاف الفعلي الناجحة/الراسبة — نفس حدّ مسار ترشيح كل طالب. */
+/** عدد نتائج سبر الأوقاف الفعلي الناجحة/المُعادة — نفس حدّ مسار ترشيح كل طالب. */
 export function realAwqafSplit(results: AwqafResultRow[]): { pass: number; fail: number } {
   let pass = 0, fail = 0;
   for (const r of results) {
@@ -201,11 +201,12 @@ export type TeachersPreviewRow = {
 };
 
 export async function buildTeachersRows(from: string, to: string): Promise<TeachersPreviewRow[]> {
-  // التقرير الشهري لمدرسي القرآن — مدرّسو القرآن وحدهم
+  // التقرير الشهري لمدرسي القرآن — من يدرّس حلقات القرآن (قد يدرّس الموظف أنواعًا مختلفة في أفواج مختلفة)
+  const QF = ["AMMA", "QURAN", "QURAN_GHAIB"] as const;
   const teachers = await prisma.user.findMany({
-    where: { role: "TEACHER", track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] } },
+    where: { halaqatTaught: { some: { track: { in: [...QF] } } } },
     orderBy: { name: "asc" },
-    include: { halaqatTaught: { select: { id: true, name: true } } },
+    include: { halaqatTaught: { where: { track: { in: [...QF] } }, select: { id: true, name: true } } },
   });
 
   const allStudents = await prisma.student.findMany({
@@ -264,12 +265,12 @@ export type ArabicHalaqatRow = {
 };
 export type ArabicHalaqatBlock = { halqaId: string; halqaName: string; teacherName: string; cohortName: string; rows: ArabicHalaqatRow[] };
 
-function arabicExamMarks(exams: { date: string; stage: number | null; grade: string | null; resultMark: number | null }[]): ArabicExamMark[] {
+function arabicExamMarks(exams: { date: string; stage: number | null; grade: string | null; resultMark: number | null; repeat?: boolean }[]): ArabicExamMark[] {
   return [...exams]
     .sort((a, b) => a.date.localeCompare(b.date))
     .filter((e) => e.stage != null)
     .map((e) => {
-      const label = passFailLabel({ type: "ARABIC", stage: e.stage, grade: e.grade, resultMark: e.resultMark });
+      const label = passFailLabel({ type: "ARABIC", stage: e.stage, grade: e.grade, resultMark: e.resultMark, repeat: e.repeat });
       return { stage: e.stage as number, passed: label == null ? null : label === "ناجح" };
     });
 }
@@ -322,12 +323,13 @@ export type ArabicTeachersRow = {
   count: number;
 };
 
-/** التقرير الشهري لمدرسي القراءة العربية: صف لكل مدرّس — حلقاته في كل الأفواج، مجموع صفحات طلابه، اختباراتهم ناجحة وراسبة، وعدد طلابه. */
+/** التقرير الشهري لمدرسي القراءة العربية: صف لكل مدرّس — حلقاته في كل الأفواج، مجموع صفحات طلابه، اختباراتهم ناجحة وإعادة، وعدد طلابه. */
 export async function buildArabicTeachersRows(from: string, to: string): Promise<ArabicTeachersRow[]> {
+  // من يدرّس حلقات القراءة العربية — بحلقاتها وحدها
   const teachers = await prisma.user.findMany({
-    where: { role: "TEACHER", track: "ARABIC" },
+    where: { halaqatTaught: { some: { track: "ARABIC" } } },
     orderBy: { name: "asc" },
-    include: { halaqatTaught: { select: { id: true, name: true, cohort: { select: { name: true } } } } },
+    include: { halaqatTaught: { where: { track: "ARABIC" }, select: { id: true, name: true, cohort: { select: { name: true } } } } },
   });
   const allStudents = await prisma.student.findMany({
     where: { halqaId: { in: teachers.flatMap((t) => t.halaqatTaught.map((h) => h.id)) } },

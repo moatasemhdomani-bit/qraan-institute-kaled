@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import PermitsClient from "./PermitsClient";
@@ -11,9 +12,9 @@ export default async function PermitsPage() {
 
   const staffWide = session.role === "ADMIN" || session.role === "DIRECTOR";
 
-  const [halaqatRaw, permitsRaw] = await Promise.all([
+  const [halaqatRaw, permitsRaw, workRow] = await Promise.all([
     prisma.halqa.findMany({
-      where: staffWide ? {} : { teacherId: session.userId },
+      where: staffWide ? {} : { teacherId: session.userId, ...cohortScope(session) },
       include: {
         teacher: { select: { name: true } },
         cohort: { select: { name: true } },
@@ -22,10 +23,18 @@ export default async function PermitsPage() {
       orderBy: { name: "asc" },
     }),
     prisma.permit.findMany({
-      where: staffWide ? {} : { student: { halqa: { teacherId: session.userId } } },
+      where: staffWide ? {} : { student: { halqa: { teacherId: session.userId, ...cohortScope(session) } } },
       include: { setBy: { select: { name: true } } },
     }),
+    prisma.workingDays.findUnique({ where: { id: 1 } }),
   ]);
+  // أيام الدوام الرسمية — يُختار منها «أيام الإذن»
+  let workDays: string[] = [];
+  try {
+    workDays = workRow ? JSON.parse(workRow.days) : [];
+  } catch {
+    workDays = [];
+  }
 
   const permitsByStudent: Record<string, ReturnType<typeof mapPermit>[]> = {};
   function mapPermit(p: (typeof permitsRaw)[number]) {
@@ -36,6 +45,7 @@ export default async function PermitsPage() {
       time: p.time,
       note: p.note,
       since: p.since,
+      days: p.days,
       setByName: p.setBy.name,
     };
   }
@@ -59,6 +69,7 @@ export default async function PermitsPage() {
       <PermitsClient
         scopeNote={staffWide ? "ترى كل الحلقات — يمكنك إضافة إذن لأي طالب في المعهد." : "ترى أذونات طلاب حلقاتك للاطلاع فقط — تضيفها الإدارة."}
         halaqat={halaqat}
+        workDays={workDays}
         readOnly={!staffWide}
       />
     </>

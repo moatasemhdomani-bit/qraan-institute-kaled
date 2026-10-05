@@ -247,6 +247,7 @@ export async function commitImport(
           track: (p.active && p.halqaId && halqaTrack.get(p.halqaId)) || "QURAN",
           active: p.active,
           isOrphan: p.orphan,
+          fatherJob: p.orphan ? "متوفى" : null,
           // تاريخ التسجيل الناقص يبقى فارغًا (لا يُعبّأ بتاريخ اليوم)
           registeredAt: p.registered ? new Date(`${p.registered}T12:00:00`) : null,
         },

@@ -50,7 +50,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
 
   const halqa = await prisma.halqa.findUnique({ where: { id: halqaId } });
   if (!halqa) return { error: "الحلقة غير موجودة." };
-  if (session.role === "TEACHER" && halqa.teacherId !== session.userId) {
+  if (session.role === "TEACHER" && (halqa.teacherId !== session.userId || !session.cohortIds.includes(halqa.cohortId))) {
     return { error: "هذه ليست حلقتك." };
   }
 

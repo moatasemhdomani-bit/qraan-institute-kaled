@@ -5,8 +5,6 @@ import { saveExam, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
 import {
   JUZ,
-  MIN_PAGE,
-  MAX_PAGE,
   NOMINATION_PARTS,
   LOCAL_KINDS,
   LOCAL_KIND_LABELS,
@@ -18,6 +16,7 @@ import {
   ARABIC_FAIL_GRADE,
   TYPE_LABELS,
   passFailLabel,
+  passThreshold,
   type ExamTypeId,
   type LocalKindId,
 } from "@/lib/exam";
@@ -41,60 +40,64 @@ export type ExistingExam = {
   stage?: number | null;
   grade?: string | null;
   startPage?: number | null;
+  repeat?: boolean;
   notes: string | null;
 };
 
-function PagePicker({ pages, setPages }: { pages: number[]; setPages: (p: number[]) => void }) {
-  const [pageInput, setPageInput] = useState("");
-
-  function addPage() {
-    const n = parseInt(pageInput, 10);
-    if (!Number.isFinite(n) || n < MIN_PAGE || n > MAX_PAGE) return;
-    if (!pages.includes(n)) setPages([...pages, n].sort((a, b) => a - b));
-    setPageInput("");
-  }
-
+/**
+ * نتيجة السبر: «ناجح» أو «إعادة» أولًا. «إعادة» بلا علامة، و«ناجح» بعلامة ضمن علامات النجاح (من حدّ النجاح إلى 100).
+ */
+function OutcomeMark({
+  outcome,
+  setOutcome,
+  mark,
+  setMark,
+  passMark,
+  hint,
+}: {
+  outcome: "" | "pass" | "repeat";
+  setOutcome: (v: "pass" | "repeat") => void;
+  mark: string;
+  setMark: (v: string) => void;
+  passMark: number | null;
+  hint?: string;
+}) {
   return (
-    <div>
-      <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>أرقام الصفحات التي سُبر فيها الطالب</div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", maxWidth: 300 }}>
-        <NumberField
-          value={pageInput}
-          onChange={(e) => setPageInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              addPage();
-            }
-          }}
-          placeholder={`${MIN_PAGE} — ${MAX_PAGE}`}
-        />
-        <button type="button" onClick={addPage} style={{ ...primaryButtonStyle, flex: "none", padding: "10px 16px", fontSize: 13 }}>
-          إضافة صفحة
-        </button>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>نتيجة السبر</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" onClick={() => setOutcome("pass")} style={{ ...chipStyle(outcome === "pass"), minHeight: 44, padding: "10px 24px" }}>
+            ناجح
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setOutcome("repeat");
+              setMark("");
+            }}
+            style={{ ...chipStyle(outcome === "repeat"), minHeight: 44, padding: "10px 24px" }}
+          >
+            إعادة
+          </button>
+        </div>
       </div>
-      {pages.length > 0 && (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
-          {pages.map((p) => (
-            <span
-              key={p}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 6px 5px 12px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13, direction: "ltr" }}
-            >
-              {p}
-              <button
-                type="button"
-                onClick={() => setPages(pages.filter((x) => x !== p))}
-                style={{ width: 22, height: 22, borderRadius: "50%", border: "none", background: "transparent", color: "var(--ink-3)", fontSize: 14, cursor: "pointer", lineHeight: 1 }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
+      {outcome === "pass" && (
+        <div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
+          <NumberField
+            value={mark}
+            onChange={(e) => setMark(e.target.value)}
+            placeholder={passMark != null ? `${passMark} — 100` : "— 100"}
+            style={{ width: 120, minHeight: 46, padding: 11, fontSize: 17 }}
+          />
+          <div style={{ marginTop: 7, fontSize: 12, color: "var(--ink-3)" }}>
+            {passMark != null ? `علامات النجاح من ${passMark} إلى 100.` : ""}
+            {hint ? ` ${hint}` : ""}
+          </div>
         </div>
       )}
-      <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>
-        أضيفوا كل صفحة اختُبر فيها الطالب على حدة — ليست بالضرورة متتالية. الصفحات بين {MIN_PAGE} و{MAX_PAGE}.
-      </div>
+      {outcome === "repeat" && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>«إعادة» بلا علامة — يُعيد الطالب السبر لاحقًا.</div>}
     </div>
   );
 }
@@ -122,8 +125,8 @@ export default function ExamFormDrawer({
   // تحديد المستوى بالقراءة العربية: صفحة البداية (5–48) بدل الجزء
   const [arabicPlacement, setArabicPlacement] = useState(existing?.startPage != null);
   const [startPage, setStartPage] = useState<number | null>(existing?.startPage ?? null);
-  const [pages, setPages] = useState<number[]>(existing?.pages ?? []);
   const [resultMark, setResultMark] = useState(existing?.resultMark != null ? String(existing.resultMark) : "");
+  const [outcome, setOutcome] = useState<"" | "pass" | "repeat">(existing?.repeat ? "repeat" : existing?.resultMark != null ? "pass" : "");
   const [nominationPresent, setNominationPresent] = useState<boolean | null>(existing?.nominationPresent ?? null);
   const [nominationParts, setNominationParts] = useState<number | null>(existing?.nominationParts ?? null);
   const [notes, setNotes] = useState(existing?.notes ?? "");
@@ -152,6 +155,7 @@ export default function ExamFormDrawer({
           nominationPresent,
           stage,
           grade: grade || null,
+          repeat: outcome === "repeat",
         });
 
   return (
@@ -183,8 +187,8 @@ export default function ExamFormDrawer({
         <input type="hidden" name="studentId" value={student?.id ?? ""} />
         <input type="hidden" name="localKind" value={localKind} />
         <input type="hidden" name="juz" value={juz ?? ""} />
-        <input type="hidden" name="pagesJson" value={JSON.stringify(pages)} />
         <input type="hidden" name="resultMark" value={resultMark} />
+        <input type="hidden" name="outcome" value={outcome} />
         <input type="hidden" name="nominationPresent" value={nominationPresent == null || (type === "PLACEMENT" && arabicPlacement) ? "" : nominationPresent ? "1" : "0"} />
         <input type="hidden" name="startPage" value={type === "PLACEMENT" && arabicPlacement ? startPage ?? "" : ""} />
         <input type="hidden" name="nominationParts" value={nominationParts ?? ""} />
@@ -229,20 +233,24 @@ export default function ExamFormDrawer({
                     </button>
                   ))}
                 </div>
-                <div style={{ marginTop: 7, fontSize: 12, color: "var(--ink-3)" }}>«{ARABIC_FAIL_GRADE}» تعني راسب؛ جيد وجيد جدًا وممتاز تعني ناجح.</div>
+                <div style={{ marginTop: 7, fontSize: 12, color: "var(--ink-3)" }}>«{ARABIC_FAIL_GRADE}» تعني أن يُعيد الطالب السبر؛ جيد وجيد جدًا وممتاز تعني ناجح.</div>
               </div>
             )}
             {markStage && (
-              <div>
-                <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
-                <NumberField
-                  value={resultMark}
-                  onChange={(e) => setResultMark(e.target.value)}
-                  placeholder="0 — 100"
-                  style={{ width: 120, minHeight: 46, padding: 11, fontSize: 17 }}
-                />
-                <div style={{ marginTop: 7, fontSize: 12, color: "var(--ink-3)" }}>«{stage != null ? arabicStageLabel(stage) : ""}» بعلامة من 100 — ناجح بـ {ARABIC_PASS_MARK} فأكثر.{stage === 7 ? " والنجاح فيها ينقل الطالب إلى مستوى «عمَّ غيباً» ويُخرجه من حلقته لإعادة فرزه." : stage === 6 ? " والنجاح فيها يحوّل تسميعه إلى «بينة للناس» ويبقى في حلقته." : ""}</div>
-              </div>
+              <OutcomeMark
+                outcome={outcome}
+                setOutcome={setOutcome}
+                mark={resultMark}
+                setMark={setResultMark}
+                passMark={ARABIC_PASS_MARK}
+                hint={
+                  stage === 7
+                    ? "والنجاح في «بينة للناس» ينقل الطالب إلى مستوى «عمَّ غيباً» ويُخرجه من حلقته لإعادة فرزه."
+                    : stage === 6
+                      ? "والنجاح فيها يحوّل تسميعه إلى «بينة للناس» ويبقى في حلقته."
+                      : undefined
+                }
+              />
             )}
           </>
         )}
@@ -288,7 +296,6 @@ export default function ExamFormDrawer({
                 </div>
               </div>
             )}
-            <PagePicker pages={pages} setPages={setPages} />
           </div>
         )}
 
@@ -380,8 +387,6 @@ export default function ExamFormDrawer({
               </div>
             </div>
 
-            {localKind && <PagePicker pages={pages} setPages={setPages} />}
-
             {(localKind === "GHAYBAN" || localKind === "HADIRAN") && (
               <div>
                 <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>الجزء الذي سُبر فيه الطالب</div>
@@ -396,30 +401,26 @@ export default function ExamFormDrawer({
             )}
 
             {localKind && (
-              <div>
-                <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
-                <NumberField
-                  value={resultMark}
-                  onChange={(e) => setResultMark(e.target.value)}
-                  placeholder="0 — 100"
-                  style={{ width: 120, minHeight: 46, padding: 11, fontSize: 17 }}
-                />
-              </div>
+              <OutcomeMark
+                outcome={outcome}
+                setOutcome={setOutcome}
+                mark={resultMark}
+                setMark={setResultMark}
+                passMark={passThreshold("LOCAL", localKind, null)}
+              />
             )}
 
           </>
         )}
 
-        {type === "WAQF_NOMINATION" && (
-          <div>
-            <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
-            <NumberField
-              value={resultMark}
-              onChange={(e) => setResultMark(e.target.value)}
-              placeholder="0 — 100"
-              style={{ width: 120, minHeight: 46, padding: 11, fontSize: 17 }}
-            />
-          </div>
+        {type === "WAQF_NOMINATION" && nominationPresent != null && (
+          <OutcomeMark
+            outcome={outcome}
+            setOutcome={setOutcome}
+            mark={resultMark}
+            setMark={setResultMark}
+            passMark={passThreshold("WAQF_NOMINATION", null, nominationPresent)}
+          />
         )}
 
         {currentPassFail && (
@@ -457,7 +458,7 @@ export default function ExamFormDrawer({
             style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 14, lineHeight: 1.6, resize: "vertical" }}
           />
           <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>
-            {isArabic ? "تصل هذه الملاحظات والمرحلة والنتيجة تلقائيًا إلى مدرّس الطالب." : "تصل هذه الملاحظات وأرقام الصفحات والنتيجة تلقائيًا إلى مدرّس الطالب."}
+            {isArabic ? "تصل هذه الملاحظات والمرحلة والنتيجة تلقائيًا إلى مدرّس الطالب." : "تصل هذه الملاحظات والنتيجة تلقائيًا إلى مدرّس الطالب."}
           </div>
         </div>
       </form>

@@ -6,12 +6,12 @@ import { hashPassword } from "@/lib/password";
 import { generatePassword, encryptPassword } from "@/lib/guardian";
 import { logAction } from "@/lib/audit";
 import { ROLE_LABELS } from "@/lib/ui";
-import { staffRoleLabel } from "@/lib/track";
+import { staffRoleLabel, teacherTrackFor } from "@/lib/track";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { normalizePhone, isValidMobile } from "@/lib/phone";
 import { uploadFile, mimeFromExt } from "@/lib/storage";
-import { cleanNationalId, MARITAL_OPTIONS, EDUCATION_OPTIONS, QURAN_LEVEL_OPTIONS } from "@/lib/staff";
+import { cleanNationalId, MARITAL_OPTIONS, EDUCATION_OPTIONS, QURAN_LEVEL_OPTIONS, STAFF_KIND_ROLES } from "@/lib/staff";
 
 export type FormState = { error?: string; ok?: boolean; generatedPassword?: string };
 
@@ -29,15 +29,20 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   }
 
   const id = String(formData.get("id") || "") || null;
-  const role = String(formData.get("role") || "TEACHER") as "DIRECTOR" | "ADMIN" | "TEACHER" | "EXAMINER";
-  // نوع التدريس يخص المدرّس (أحد المستويات الأربعة) والمختبِر (قرآن أو قراءة عربية) وحدهما
-  const rawTrack = String(formData.get("track") || "QURAN");
-  const track: "ARABIC" | "AMMA" | "QURAN" | "QURAN_GHAIB" =
-    role === "TEACHER" && (rawTrack === "ARABIC" || rawTrack === "AMMA" || rawTrack === "QURAN_GHAIB")
-      ? rawTrack
-      : role === "EXAMINER" && rawTrack === "ARABIC"
-        ? "ARABIC"
-        : "QURAN";
+  // الدور في كل فوج — الموظف قد يأخذ أدوارًا مختلفة باختلاف الأفواج
+  let rawAssignments: { cohortId: string; kind: string }[] = [];
+  try {
+    rawAssignments = JSON.parse(String(formData.get("assignmentsJson") || "[]"));
+  } catch {
+    rawAssignments = [];
+  }
+  const cohortRows = await prisma.cohort.findMany({ select: { id: true, name: true } });
+  const assignments = rawAssignments
+    .filter((a) => STAFF_KIND_ROLES[a.kind] && cohortRows.some((c) => c.id === a.cohortId))
+    .map((a) => ({ cohortId: a.cohortId, ...STAFF_KIND_ROLES[a.kind] }));
+  if (assignments.length === 0) return { error: "اختاروا دور الموظف في فوج واحد على الأقل." };
+  // الحساب الذي يدخل عليه أولًا: أول أدواره بالترتيب
+  const { role, track } = assignments[0];
   const name = String(formData.get("name") || "").trim();
   const username = String(formData.get("username") || "").trim();
   const password = String(formData.get("password") || "").trim();
@@ -45,14 +50,18 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   if (!name) return { error: "اكتبوا اسم العامل." };
   const phone = normalizePhone(String(formData.get("phone") || ""));
   if (phone && !isValidMobile(phone)) return { error: "رقم التواصل بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
-  if (role === "DIRECTOR" && session.role !== "DIRECTOR") {
-    return { error: "إسناد دور «مدير المعهد» من اختصاص مدير المعهد وحده." };
-  }
-
-  // مدرّس له حلقات: لا يتغيّر نوعه (قرآن / قراءة عربية) إلا بعد نقل حلقاته — الحلقة ومدرّسها من نوع واحد
+  // مدرّس له حلقات: يبقى مدرّسًا من نوع حلقته في فوجها — وإلا تُسند الحلقة إلى مدرّس غيره أولًا
   if (id) {
-    const clash = await prisma.halqa.count({ where: { teacherId: id, NOT: { track } } });
-    if (clash > 0) return { error: "لهذا المدرّس حلقات من النوع الآخر — أسندوها إلى مدرّس غيره قبل تغيير نوعه." };
+    const taught = await prisma.halqa.findMany({ where: { teacherId: id }, select: { name: true, cohortId: true, track: true } });
+    for (const h of taught) {
+      const a = assignments.find((x) => x.cohortId === h.cohortId);
+      if (!a || a.role !== "TEACHER" || a.track !== teacherTrackFor(h.track)) {
+        const cohortName = cohortRows.find((c) => c.id === h.cohortId)?.name ?? "";
+        return {
+          error: `له حلقة «${h.name}» في فوج «${cohortName}» — يبقى فيه «${staffRoleLabel("TEACHER", teacherTrackFor(h.track), ROLE_LABELS)}» حتى تُسند الحلقة إلى مدرّس غيره.`,
+        };
+      }
+    }
   }
 
   const data = {
@@ -141,15 +150,15 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     await logAction(session.userId, `سجّل عاملًا جديدًا «${name}» بدور ${staffRoleLabel(role, track, ROLE_LABELS)}`);
   }
 
-  if (role === "TEACHER" && userId) {
-    const cohortIds = formData.getAll("cohortIds").map(String).filter(Boolean);
-    await prisma.cohortTeacher.deleteMany({ where: { userId } });
-    if (cohortIds.length) {
-      await prisma.cohortTeacher.createMany({
-        data: cohortIds.map((cohortId) => ({ cohortId, userId: userId as string })),
-        skipDuplicates: true,
-      });
-    }
+  if (userId) {
+    // أدواره في الأفواج، ومعها أفواج التدريس (CohortTeacher) لشاشة إدارة الأفواج
+    const teacherCohorts = assignments.filter((a) => a.role === "TEACHER").map((a) => a.cohortId);
+    await prisma.$transaction([
+      prisma.staffAssignment.deleteMany({ where: { userId } }),
+      prisma.staffAssignment.createMany({ data: assignments.map((a) => ({ ...a, userId: userId as string })) }),
+      prisma.cohortTeacher.deleteMany({ where: { userId } }),
+      prisma.cohortTeacher.createMany({ data: teacherCohorts.map((cohortId) => ({ cohortId, userId: userId as string })), skipDuplicates: true }),
+    ]);
   }
 
   const photo = formData.get("photo");

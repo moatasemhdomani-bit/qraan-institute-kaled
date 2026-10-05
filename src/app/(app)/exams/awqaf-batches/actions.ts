@@ -81,7 +81,7 @@ export async function saveAwqafScore(_prev: FormState, formData: FormData): Prom
   await prisma.awqafResult.update({ where: { id }, data: { score } });
 
   const passed = awqafPassed(score, result.nominationPresent);
-  const passNote = passed == null ? "" : passed ? " — ناجح" : " — راسب";
+  const passNote = passed == null ? "" : passed ? " — ناجح" : " — إعادة";
   await logAction(session.userId, `أدخل علامة سبر الأوقاف للطالب «${result.student.name}»: ${score ?? "—"}${passNote}`);
 
   // الترفّع بعد النجاح في سبر الأوقاف الفعلي لـ 30 جزءًا (عدد الأجزاء من آخر ترشيح له بالمسار نفسه حتى تاريخ الدفعة):

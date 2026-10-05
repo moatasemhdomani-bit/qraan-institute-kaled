@@ -24,6 +24,7 @@ enum Role {
   TEACHER
   EXAMINER
   GUARDIAN
+  EXAM_SUPERVISOR // مشرف مختبرين القرآن: شاشات مختبِر القرآن + متابعة الحضور والتسميع والسبر للاطلاع فقط
 }
 
 model User {
@@ -60,6 +61,7 @@ model User {
   suspendedAt DateTime?
 
   teachableCohorts CohortTeacher[]
+  assignments      StaffAssignment[]
   halaqatTaught    Halqa[]
   auditLogs        AuditLog[]
   guardianOf       Student[]       @relation("StudentGuardianAccount")
@@ -86,8 +88,24 @@ model Cohort {
   // القلّاب يتناوب أسبوعًا بأسبوع؛ هذا التاريخ يحدد أي أسبوع هو الأول
   rotationStart String?
 
-  teachers CohortTeacher[]
-  halaqat  Halqa[]
+  teachers    CohortTeacher[]
+  halaqat     Halqa[]
+  assignments StaffAssignment[]
+}
+
+// دور الموظف ونوعه في كل فوج — قد يختلف دوره باختلاف الأفواج (مدرس في فوج، مختبِر في آخر…).
+// الأفواج ذات الدور والنوع نفسيهما تجتمع في حساب واحد يتنقّل بينه وبين حساباته الأخرى أعلى الشاشة.
+// المدير والإداري صلاحياتهما على المعهد كاملًا أيًّا كان الفوج؛ المدرّس والمختبِر محصوران في أفواج حسابه.
+model StaffAssignment {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cohortId String
+  cohort   Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  role     Role
+  track    Track  @default(QURAN)
+
+  @@unique([userId, cohortId])
 }
 
 model CohortTeacher {
@@ -225,6 +243,8 @@ model Permit {
   time  String // HH:MM بصيغة 24 ساعة
   note  String?
   since String // YYYY-MM-DD — تاريخ إضافته أول مرة، لا يتغيّر مع التعديل
+  // أيام الإذن من أيام الدوام الرسمية (بأسمائها، مثل «السبت») — فارغة في الأذونات القديمة = كل أيام الدوام
+  days  String[] @default([])
 
   studentId String
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -293,6 +313,8 @@ model Exam {
 
   // WAQF_NOMINATION، وLOCAL (الأنواع الثلاثة) — علامة من 100، يُدخلها المختبِر مباشرةً
   resultMark Int?
+  // نتيجة السبر «إعادة» (بدل «راسب»): يختار المختبِر «ناجح» أو «إعادة» أولًا — للإعادة لا علامة، وللنجاح علامة ضمن علامات النجاح
+  repeat Boolean @default(false)
 
   // WAQF_NOMINATION وPLACEMENT
   nominationPresent Boolean? // true = حاضرًا, false = غيبًا
