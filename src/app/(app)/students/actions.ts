@@ -8,7 +8,7 @@ import crypto from "crypto";
 import { normalizePhone, isValidMobile } from "@/lib/phone";
 import { createGuardianAccount, regenerateGuardianPassword } from "@/lib/guardian";
 import { uploadFile, mimeFromExt } from "@/lib/storage";
-import { STUDENT_LEVELS, TRACK_LABELS, type TrackId } from "@/lib/track";
+import { STUDENT_LEVELS, TRACK_LABELS, halqaTrackFor, type TrackId } from "@/lib/track";
 
 export type FormState = { error?: string; ok?: boolean };
 export type ResetState = { error?: string; ok?: boolean; password?: string };
@@ -48,7 +48,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
   if (halqaId) {
     const target = await prisma.halqa.findUnique({ where: { id: halqaId }, select: { track: true } });
     if (!target) return { error: "الحلقة غير موجودة." };
-    if (target.track !== track) return { error: `يُفرز الطالب في حلقة من مستواه فقط («${TRACK_LABELS[track]}»).` };
+    // طالب «قرآن غيباً» يُفرز في حلقة «قرآن»
+    if (target.track !== halqaTrackFor(track)) return { error: `يُفرز الطالب في حلقة من مستواه فقط («${TRACK_LABELS[halqaTrackFor(track)]}»).` };
   }
 
   const data = {

@@ -58,7 +58,19 @@ const DAMASCUS_DATETIME = new Intl.DateTimeFormat("en-GB", {
 /** تاريخ ووقت بصيغة «yyyy/mm/dd hh:mm» بتوقيت دمشق — مستقل عن توقيت الخادم (Railway يعمل بـ UTC). */
 export function formatDateTimeAr(d: Date): string {
   const p = Object.fromEntries(DAMASCUS_DATETIME.formatToParts(d).map((x) => [x.type, x.value]));
-  return `${p.year}/${p.month}/${p.day} ${p.hour}:${p.minute}`;
+  return `${p.year}/${p.month}/${p.day} ${formatTime12(`${p.hour}:${p.minute}`)}`;
+}
+
+/**
+ * الوقت بنظام 12 ساعة للعرض: «9:30 صباحاً»، «2:15 مساءً» — يُخزَّن الوقت نفسه دومًا بصيغة 24 ساعة (HH:MM).
+ */
+export function formatTime12(t: string | null | undefined): string {
+  if (!t) return "";
+  const m = /^(\d{1,2}):(\d{1,2})$/.exec(t.trim());
+  if (!m) return t;
+  const h = Number(m[1]);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m[2].padStart(2, "0")} ${h < 12 ? "صباحاً" : "مساءً"}`;
 }
 
 /**
@@ -132,8 +144,8 @@ export function rotationSlot(
 /** نص وقت مقروء لعرض "من — إلى"، أو "غير محدَّد" إن لم يُضبط بعد. */
 export function timeRangeLabel(start: string | null, end: string | null): string {
   if (!start && !end) return "غير محدَّد";
-  if (start && end) return `${start} — ${end}`;
-  return start || end || "غير محدَّد";
+  if (start && end) return `${formatTime12(start)} — ${formatTime12(end)}`;
+  return formatTime12(start || end) || "غير محدَّد";
 }
 
 export function pageSpan(from: number | null, to: number | null): number {

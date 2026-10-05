@@ -9,7 +9,7 @@ import { copyToClipboard } from "@/lib/clipboard";
 import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import PhoneField from "@/components/PhoneField";
-import { STUDENT_LEVELS, TRACK_LABELS, type TrackId } from "@/lib/track";
+import { STUDENT_LEVELS, TRACK_LABELS, halqaTrackFor, type TrackId } from "@/lib/track";
 import PhotoField from "@/components/PhotoField";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
@@ -397,7 +397,8 @@ function StudentForm({
   }, [state.ok, onClose]);
 
   // الطالب يُفرز فقط في حلقة من نوعه (قرآن / قراءة عربية) — فتظهر مدرّسو نوعه وأفواجهم وحدهم
-  const trackHalaqat = useMemo(() => halaqat.filter((h) => h.track === track), [halaqat, track]);
+  // حلقات مستواه — وطالب «قرآن غيباً» في حلقات «قرآن»
+  const trackHalaqat = useMemo(() => halaqat.filter((h) => h.track === halqaTrackFor(track)), [halaqat, track]);
   // المتخرّج لا حلقة له
   const graduated = track === "GRADUATED";
   const teachers = useMemo(() => {

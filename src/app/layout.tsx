@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   applicationName: "معهد خالد بن الوليد",
   // التثبيت كتطبيق على آيفون (إضافة إلى الشاشة الرئيسية) — البيان نفسه في app/manifest.ts
   appleWebApp: { capable: true, title: "معهد خالد", statusBarStyle: "default" },
-  icons: { apple: "/icons/apple-touch-icon.png?v=3" },
+  icons: { apple: "/icons/apple-touch-icon.png?v=4" },
 };
 
 /** لون شريط المتصفح وحواف السحب على الجوال — بلون وضع العرض المختار بدل الأبيض */

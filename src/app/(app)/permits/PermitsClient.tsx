@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
-import { padTime, formatDateAr } from "@/lib/daily";
+import { formatTime12, formatDateAr } from "@/lib/daily";
 import PermitForm, { type ExistingPermit } from "./PermitForm";
 import { deletePermit } from "./actions";
 
@@ -132,8 +132,8 @@ export default function PermitsClient({
                     <span style={{ padding: "4px 11px", borderRadius: 999, fontSize: 12, border: `1px solid ${KIND_COLORS[p.kind]}`, color: KIND_COLORS[p.kind] }}>
                       {KIND_LABELS[p.kind]}
                     </span>
-                    <span style={{ fontSize: 14, fontWeight: 700, direction: "ltr" }}>
-                      {KIND_VERBS[p.kind]} {padTime(p.time)}
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>
+                      {KIND_VERBS[p.kind]} {formatTime12(p.time)}
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
@@ -233,7 +233,7 @@ function StudentPermitSearch({ halaqat, onAdd }: { halaqat: Halqa[]; onAdd?: (st
             <span style={{ marginInlineStart: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
               {s.permits.map((p) => (
                 <span key={p.id} style={{ padding: "4px 11px", borderRadius: 999, fontSize: 12, border: `1px solid ${KIND_COLORS[p.kind]}`, color: KIND_COLORS[p.kind] }}>
-                  {KIND_LABELS[p.kind]} — {KIND_VERBS[p.kind]} {padTime(p.time)}
+                  {KIND_LABELS[p.kind]} — {KIND_VERBS[p.kind]} {formatTime12(p.time)}
                 </span>
               ))}
             </span>

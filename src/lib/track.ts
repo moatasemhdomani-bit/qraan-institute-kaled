@@ -1,5 +1,5 @@
 /**
- * مستويات المعهد بالترتيب: قراءة عربية ← عمَّ غيباً ← قرآن حاضراً ← قرآن غيباً ← متخرِّج.
+ * مستويات المعهد بالترتيب: قراءة عربية ← عمَّ غيباً ← قرآن ← قرآن غيباً ← متخرِّج.
  * الطالب على أحدها، والمدرّس والحلقة على أحد الأربعة الأولى (لا حلقة للمتخرّجين)،
  * والمختبِر نوعان فقط: QURAN (يسبر مستويات القرآن الثلاثة) أو ARABIC.
  */
@@ -9,12 +9,18 @@ export type TrackId = "ARABIC" | "AMMA" | "QURAN" | "QURAN_GHAIB" | "GRADUATED";
 export const STUDENT_LEVELS: TrackId[] = ["ARABIC", "AMMA", "QURAN", "QURAN_GHAIB", "GRADUATED"];
 
 /** أنواع الحلقات والمدرّسين (بلا «متخرِّج»). */
-export const HALQA_TRACKS: TrackId[] = ["ARABIC", "AMMA", "QURAN", "QURAN_GHAIB"];
+/** أنواع الحلقات: قراءة عربية، عمَّ غيباً، قرآن — لا حلقات «قرآن غيباً»: طلاب هذا المستوى في حلقات «قرآن». */
+export const HALQA_TRACKS: TrackId[] = ["ARABIC", "AMMA", "QURAN"];
+
+/** نوع الحلقة التي يُفرز فيها طالب من هذا المستوى (قرآن غيباً → حلقة قرآن). */
+export function halqaTrackFor(level: TrackId): TrackId {
+  return level === "QURAN_GHAIB" ? "QURAN" : level;
+}
 
 export const TRACK_LABELS: Record<TrackId, string> = {
   ARABIC: "قراءة عربية",
   AMMA: "عمَّ غيباً",
-  QURAN: "قرآن حاضراً",
+  QURAN: "قرآن",
   QURAN_GHAIB: "قرآن غيباً",
   GRADUATED: "متخرِّج",
 };
@@ -76,7 +82,7 @@ export function pageRange(track: TrackId | null | undefined): { min: number; max
 /** الماضي (المراجعة) لمستويَي القرآن حاضراً وغيباً وحدهما. */
 export const hasPastRecitation = (track: TrackId | null | undefined) => track === "QURAN" || track === "QURAN_GHAIB" || track == null;
 
-/** اسم الحلقة مع نوعها — «حلقة النور (قرآن حاضراً)». */
+/** اسم الحلقة مع نوعها — «حلقة النور (قرآن)». */
 export function halqaWithTrack(name: string, track: TrackId | null | undefined): string {
   return `${name} (${TRACK_LABELS[track ?? "QURAN"]})`;
 }

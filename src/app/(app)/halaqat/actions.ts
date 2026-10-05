@@ -20,7 +20,7 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   const cohortId = String(formData.get("cohortId") || "");
   const rawTrack = String(formData.get("track") || "QURAN");
   const track: "ARABIC" | "AMMA" | "QURAN" | "QURAN_GHAIB" =
-    rawTrack === "ARABIC" || rawTrack === "AMMA" || rawTrack === "QURAN_GHAIB" ? rawTrack : "QURAN";
+    rawTrack === "ARABIC" || rawTrack === "AMMA" ? rawTrack : "QURAN";
 
   if (!name) return { error: "اكتبوا اسم الحلقة." };
   if (!teacherId) return { error: "اختاروا المدرس المسؤول." };

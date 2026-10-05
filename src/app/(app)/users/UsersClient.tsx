@@ -155,7 +155,7 @@ export default function UsersClient({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1.4fr 0.9fr 1fr 1.1fr 96px",
+                gridTemplateColumns: "1fr 1.8fr 0.9fr 1fr 96px",
                 gap: 12,
                 padding: "11px 16px",
                 background: "var(--head-grad)",
@@ -178,7 +178,7 @@ export default function UsersClient({
                   key={u.id}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1.4fr 0.9fr 1fr 1.1fr 96px",
+                    gridTemplateColumns: "1fr 1.8fr 0.9fr 1fr 96px",
                     gap: 12,
                     padding: "13px 16px",
                     borderTop: "1px solid var(--line-2)",
@@ -211,14 +211,16 @@ export default function UsersClient({
                         u.name.charAt(0)
                       )}
                     </span>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.fullName}</span>
+                    <span style={{ overflowWrap: "anywhere" }}>{u.fullName}</span>
                     {u.suspended && <SuspendedBadge />}
                   </div>
                   <div>
                     <span
                       style={{
+                        display: "inline-block",
+                        lineHeight: 1.6,
                         padding: "4px 10px",
-                        borderRadius: 999,
+                        borderRadius: 10,
                         fontSize: 12,
                         border: "1px solid var(--line)",
                         background: u.role === "DIRECTOR" ? "var(--chip-strong)" : "var(--chip)",
