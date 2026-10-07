@@ -1,3 +1,4 @@
+import { parsePastItems, pastSummary, pastJuzTotal } from "@/lib/pastRecitation";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
@@ -35,10 +36,9 @@ export default async function RecitationMonitorPage({
     const byStudent = Object.fromEntries(h.recitations.map((r) => [r.studentId, r]));
     const uploaded = h.recitations.length > 0;
 
-    const totalPages = h.recitations.reduce(
-      (sum, r) => sum + pageSpan(r.newFrom, r.newTo) + pageSpan(r.pastFrom, r.pastTo),
-      0
-    );
+    // الجديد بالصفحات، والماضي بالأجزاء (الحزب = نصف جزء)
+    const totalPages = h.recitations.reduce((sum, r) => sum + pageSpan(r.newFrom, r.newTo), 0);
+    const totalPastJuz = h.recitations.reduce((sum, r) => sum + pastJuzTotal(parsePastItems(r.pastItems)), 0);
 
     return {
       id: h.id,
@@ -46,6 +46,7 @@ export default async function RecitationMonitorPage({
       meta: `${h.teacher.name} · ${h.cohort.name} · ${h.students.length} طالبًا`,
       uploaded,
       totalPages,
+      totalPastJuz,
       rows: h.students.map((st) => {
         const r = byStudent[st.id];
         if (!r) return { id: st.id, name: st.name, no: st.studentNo, state: "none" as const, lines: [] };
@@ -61,14 +62,14 @@ export default async function RecitationMonitorPage({
               ? `سور: ${r.surahs.join("، ")} — ${r.gradeNew ?? ""}`
               : r.noNew
                 ? "لم يسمّع جديدًا"
-                : `جديد: ${r.newFrom}→${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
+                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
             // الماضي لمستويَي القرآن حاضراً وغيباً وحدهما
             ...(!hasPastRecitation(h.track)
               ? []
               : [
                   r.noPast
                     ? "لم يقرأ ماضيًا"
-                    : `ماضي: ${r.pastFrom}→${r.pastTo} (${pageSpan(r.pastFrom, r.pastTo)} صفحة) — ${r.gradePast ?? ""}`,
+                    : `ماضي: ${pastSummary(parsePastItems(r.pastItems)) || "—"}`,
                 ]),
           ],
         };

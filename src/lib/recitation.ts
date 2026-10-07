@@ -1,4 +1,5 @@
 import { pageRange, hasPastRecitation, AMMA_SURAHS, type TrackId } from "./track";
+import { validatePastItems, type PastKind } from "./pastRecitation";
 
 export type RecEntry = {
   studentId: string;
@@ -7,10 +8,9 @@ export type RecEntry = {
   noPast: boolean;
   newFrom: number | null;
   newTo: number | null;
-  pastFrom: number | null;
-  pastTo: number | null;
   gradeNew: string | null;
-  gradePast: string | null;
+  /** الماضي بالأجزاء والأحزاب، لكل بند تقديره */
+  pastItems: { kind: PastKind | string; juz: number | null; grade: string }[];
 };
 
 
@@ -46,12 +46,8 @@ export function validateEntry(e: RecEntry, maxPriorNewTo?: number | null, track:
     if (!e.gradeNew) return `لم يتم تحديد تقدير ${T}.`;
   }
   if (!e.noPast) {
-    if (e.pastFrom == null || e.pastTo == null) return "لم يتم تحديد صفحات الماضي (من صفحة / إلى صفحة).";
-    if (!inRange(e.pastFrom) || !inRange(e.pastTo)) return `صفحات الماضي بين ${MIN_PAGE} و${MAX_PAGE} فقط.`;
-    if (e.pastTo < e.pastFrom) {
-      return `إدخال الماضي غير صحيح — «إلى صفحة» (${e.pastTo}) أصغر من «من صفحة» (${e.pastFrom}).`;
-    }
-    if (!e.gradePast) return "لم يتم تحديد تقييم الماضي.";
+    const bad = validatePastItems(e.pastItems);
+    if (bad) return bad;
   }
   return null;
 }

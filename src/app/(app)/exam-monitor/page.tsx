@@ -121,6 +121,7 @@ export default async function ExamMonitorPage() {
         canEdit={session.role === "DIRECTOR"}
         isDirector={session.role === "DIRECTOR"}
         canManageAwqaf={session.role === "DIRECTOR" || session.role === "ADMIN"}
+        canDelete={session.role === "DIRECTOR" || session.role === "ADMIN"}
         currentUserId={session.userId}
         blocks={blocks}
         typeFilters={typeFilters}

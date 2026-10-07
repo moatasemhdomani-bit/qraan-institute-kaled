@@ -9,6 +9,8 @@ import { recitationMode, hasPastRecitation } from "@/lib/track";
 import { passedArabicStage6 } from "@/lib/arabicProgress";
 import { revalidatePath } from "next/cache";
 
+const PAST_ORDER = ["JUZ", "HIZB1", "HIZB2"];
+
 export type SaveResult = { error?: string; ok?: boolean };
 
 export type StudentRecitationInput = {
@@ -20,10 +22,9 @@ export type StudentRecitationInput = {
   noPast: boolean;
   nf: string;
   nt: string;
-  rf: string;
-  rt: string;
   gradeNew: string;
-  gradePast: string;
+  /** الماضي: حزب 1 / حزب 2 / جزء من الأجزاء 1–30، لكل بند تقديره */
+  past: { kind: string; juz: number | null; grade: string }[];
   /** تسميع بالسور: أسماء السور مفصولة بـ | */
   surahs: string;
 };
@@ -70,10 +71,8 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
       noPast: !input.none,
       newFrom: null,
       newTo: null,
-      pastFrom: null,
-      pastTo: null,
+      pastItems: [],
       gradeNew: input.none ? null : input.gradeNew,
-      gradePast: null,
       surahs: input.none ? [] : surahs,
       halqaId,
       recordedById: session.userId,
@@ -102,14 +101,13 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
     noPast: input.noPast,
     newFrom: page(input.nf),
     newTo: page(input.nt),
-    pastFrom: page(input.rf),
-    pastTo: page(input.rt),
     gradeNew: input.gradeNew || null,
-    gradePast: input.gradePast || null,
+    pastItems: Array.isArray(input.past)
+      ? input.past.map((p) => ({ kind: String(p.kind), juz: typeof p.juz === "number" ? p.juz : null, grade: String(p.grade || "") }))
+      : [],
   };
 
   if (e.gradeNew && !GRADES.includes(e.gradeNew as never)) return { error: "تقدير غير معروف." };
-  if (e.gradePast && !GRADES.includes(e.gradePast as never)) return { error: "تقدير غير معروف." };
   // القراءة العربية: جديد فقط بلا ماضٍ
   if (!hasPastRecitation(halqa.track)) e.noPast = true;
   const bad = validateEntry(e, prior._max.newTo, halqa.track);
@@ -121,10 +119,14 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
     noPast: e.none ? false : e.noPast,
     newFrom: e.none || e.noNew ? null : e.newFrom,
     newTo: e.none || e.noNew ? null : e.newTo,
-    pastFrom: e.none || e.noPast ? null : e.pastFrom,
-    pastTo: e.none || e.noPast ? null : e.pastTo,
     gradeNew: e.none || e.noNew ? null : e.gradeNew,
-    gradePast: e.none || e.noPast ? null : e.gradePast,
+    // بنود الماضي بالترتيب: حسب الجزء ثم النوع
+    pastItems:
+      e.none || e.noPast
+        ? []
+        : [...e.pastItems]
+            .sort((a, b) => (a.juz ?? 0) - (b.juz ?? 0) || PAST_ORDER.indexOf(a.kind) - PAST_ORDER.indexOf(b.kind))
+            .map((p) => ({ kind: p.kind, juz: p.juz as number, grade: p.grade })),
     surahs: [],
     halqaId,
     recordedById: session.userId,
@@ -144,5 +146,23 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
 
   revalidatePath("/recitation");
   revalidatePath("/recitation-monitor");
+  return { ok: true };
+}
+
+/**
+ * «ملاحظة الطالب» الخاصة بالمدرّس: ما يعمل على تصحيحه له — اختيارية، تظهر له وحده في شاشة التسميع
+ * (لا للإدارة ولا لولي الأمر). للمدرّس وحده، ولطلاب حلقاته في أفواج حسابه النشط فقط.
+ */
+export async function saveStudentNote(studentId: string, note: string): Promise<SaveResult> {
+  const session = await getSession();
+  if (!session || session.role !== "TEACHER") return { error: "غير مصرَّح لك بهذا الإجراء." };
+  const text = note.trim().slice(0, 1000);
+
+  const student = await prisma.student.findUnique({ where: { id: studentId }, select: { halqa: { select: { teacherId: true, cohortId: true } } } });
+  if (!student?.halqa || student.halqa.teacherId !== session.userId || !session.cohortIds.includes(student.halqa.cohortId)) {
+    return { error: "هذا الطالب ليس من طلاب حلقاتك." };
+  }
+
+  await prisma.student.update({ where: { id: studentId }, data: { teacherNote: text || null } });
   return { ok: true };
 }

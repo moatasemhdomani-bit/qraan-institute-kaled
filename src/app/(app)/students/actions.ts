@@ -1,5 +1,6 @@
 "use server";
 
+import type { FeeStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
@@ -38,6 +39,19 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
 
   if (!name) return { error: "اكتبوا اسم الطالب." };
 
+  // الرسوم: «تم الدفع» مع المبلغ المدفوع، «لم يدفع»، أو «متبقي» مع المبلغ المتبقي — المبلغ رقم صحيح بالعملة الجديدة
+  const rawFee = String(formData.get("feeStatus") || "");
+  const feeStatus: FeeStatus | null = rawFee === "PAID" || rawFee === "UNPAID" || rawFee === "REMAINING" ? rawFee : null;
+  const rawAmount = String(formData.get("feeAmount") || "").trim();
+  let feeAmount: number | null = null;
+  if (feeStatus === "PAID" || feeStatus === "REMAINING") {
+    if (!/^\d+$/.test(rawAmount) || Number(rawAmount) <= 0) {
+      return { error: feeStatus === "PAID" ? "اكتبوا المبلغ المدفوع بالعملة الجديدة (أرقام فقط)." : "اكتبوا المبلغ المتبقي بالعملة الجديدة (أرقام فقط)." };
+    }
+    feeAmount = Number(rawAmount);
+    if (!Number.isSafeInteger(feeAmount) || feeAmount > 2_000_000_000) return { error: "المبلغ كبير جدًا." };
+  }
+
   const guardianPhone = normalizePhone(String(formData.get("guardianPhone") || ""));
   if (!guardianPhone) return { error: "رقم ولي الأمر حقل إلزامي." };
   if (!isValidMobile(guardianPhone)) return { error: "رقم ولي الأمر بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
@@ -67,6 +81,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     active,
     isOrphan,
     track,
+    feeStatus,
+    feeAmount,
     // فُرز على حلقة: لم يعد «ترفّع» ينتظر الفرز
     ...(halqaId ? { promotedAt: null } : {}),
   };

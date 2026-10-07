@@ -59,7 +59,7 @@ export default async function MonthlyReportPage({
     return {
       studentId: s.id,
       studentName: s.name,
-      from: pages.from, to: pages.to, newTotal: pages.newTotal, pastTotal: pages.pastTotal,
+      from: pages.from, to: pages.to, newTotal: pages.newTotal, pastJuz: pages.pastJuz,
       locPass: loc.pass, locFail: loc.fail,
       nomPass: nom.pass, nomFail: nom.fail,
       realPass: real.pass, realFail: real.fail,

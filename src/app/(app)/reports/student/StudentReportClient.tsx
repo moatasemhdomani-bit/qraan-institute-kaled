@@ -7,17 +7,10 @@ import DateField from "@/components/DateField";
 import { today } from "@/lib/daily";
 import type { ReviewInputs } from "@/lib/reports";
 import IssuedNotice from "../IssuedNotice";
+import StudentReportPreview from "./StudentReportPreview";
 import { searchStudentsForReport, previewStudentReport, issueStudentReport, type FormState, type StudentPreview } from "./actions";
 
 const initialState: FormState = {};
-
-function passFailCell(pass: number, fail: number) {
-  return (
-    <span>
-      <b style={{ color: "var(--ok)" }}>{pass}</b> / <b style={{ color: "var(--bad)" }}>{fail}</b>
-    </span>
-  );
-}
 
 type PickedStudent = { id: string; no: string; name: string };
 
@@ -156,58 +149,7 @@ export default function StudentReportClient({
           )}
           {state.ok && state.reportId && <IssuedNotice reportId={state.reportId} name={name} duplicate={state.duplicate} />}
 
-          <div style={{ ...cardStyle, padding: 18 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{preview.studentName}</div>
-            <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 14 }}>
-              #{preview.studentNo} · {preview.halqaName} · {preview.cohortName}
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10, marginBottom: 14 }}>
-              <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ok)" }}>{preview.attendance.present}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-2)" }}>حاضر</div>
-              </div>
-              <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>{preview.attendance.late}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-2)" }}>متأخر</div>
-              </div>
-              <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--info)" }}>{preview.attendance.excused}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-2)" }}>إذن</div>
-              </div>
-              <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--bad)" }}>{preview.attendance.absent}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-2)" }}>غائب</div>
-              </div>
-              <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{preview.newPages}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-2)" }}>صفحات جديد</div>
-              </div>
-              <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{preview.pastPages}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-2)" }}>صفحات ماضٍ</div>
-              </div>
-              <div style={{ padding: 10, borderRadius: 10, background: "var(--card-2-grad)", textAlign: "center" }}>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{preview.behavior}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-2)" }}>سلوك الطالب</div>
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
-              <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
-                <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>اختبار محلي</div>
-                {passFailCell(preview.locPass, preview.locFail)}
-              </div>
-              <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
-                <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>ترشيح الأوقاف</div>
-                {passFailCell(preview.nomPass, preview.nomFail)}
-              </div>
-              <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
-                <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>سبر الأوقاف الفعلي</div>
-                {passFailCell(preview.realPass, preview.realFail)}
-              </div>
-            </div>
-          </div>
+          <StudentReportPreview preview={preview} />
 
           <button type="submit" disabled={issuing} style={{ ...primaryButtonStyle, alignSelf: "flex-start", opacity: issuing ? 0.7 : 1 }}>
             {issuing ? "جارٍ الإصدار…" : "إصدار التقرير"}

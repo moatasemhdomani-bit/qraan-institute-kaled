@@ -13,6 +13,7 @@ import { STUDENT_LEVELS, TRACK_LABELS, halqaTrackFor, type TrackId } from "@/lib
 import PhotoField from "@/components/PhotoField";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
+import NumberField from "@/components/NumberField";
 import { today, formatDateAr } from "@/lib/daily";
 
 type StudentRow = {
@@ -22,6 +23,10 @@ type StudentRow = {
   fullName: string;
   active: boolean;
   isOrphan: boolean;
+  /** الرسوم: PAID | UNPAID | REMAINING، أو "" = لم تُحدَّد */
+  feeStatus: string;
+  /** المبلغ المدفوع (PAID) أو المتبقي (REMAINING) بالعملة الجديدة */
+  feeAmount: string;
   track: TrackId;
   /** أُخرج من حلقته بترفّعه إلى مستوى جديد (لا طالبًا جديدًا) */
   promoted: boolean;
@@ -46,6 +51,13 @@ type StudentRow = {
 };
 
 const BEHAVIOR = ["ممتاز", "جيد جدًا", "جيد", "ضعيف"] as const;
+
+/** حالات رسوم الطالب. */
+const FEE_OPTIONS = [
+  { id: "PAID", label: "تم الدفع" },
+  { id: "UNPAID", label: "لم يدفع" },
+  { id: "REMAINING", label: "متبقي" },
+] as const;
 const BEHAVIOR_COLORS: Record<string, string> = {
   "ممتاز": "var(--ok)",
   "جيد جدًا": "var(--gold)",
@@ -391,6 +403,8 @@ function StudentForm({
   const [active, setActive] = useState(initial?.active ?? true);
   const [isOrphan, setIsOrphan] = useState(initial?.isOrphan ?? false);
   const [track, setTrack] = useState<TrackId>(initial?.track ?? "QURAN");
+  const [feeStatus, setFeeStatus] = useState(initial?.feeStatus ?? "");
+  const [feeAmount, setFeeAmount] = useState(initial?.feeAmount ?? "");
 
   useEffect(() => {
     if (state.ok) onClose();
@@ -442,6 +456,8 @@ function StudentForm({
         <input type="hidden" name="status" value={active ? "active" : "inactive"} />
         <input type="hidden" name="orphan" value={isOrphan ? "1" : "0"} />
         <input type="hidden" name="track" value={track} />
+        <input type="hidden" name="feeStatus" value={feeStatus} />
+        <input type="hidden" name="feeAmount" value={feeStatus === "PAID" || feeStatus === "REMAINING" ? feeAmount : ""} />
 
         <PhotoField name="photo" label="صورة الطالب" existingUrl={initial?.photoUrl} />
 
@@ -504,6 +520,35 @@ function StudentForm({
             <button type="button" onClick={() => setIsOrphan((v) => !v)} style={chipStyle(isOrphan)}>
               {isOrphan ? "✓ يتيم" : "غير يتيم"}
             </button>
+          </div>
+          <div style={{ width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>الرسوم</span>
+              {FEE_OPTIONS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => {
+                    // يتغيّر معنى المبلغ بين «المدفوع» و«المتبقي» — يُفرَّغ عند تبديل الحالة
+                    if (f.id !== feeStatus) setFeeAmount("");
+                    setFeeStatus(f.id === feeStatus ? "" : f.id);
+                  }}
+                  style={chipStyle(feeStatus === f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            {(feeStatus === "PAID" || feeStatus === "REMAINING") && (
+              <div style={{ marginTop: 8, maxWidth: 320 }}>
+                <NumberField
+                  value={feeAmount}
+                  onChange={(e) => setFeeAmount(e.target.value)}
+                  placeholder={feeStatus === "PAID" ? "ادخل المبلغ المدفوع بالعملة الجديدة" : "ادخل المبلغ المتبقي بالعملة الجديدة"}
+                  aria-label={feeStatus === "PAID" ? "المبلغ المدفوع" : "المبلغ المتبقي"}
+                />
+              </div>
+            )}
           </div>
         </div>
         {!active && (

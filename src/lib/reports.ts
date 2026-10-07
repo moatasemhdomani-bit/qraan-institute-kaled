@@ -2,29 +2,31 @@ import { prisma, rawPrisma } from "./db";
 import { pageSpan } from "./daily";
 import { passFailLabel } from "./exam";
 import { awqafPassed } from "./awqaf";
+import { parsePastItems, pastJuzTotal } from "./pastRecitation";
 
 type RecitationRow = {
   date: string;
   newFrom: number | null;
   newTo: number | null;
-  pastFrom: number | null;
-  pastTo: number | null;
+  /** الماضي بالأجزاء والأحزاب (JSON) */
+  pastItems: unknown;
 };
 
 /**
  * من/إلى صفحة: أول وآخر صفحة تسميع جديد بترتيب التاريخ ضمن الفترة.
  * الجديد والماضي مفصولان دائمًا — الماضي مراجعة حرّة لا تُحسب مع تقدّم الحفظ الجديد.
+ * الجديد بالصفحات، والماضي بالأجزاء (الحزب = نصف جزء).
  */
-export function pagesSummary(recitations: RecitationRow[]): { from: number | null; to: number | null; newTotal: number; pastTotal: number } {
+export function pagesSummary(recitations: RecitationRow[]): { from: number | null; to: number | null; newTotal: number; pastJuz: number } {
   const sorted = [...recitations].sort((a, b) => a.date.localeCompare(b.date));
   const withNew = sorted.filter((r) => r.newFrom != null && r.newTo != null);
   const newTotal = recitations.reduce((sum, r) => sum + pageSpan(r.newFrom, r.newTo), 0);
-  const pastTotal = recitations.reduce((sum, r) => sum + pageSpan(r.pastFrom, r.pastTo), 0);
+  const pastJuz = recitations.reduce((sum, r) => sum + pastJuzTotal(parsePastItems(r.pastItems)), 0);
   return {
     from: withNew[0]?.newFrom ?? null,
     to: withNew[withNew.length - 1]?.newTo ?? null,
     newTotal,
-    pastTotal,
+    pastJuz,
   };
 }
 
@@ -119,7 +121,7 @@ export type HalaqatPreviewRow = {
   from: number | null;
   to: number | null;
   newTotal: number;
-  pastTotal: number;
+  pastJuz: number;
   locPass: number; locFail: number;
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
@@ -177,7 +179,7 @@ export async function buildHalaqatBlocks(from: string, to: string, halqaScope: s
             from: pages.from,
             to: pages.to,
             newTotal: pages.newTotal,
-            pastTotal: pages.pastTotal,
+            pastJuz: pages.pastJuz,
             locPass: loc.pass, locFail: loc.fail,
             nomPass: nom.pass, nomFail: nom.fail,
             realPass: real.pass, realFail: real.fail,
@@ -194,7 +196,7 @@ export type TeachersPreviewRow = {
   teacherName: string;
   halqaNames: string;
   newPages: number;
-  pastPages: number;
+  pastJuz: number;
   locPass: number; locFail: number;
   awqPass: number; awqFail: number;
   count: number;
@@ -226,11 +228,11 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
     .map((t) => {
       const halqaIds = new Set(t.halaqatTaught.map((h) => h.id));
       const studs = allStudents.filter((s) => s.halqaId && halqaIds.has(s.halqaId));
-      let newPages = 0, pastPages = 0, locPass = 0, locFail = 0, awqPass = 0, awqFail = 0;
+      let newPages = 0, pastJuz = 0, locPass = 0, locFail = 0, awqPass = 0, awqFail = 0;
       for (const s of studs) {
         const pages = pagesSummary(recitations.filter((r) => r.studentId === s.id));
         newPages += pages.newTotal;
-        pastPages += pages.pastTotal;
+        pastJuz += pages.pastJuz;
         const loc = localSplit(localExams.filter((e) => e.studentId === s.id));
         locPass += loc.pass; locFail += loc.fail;
         const nom = nominationSplit(nomExams.filter((e) => e.studentId === s.id));
@@ -242,7 +244,7 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
         teacherId: t.id,
         teacherName: t.name,
         halqaNames: t.halaqatTaught.map((h) => h.name).join("، ") || "—",
-        newPages, pastPages, locPass, locFail, awqPass, awqFail,
+        newPages, pastJuz, locPass, locFail, awqPass, awqFail,
         count: studs.length,
       };
     })
@@ -366,17 +368,19 @@ export type StudentPreview = {
   cohortName: string;
   attendance: { present: number; late: number; excused: number; absent: number };
   newPages: number;
-  pastPages: number;
+  pastJuz: number;
   locPass: number; locFail: number;
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
   behavior: string;
+  /** أذونات الطالب الدائمة (دخول ثم خروج) — فارغة إن لم يكن لديه إذن */
+  permits: { kind: "ENTRY" | "EXIT"; time: string; days: string[]; note: string | null; since: string }[];
 };
 
 export async function buildStudentPreview(studentId: string, from: string, to: string): Promise<StudentPreview | null> {
   const student = await prisma.student.findUnique({
     where: { id: studentId },
-    include: { halqa: { include: { cohort: true } } },
+    include: { halqa: { include: { cohort: true } }, permits: true },
   });
   if (!student) return null;
 
@@ -406,11 +410,14 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
       absent: attendance.filter((a) => a.status === "ABSENT").length,
     },
     newPages: pages.newTotal,
-    pastPages: pages.pastTotal,
+    pastJuz: pages.pastJuz,
     locPass: loc.pass, locFail: loc.fail,
     nomPass: nom.pass, nomFail: nom.fail,
     realPass: real.pass, realFail: real.fail,
     behavior: student.behavior,
+    permits: [...student.permits]
+      .sort((a, b) => (a.kind === "ENTRY" ? 0 : 1) - (b.kind === "ENTRY" ? 0 : 1))
+      .map((p) => ({ kind: p.kind, time: p.time, days: p.days, note: p.note, since: p.since })),
   };
 }
 

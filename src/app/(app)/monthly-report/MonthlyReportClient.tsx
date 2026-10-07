@@ -1,5 +1,6 @@
 "use client";
 
+import { formatJuz } from "@/lib/pastRecitation";
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cardStyle, chipStyle, inputStyle } from "@/lib/ui";
@@ -11,7 +12,7 @@ type Row = {
   from: number | null;
   to: number | null;
   newTotal: number;
-  pastTotal: number;
+  pastJuz: number;
   locPass: number; locFail: number;
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
@@ -104,7 +105,7 @@ export default function MonthlyReportClient({
               <th style={{ padding: 8 }}>من صفحة</th>
               <th style={{ padding: 8 }}>إلى صفحة</th>
               <th style={{ padding: 8 }}>مجموع الجديد</th>
-              <th style={{ padding: 8 }}>مجموع الماضي</th>
+              <th style={{ padding: 8 }}>مجموع الماضي (أجزاء)</th>
               <th style={{ padding: 8 }}>اختبار محلي</th>
               <th style={{ padding: 8 }}>ترشيح الأوقاف</th>
               <th style={{ padding: 8 }}>سبر الأوقاف الفعلي</th>
@@ -118,7 +119,7 @@ export default function MonthlyReportClient({
                 <td style={{ padding: 8, textAlign: "center" }}>{r.from ?? "—"}</td>
                 <td style={{ padding: 8, textAlign: "center" }}>{r.to ?? "—"}</td>
                 <td style={{ padding: 8, textAlign: "center" }}>{r.newTotal}</td>
-                <td style={{ padding: 8, textAlign: "center" }}>{r.pastTotal}</td>
+                <td style={{ padding: 8, textAlign: "center" }}>{formatJuz(r.pastJuz)}</td>
                 <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.locPass, r.locFail)}</td>
                 <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.nomPass, r.nomFail)}</td>
                 <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.realPass, r.realFail)}</td>

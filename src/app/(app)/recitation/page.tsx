@@ -1,3 +1,4 @@
+import { parsePastItems } from "@/lib/pastRecitation";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
@@ -38,29 +39,19 @@ export default async function RecitationPage({
   const savedMap = Object.fromEntries(saved.map((r) => [r.studentId, r]));
 
   // حقل «تسميع جديد — من» يُملأ تلقائيًا من أعلى صفحة جديدة سُمِّعت من قبل لكل طالب — ولا يجوز
-  // النزول عنها لاحقًا (لا يُعاد تسميع صفحة سُمِّعت جديدًا من قبل). أمّا «آخر ماضي» فمعلومة إرشادية
-  // فقط — الماضي مراجعة، لا يُشترط أن يكمل من حيث انتهى.
+  // النزول عنها لاحقًا (لا يُعاد تسميع صفحة سُمِّعت جديدًا من قبل). الماضي بالأجزاء والأحزاب، مراجعة حرّة.
   const studentIds = students.map((s) => s.id);
-  const [maxNewToRows, lastPastRows] = await Promise.all([
-    prisma.recitation.groupBy({
-      by: ["studentId"],
-      where: { studentId: { in: studentIds }, date: { lt: date }, none: false, noNew: false },
-      _max: { newTo: true },
-    }),
-    prisma.recitation.findMany({
-      where: { studentId: { in: studentIds }, date: { lt: date }, none: false, noPast: false },
-      orderBy: { date: "desc" },
-      distinct: ["studentId"],
-      select: { studentId: true, pastTo: true },
-    }),
-  ]);
+  const maxNewToRows = await prisma.recitation.groupBy({
+    by: ["studentId"],
+    where: { studentId: { in: studentIds }, date: { lt: date }, none: false, noNew: false },
+    _max: { newTo: true },
+  });
   // طلاب القراءة العربية الناجحون في المرحلة 6 يسمّعون «بينة للناس» بالسور
   const stage6 = halqa?.track === "ARABIC" ? await passedArabicStage6(studentIds) : new Set<string>();
   const maxNewToMap = Object.fromEntries(maxNewToRows.map((r) => [r.studentId, r._max.newTo]));
-  const lastPastMap = Object.fromEntries(lastPastRows.map((r) => [r.studentId, r.pastTo]));
-  const lastPages: Record<string, { newTo: number | null; pastTo: number | null }> = {};
+  const lastPages: Record<string, { newTo: number | null }> = {};
   for (const st of students) {
-    lastPages[st.id] = { newTo: maxNewToMap[st.id] ?? null, pastTo: lastPastMap[st.id] ?? null };
+    lastPages[st.id] = { newTo: maxNewToMap[st.id] ?? null };
   }
 
   const slot = halqa ? rotationSlot(halqa.cohort, date) : null;
@@ -104,15 +95,14 @@ export default async function RecitationPage({
                   noPast: savedMap[s.id].noPast,
                   nf: savedMap[s.id].newFrom?.toString() ?? "",
                   nt: savedMap[s.id].newTo?.toString() ?? "",
-                  rf: savedMap[s.id].pastFrom?.toString() ?? "",
-                  rt: savedMap[s.id].pastTo?.toString() ?? "",
                   gradeNew: savedMap[s.id].gradeNew ?? "",
-                  gradePast: savedMap[s.id].gradePast ?? "",
+                  past: parsePastItems(savedMap[s.id].pastItems).map((p) => ({ kind: p.kind, juz: String(p.juz), grade: p.grade })),
                   surahs: savedMap[s.id].surahs.join("|"),
                 }
               : null,
             lastNewTo: lastPages[s.id]?.newTo ?? null,
-            lastPastTo: lastPages[s.id]?.pastTo ?? null,
+            // «ملاحظة الطالب» للمدرّس وحده — لا تُرسَل للمدير
+            note: isDirector ? null : (s.teacherNote ?? ""),
           }))}
           alreadyUploaded={saved.length > 0}
         />

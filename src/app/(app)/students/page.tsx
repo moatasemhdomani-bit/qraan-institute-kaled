@@ -50,6 +50,8 @@ export default async function StudentsPage() {
     behavior: s.behavior,
     active: s.active,
     isOrphan: s.isOrphan,
+    feeStatus: s.feeStatus ?? "",
+    feeAmount: s.feeAmount != null ? String(s.feeAmount) : "",
     track: s.track,
     promoted: !!s.promotedAt,
     behaviorLog: s.behaviorLog.map((l) => ({

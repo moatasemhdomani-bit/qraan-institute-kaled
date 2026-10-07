@@ -1,3 +1,4 @@
+import { parsePastItems, pastSummary } from "@/lib/pastRecitation";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
@@ -107,7 +108,7 @@ export default async function ParentPage({
         recLines.push(
           todayRec.noPast
             ? "لم يقرأ ماضيًا"
-            : `الماضي: من ${todayRec.pastFrom} إلى ${todayRec.pastTo} (${pageSpan(todayRec.pastFrom, todayRec.pastTo)} صفحة) — ${todayRec.gradePast}`
+            : `الماضي: ${pastSummary(parsePastItems(todayRec.pastItems)) || "—"}`
         );
     }
   } else {
@@ -143,12 +144,12 @@ export default async function ParentPage({
               ? `سور: ${r.surahs.join("، ")} — ${r.gradeNew ?? ""}`
               : r.noNew
                 ? "لم يسمّع جديدًا"
-                : `جديد: ${r.newFrom}→${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
+                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
           pastLine: !hasPastRecitation(child.track) || r.surahs.length > 0
             ? ""
             : r.noPast
             ? "لم يقرأ ماضيًا"
-            : `ماضي: ${r.pastFrom}→${r.pastTo} (${pageSpan(r.pastFrom, r.pastTo)} صفحة) — ${r.gradePast ?? ""}`,
+            : `ماضي: ${pastSummary(parsePastItems(r.pastItems)) || "—"}`,
         }))}
         examRows={[
           ...exams.map((e) => ({

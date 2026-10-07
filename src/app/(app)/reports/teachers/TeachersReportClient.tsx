@@ -1,5 +1,6 @@
 "use client";
 
+import { formatJuz } from "@/lib/pastRecitation";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
@@ -108,7 +109,7 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
                   <th style={{ padding: 8, textAlign: "start" }}>المدرس</th>
                   <th style={{ padding: 8 }}>الحلقة</th>
                   <th style={{ padding: 8 }}>صفحات جديد لكل الطلاب</th>
-                  <th style={{ padding: 8 }}>صفحات ماضٍ لكل الطلاب</th>
+                  <th style={{ padding: 8 }}>أجزاء ماضٍ لكل الطلاب</th>
                   <th style={{ padding: 8 }}>اختبارات محلية</th>
                   <th style={{ padding: 8 }}>اختبارات الأوقاف</th>
                   <th style={{ padding: 8 }}>عدد الطلاب</th>
@@ -121,7 +122,7 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
                     <td style={{ padding: 8, fontWeight: 600 }}>{r.teacherName}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{r.halqaNames}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{r.newPages}</td>
-                    <td style={{ padding: 8, textAlign: "center" }}>{r.pastPages}</td>
+                    <td style={{ padding: 8, textAlign: "center" }}>{formatJuz(r.pastJuz)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.locPass, r.locFail)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.awqPass, r.awqFail)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{r.count}</td>

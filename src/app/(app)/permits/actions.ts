@@ -11,30 +11,32 @@ export type DeleteState = { error?: string; ok?: boolean };
 
 const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
 const KIND_LABELS: Record<string, string> = { ENTRY: "إذن دخول", EXIT: "إذن خروج" };
+const KINDS = ["ENTRY", "EXIT"] as const;
 
 /** إضافة الإذن وتعديله وحذفه للإدارة وحدها — المدرّس يشاهد أذونات طلابه فقط. */
 function canManage(session: { userId: string; role: string }) {
   return session.role === "ADMIN" || session.role === "DIRECTOR";
 }
 
-/** يمنع المدرّس من إضافة/تعديل/حذف إذن لطالب خارج حلقاته. */
-async function studentInScope(studentId: string, session: { userId: string; role: string }): Promise<boolean> {
-  if (session.role !== "TEACHER") return true;
-  const student = await prisma.student.findUnique({ where: { id: studentId }, include: { halqa: true } });
-  return !!student?.halqa && student.halqa.teacherId === session.userId;
-}
-
+/**
+ * يحفظ أذونات الطالب: دخول أو خروج أو كلاهما معًا — لكل نوع وقته، والأيام والسبب مشتركة بينهما.
+ * في التعديل: النوع الذي أُلغي اختياره يُحذف إذنه.
+ */
 export async function savePermit(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();
   if (!session || !canManage(session)) return { error: "غير مصرَّح لك بهذا الإجراء." };
 
-  const id = String(formData.get("id") || "") || null;
-  const studentId = String(formData.get("studentId") || "") || null;
-  const kind = String(formData.get("kind") || "");
-  const time = String(formData.get("time") || "").trim();
+  const editing = String(formData.get("editing") || "") === "1";
+  const studentId = String(formData.get("studentId") || "");
+  const kinds = KINDS.filter((k) => formData.get(`kind_${k}`) === "1");
+  const times: Record<string, string> = {
+    ENTRY: String(formData.get("entryTime") || "").trim(),
+    EXIT: String(formData.get("exitTime") || "").trim(),
+  };
   const note = String(formData.get("note") || "").trim() || null;
 
-  if (kind !== "ENTRY" && kind !== "EXIT") return { error: "اختاروا نوع الإذن: دخول أو خروج." };
+  if (!studentId) return { error: "اختاروا الطالب أولًا." };
+  if (kinds.length === 0) return { error: "اختاروا نوع الإذن: دخول أو خروج أو كليهما." };
 
   // أيام الإذن: من أيام الدوام الرسمية وحدها، يوم واحد على الأقل
   let days: string[] = [];
@@ -52,59 +54,51 @@ export async function savePermit(_prev: FormState, formData: FormData): Promise<
   }
   days = workDays.filter((d) => days.includes(d));
   if (days.length === 0) return { error: "اختاروا يومًا واحدًا على الأقل من أيام الإذن." };
-  if (!TIME_RE.test(time)) return { error: "اكتبوا وقت الإذن بصيغة 24 ساعة، مثل 09:15 أو 11:30." };
-
-  let existing = null;
-  if (id) {
-    existing = await prisma.permit.findUnique({ where: { id } });
-    if (!existing) return { error: "الإذن غير موجود." };
-    if (!(await studentInScope(existing.studentId, session))) {
-      return { error: "غير مصرَّح لك بتعديل إذن لطالب خارج حلقاتك." };
-    }
-  } else {
-    if (!studentId) return { error: "اختاروا الطالب أولًا." };
-    if (!(await studentInScope(studentId, session))) {
-      return { error: "غير مصرَّح لك بإضافة إذن لطالب خارج حلقاتك." };
-    }
+  for (const k of kinds) {
+    if (!TIME_RE.test(times[k])) return { error: k === "ENTRY" ? "حدّدوا الوقت الذي يدخل فيه الطالب." : "حدّدوا الوقت الذي يخرج فيه الطالب." };
+  }
+  if (kinds.length === 2 && times.EXIT <= times.ENTRY) {
+    return { error: "وقت الخروج يجب أن يكون بعد وقت الدخول." };
   }
 
-  const finalStudentId = existing?.studentId ?? studentId!;
+  const student = await prisma.student.findUnique({ where: { id: studentId }, include: { permits: true } });
+  if (!student) return { error: "الطالب غير موجود." };
+  const current = student.permits;
 
-  const conflict = await prisma.permit.findUnique({
-    where: { studentId_kind: { studentId: finalStudentId, kind } },
-  });
-  if (conflict && conflict.id !== id) {
-    return { error: `لدى هذا الطالب ${KIND_LABELS[kind]} مسجَّل بالفعل — عدّلوه من القائمة بدل إضافة إذن جديد.` };
+  if (!editing) {
+    const dup = current.find((p) => kinds.includes(p.kind));
+    if (dup) return { error: `لدى هذا الطالب ${KIND_LABELS[dup.kind]} مسجَّل بالفعل — عدّلوه من القائمة بدل إضافة إذن جديد.` };
   }
 
-  const student = await prisma.student.findUnique({ where: { id: finalStudentId } });
+  await prisma.$transaction([
+    ...kinds.map((kind) =>
+      prisma.permit.upsert({
+        where: { studentId_kind: { studentId, kind } },
+        update: { time: times[kind], note, days, setById: session.userId },
+        create: { studentId, kind, time: times[kind], note, days, since: today(), setById: session.userId },
+      })
+    ),
+    // في التعديل: النوع الملغى يُحذف
+    ...(editing ? current.filter((p) => !kinds.includes(p.kind)).map((p) => prisma.permit.delete({ where: { id: p.id } })) : []),
+  ]);
 
-  if (id) {
-    await prisma.permit.update({ where: { id }, data: { kind, time, note, days, setById: session.userId } });
-    await logAction(session.userId, `عدّل ${KIND_LABELS[kind]} للطالب «${student?.name ?? ""}»`);
-  } else {
-    await prisma.permit.create({
-      data: { studentId: finalStudentId, kind, time, note, days, since: today(), setById: session.userId },
-    });
-    await logAction(session.userId, `أضاف ${KIND_LABELS[kind]} للطالب «${student?.name ?? ""}»`);
-  }
+  const label = kinds.map((k) => KIND_LABELS[k]).join(" و");
+  await logAction(session.userId, `${editing ? "عدّل" : "أضاف"} ${label} للطالب «${student.name}»`);
 
   revalidatePath("/permits");
   return { ok: true };
 }
 
-export async function deletePermit(id: string): Promise<DeleteState> {
+/** يحذف كل أذونات الطالب (الدخول والخروج معًا). */
+export async function deleteStudentPermits(studentId: string): Promise<DeleteState> {
   const session = await getSession();
   if (!session || !canManage(session)) return { error: "غير مصرَّح لك بهذا الإجراء." };
 
-  const existing = await prisma.permit.findUnique({ where: { id }, include: { student: true } });
-  if (!existing) return { error: "الإذن غير موجود." };
-  if (!(await studentInScope(existing.studentId, session))) {
-    return { error: "غير مصرَّح لك بحذف إذن لطالب خارج حلقاتك." };
-  }
+  const student = await prisma.student.findUnique({ where: { id: studentId }, include: { permits: true } });
+  if (!student || student.permits.length === 0) return { error: "الإذن غير موجود." };
 
-  await prisma.permit.delete({ where: { id } });
-  await logAction(session.userId, `حذف ${KIND_LABELS[existing.kind]} للطالب «${existing.student.name}»`);
+  await prisma.permit.deleteMany({ where: { studentId } });
+  await logAction(session.userId, `حذف ${student.permits.map((p) => KIND_LABELS[p.kind]).join(" و")} للطالب «${student.name}»`);
 
   revalidatePath("/permits");
   return { ok: true };

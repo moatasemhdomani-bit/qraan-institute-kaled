@@ -3,6 +3,7 @@
 import { useActionState, useRef } from "react";
 import { cardStyle, softButtonStyle } from "@/lib/ui";
 import NumberField from "@/components/NumberField";
+import DeleteExamButton from "../../DeleteExamButton";
 import { awqafPassed, certStepLocked, type CertStep } from "@/lib/awqaf";
 import { saveAwqafScore, setCertStep, bulkSetCertStep, archiveBatchCerts, type FormState } from "../actions";
 
@@ -138,6 +139,9 @@ function ResultRow({ result }: { result: Result }) {
           حفظ
         </button>
         {scoreState.error && <span style={{ fontSize: 11.5, color: "var(--bad)" }}>{scoreState.error}</span>}
+        <span style={{ marginInlineStart: "auto" }}>
+          <DeleteExamButton awqafResultId={result.id} />
+        </span>
       </form>
 
       {passed === false && (

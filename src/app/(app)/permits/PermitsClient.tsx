@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import { formatTime12, formatDateAr } from "@/lib/daily";
 import PermitForm, { type ExistingPermit } from "./PermitForm";
-import { deletePermit } from "./actions";
+import { deleteStudentPermits } from "./actions";
 
 const KIND_LABELS: Record<string, string> = { ENTRY: "إذن دخول", EXIT: "إذن خروج" };
 const KIND_COLORS: Record<string, string> = { ENTRY: "var(--ok)", EXIT: "var(--gold)" };
@@ -47,9 +47,9 @@ export default function PermitsClient({
   const [notice, setNotice] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  async function handleRowDelete(id: string) {
-    setDeletingId(id);
-    const res = await deletePermit(id);
+  async function handleRowDelete(studentId: string) {
+    setDeletingId(studentId);
+    const res = await deleteStudentPermits(studentId);
     setDeletingId(null);
     if (res.error) setNotice(res.error);
     else setNotice("حُذف الإذن — عاد الطالب إلى دوام الفوج المعتاد.");
@@ -60,12 +60,27 @@ export default function PermitsClient({
   const blocks = useMemo(
     () =>
       halaqat.map((h) => {
-        const rows = h.permits
-          .filter((p) => kindFilter === "all" || p.kind === kindFilter)
-          .map((p) => ({
-            ...p,
-            name: studentNameOf(h, p.studentId),
-          }));
+        // صف واحد لكل طالب يجمع إذنيه (الدخول ثم الخروج) معًا
+        const byStudent = new Map<string, Permit[]>();
+        for (const p of h.permits) byStudent.set(p.studentId, [...(byStudent.get(p.studentId) ?? []), p]);
+        const rows = [...byStudent.entries()]
+          .filter(([, ps]) => kindFilter === "all" || ps.some((p) => p.kind === kindFilter))
+          .map(([studentId, ps]) => {
+            const sorted = [...ps].sort((a, b) => (a.kind === "ENTRY" ? -1 : 1) - (b.kind === "ENTRY" ? -1 : 1));
+            const first = sorted[0];
+            return {
+              studentId,
+              name: studentNameOf(h, studentId),
+              permits: sorted,
+              entry: sorted.find((p) => p.kind === "ENTRY") ?? null,
+              exit: sorted.find((p) => p.kind === "EXIT") ?? null,
+              // الأيام والسبب مشتركة بين الإذنين
+              note: first.note,
+              days: first.days,
+              since: sorted.map((p) => p.since).sort()[0],
+              setByName: first.setByName,
+            };
+          });
         return {
           id: h.id,
           name: h.name,
@@ -126,16 +141,18 @@ export default function PermitsClient({
                 <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 2 }}>{b.meta}</div>
               </div>
               {b.rows.map((p) => (
-                <div key={p.id} style={{ display: "flex", flexDirection: "column", gap: 7, padding: "13px 16px", borderTop: "1px solid var(--line-2)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 14.5, fontWeight: 600 }}>{p.name}</span>
-                    <span style={{ padding: "4px 11px", borderRadius: 999, fontSize: 12, border: `1px solid ${KIND_COLORS[p.kind]}`, color: KIND_COLORS[p.kind] }}>
-                      {KIND_LABELS[p.kind]}
-                    </span>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>
-                      {KIND_VERBS[p.kind]} {formatTime12(p.time)}
-                    </span>
-                  </div>
+                <div key={p.studentId} style={{ display: "flex", flexDirection: "column", gap: 7, padding: "13px 16px", borderTop: "1px solid var(--line-2)" }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 600 }}>{p.name}</div>
+                  {p.permits.map((x) => (
+                    <div key={x.id} style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+                      <span style={{ padding: "4px 11px", borderRadius: 999, fontSize: 12, border: `1px solid ${KIND_COLORS[x.kind]}`, color: KIND_COLORS[x.kind] }}>
+                        {KIND_LABELS[x.kind]}
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 700 }}>
+                        {KIND_VERBS[x.kind]} {formatTime12(x.time)}
+                      </span>
+                    </div>
+                  ))}
                   <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
                     أضافه {p.setByName} · قائم منذ {formatDateAr(p.since)}
                   </div>
@@ -146,7 +163,15 @@ export default function PermitsClient({
                     <button
                       onClick={() =>
                         setFormOpen({
-                          existing: { id: p.id, studentId: p.studentId, studentName: p.name, since: p.since, kind: p.kind, time: p.time, note: p.note, days: p.days },
+                          existing: {
+                            studentId: p.studentId,
+                            studentName: p.name,
+                            since: p.since,
+                            entryTime: p.entry?.time ?? null,
+                            exitTime: p.exit?.time ?? null,
+                            note: p.note,
+                            days: p.days,
+                          },
                         })
                       }
                       style={{ minHeight: 40, padding: "9px 15px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12.5, cursor: "pointer" }}
@@ -154,11 +179,11 @@ export default function PermitsClient({
                       تعديل
                     </button>
                     <button
-                      onClick={() => handleRowDelete(p.id)}
-                      disabled={deletingId === p.id}
-                      style={{ minHeight: 40, padding: "9px 15px", borderRadius: 9, border: "1px solid rgba(224,138,138,0.45)", background: "linear-gradient(135deg, rgba(224,138,138,0.16), rgba(224,138,138,0.03))", color: "var(--bad-ink)", fontSize: 12.5, cursor: "pointer", opacity: deletingId === p.id ? 0.6 : 1 }}
+                      onClick={() => handleRowDelete(p.studentId)}
+                      disabled={deletingId === p.studentId}
+                      style={{ minHeight: 40, padding: "9px 15px", borderRadius: 9, border: "1px solid rgba(224,138,138,0.45)", background: "linear-gradient(135deg, rgba(224,138,138,0.16), rgba(224,138,138,0.03))", color: "var(--bad-ink)", fontSize: 12.5, cursor: "pointer", opacity: deletingId === p.studentId ? 0.6 : 1 }}
                     >
-                      {deletingId === p.id ? "جارٍ الحذف…" : "حذف الإذن"}
+                      {deletingId === p.studentId ? "جارٍ الحذف…" : p.permits.length > 1 ? "حذف الإذنين" : "حذف الإذن"}
                     </button>
                   </div>
                   )}

@@ -7,6 +7,7 @@ import { resultLabel, passFailLabel, examKindLabel, TYPE_LABELS, type ExamTypeId
 import { formatDateAr } from "@/lib/daily";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
+import DeleteExamButton from "../exams/DeleteExamButton";
 
 type RowType = ExamTypeId | "AWQAF_ACTUAL";
 
@@ -50,6 +51,7 @@ export default function ExamMonitorClient({
   canEdit,
   isDirector,
   canManageAwqaf,
+  canDelete,
   typeFilters,
   currentUserId,
   blocks,
@@ -57,6 +59,8 @@ export default function ExamMonitorClient({
   canEdit: boolean;
   isDirector: boolean;
   canManageAwqaf: boolean;
+  /** الإدارة (المدير والإداري): حذف أي سبر من أي نوع، ومنه سبر الأوقاف الفعلي */
+  canDelete: boolean;
   /** أنواع السبر الظاهرة في الفلترة — للمدرّس أنواع طلابه فقط */
   typeFilters: Exclude<RowType, "PLACEMENT">[];
   currentUserId: string;
@@ -234,6 +238,11 @@ export default function ExamMonitorClient({
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, color: "var(--ink-2)" }}>
                   {!isAwqafActual && <span>المختبِر: {r.examinerName}</span>}
                   <span>{formatDateAr(r.date)}</span>
+                  {canDelete && (
+                    <span style={{ marginInlineStart: "auto" }}>
+                      {isAwqafActual ? <DeleteExamButton awqafResultId={r.id} /> : <DeleteExamButton examId={r.id} />}
+                    </span>
+                  )}
                 </div>
                 {r.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>ملاحظات: {r.notes}</div>}
               </div>

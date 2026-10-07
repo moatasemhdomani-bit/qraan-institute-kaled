@@ -22,6 +22,7 @@ import {
 } from "@/lib/exam";
 import { today } from "@/lib/daily";
 import Drawer from "@/components/Drawer";
+import DeleteExamButton from "./DeleteExamButton";
 import DateField from "@/components/DateField";
 import NumberField from "@/components/NumberField";
 
@@ -172,6 +173,8 @@ export default function ExamFormDrawer({
           <button type="button" onClick={onClose} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 14, cursor: "pointer" }}>
             إلغاء
           </button>
+          {/* يُفتح النموذج لمن يملك تعديل هذا السبر — المدير، أو المختبِر الذي أجراه */}
+          {existing && <DeleteExamButton examId={existing.id} big onDeleted={onClose} />}
         </>
       }
     >

@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from "fs";
 import path from "path";
-import { formatDateAr } from "./daily";
+import { formatDateAr, formatTime12 } from "./daily";
+import { formatJuz } from "./pastRecitation";
 
 const LOGO_DATA_URI = (() => {
   const p = path.join(process.cwd(), "public", "logo-mark.png");
@@ -36,6 +37,9 @@ const BASE_STYLE = `
   .head .meta b { color: #0a192f; }
   h2.block { font-size: 14px; background: linear-gradient(90deg, rgba(212,175,55,.18), rgba(212,175,55,.02)); padding: 8px 12px; border-radius: 8px; margin: 18px 0 8px; }
   h2.block span { color: #8a6d1f; font-weight: 400; font-size: 12px; }
+  /* تقارير الحلقات: كل حلقة تبدأ في صفحة جديدة */
+  .halqa-page + .halqa-page { break-before: page; page-break-before: always; }
+  .halqa-page + .halqa-page h2.block { margin-top: 0; }
   h3.section { font-size: 12.5px; font-weight: 700; color: #123058; margin: 12px 0 6px; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
   th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
@@ -92,7 +96,7 @@ export type HalaqatReportRow = {
   from: number | null;
   to: number | null;
   newTotal: number;
-  pastTotal: number;
+  pastJuz: number;
   locPass: number; locFail: number;
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
@@ -107,6 +111,7 @@ export function halaqatReportHtml(input: {
   const blocksHtml = input.blocks
     .map((b) => {
       return `
+    <section class="halqa-page">
     <h2 class="block">الحلقة: ${escapeHtml(b.halqaName)} &nbsp;&nbsp; المدرس: ${escapeHtml(b.teacherName)} &nbsp;&nbsp; الفوج: ${escapeHtml(b.cohortName)}</h2>
     <table>
       <thead>
@@ -115,7 +120,7 @@ export function halaqatReportHtml(input: {
           <th rowspan="2">من صفحة</th>
           <th rowspan="2">إلى صفحة</th>
           <th rowspan="2">مجموع الجديد</th>
-          <th rowspan="2">مجموع الماضي</th>
+          <th rowspan="2">مجموع الماضي (أجزاء)</th>
           <th colspan="2">اختبار محلي</th>
           <th colspan="2">ترشيح الأوقاف</th>
           <th colspan="2">سبر الأوقاف الفعلي</th>
@@ -133,7 +138,7 @@ export function halaqatReportHtml(input: {
               <td>${r.from ?? "—"}</td>
               <td>${r.to ?? "—"}</td>
               <td>${r.newTotal}</td>
-              <td>${r.pastTotal}</td>
+              <td>${formatJuz(r.pastJuz)}</td>
               ${passFailCells(r.locPass, r.locFail)}
               ${passFailCells(r.nomPass, r.nomFail)}
               ${passFailCells(r.realPass, r.realFail)}
@@ -142,7 +147,8 @@ export function halaqatReportHtml(input: {
           )
           .join("")}
       </tbody>
-    </table>`;
+    </table>
+    </section>`;
     })
     .join("");
 
@@ -174,6 +180,7 @@ export function arabicHalaqatReportHtml(input: {
   const blocksHtml = input.blocks
     .map(
       (b) => `
+    <section class="halqa-page">
     <h2 class="block">الحلقة: ${escapeHtml(b.halqaName)} &nbsp;&nbsp; المدرس: ${escapeHtml(b.teacherName)} &nbsp;&nbsp; الفوج: ${escapeHtml(b.cohortName)}</h2>
     <table>
       <thead><tr>
@@ -193,7 +200,8 @@ export function arabicHalaqatReportHtml(input: {
           )
           .join("")}
       </tbody>
-    </table>`
+    </table>
+    </section>`
     )
     .join("");
   return (
@@ -247,7 +255,7 @@ export type TeachersReportRow = {
   teacherName: string;
   halqaNames: string;
   newPages: number;
-  pastPages: number;
+  pastJuz: number;
   locPass: number; locFail: number;
   awqPass: number; awqFail: number;
   count: number;
@@ -261,7 +269,7 @@ export function teachersReportHtml(input: {
   const table = `
     <table>
       <thead><tr>
-        <th>المدرس</th><th>الحلقة</th><th>صفحات جديد لكل الطلاب</th><th>صفحات ماضٍ لكل الطلاب</th>
+        <th>المدرس</th><th>الحلقة</th><th>صفحات جديد لكل الطلاب</th><th>أجزاء ماضٍ لكل الطلاب</th>
         <th>اختبارات محلية (ناجحة/إعادة)</th><th>اختبارات الأوقاف (ناجحة/إعادة)</th>
         <th>عدد الطلاب</th><th>ملاحظات</th>
       </tr></thead>
@@ -272,7 +280,7 @@ export function teachersReportHtml(input: {
               <td class="name">${escapeHtml(r.teacherName)}</td>
               <td>${escapeHtml(r.halqaNames)}</td>
               <td>${r.newPages}</td>
-              <td>${r.pastPages}</td>
+              <td>${formatJuz(r.pastJuz)}</td>
               <td><span class="pass">${r.locPass}</span> / <span class="fail">${r.locFail}</span></td>
               <td><span class="pass">${r.awqPass}</span> / <span class="fail">${r.awqFail}</span></td>
               <td>${r.count}</td>
@@ -296,14 +304,20 @@ export function studentReportHtml(input: {
   studentName: string; studentNo: string; halqaName: string; cohortName: string;
   attendance: { present: number; late: number; excused: number; absent: number };
   newPages: number;
-  pastPages: number;
+  pastJuz: number;
   locPass: number; locFail: number;
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
   behavior: string;
+  permits: { kind: "ENTRY" | "EXIT"; time: string; days: string[]; note: string | null; since: string }[];
 }): string {
   const body = `
-    <h2 class="block">${escapeHtml(input.studentName)} <span>#${escapeHtml(input.studentNo)} — ${escapeHtml(input.halqaName)} · ${escapeHtml(input.cohortName)} · سلوك الطالب: ${escapeHtml(input.behavior)}</span></h2>
+    <h2 class="block">${escapeHtml(input.studentName)} <span>#${escapeHtml(input.studentNo)} — ${escapeHtml(input.halqaName)} · ${escapeHtml(input.cohortName)}</span></h2>
+
+    <h3 class="section">سلوك الطالب</h3>
+    <table>
+      <tbody><tr><td style="font-weight:700;font-size:12.5px">${escapeHtml(input.behavior)}</td></tr></tbody>
+    </table>
 
     <h3 class="section">حضور الطالب</h3>
     <table>
@@ -316,8 +330,8 @@ export function studentReportHtml(input: {
 
     <h3 class="section">تسميع الطالب</h3>
     <table>
-      <thead><tr><th>صفحات جديد</th><th>صفحات ماضٍ</th></tr></thead>
-      <tbody><tr><td>${input.newPages}</td><td>${input.pastPages}</td></tr></tbody>
+      <thead><tr><th>صفحات جديد</th><th>أجزاء ماضٍ</th></tr></thead>
+      <tbody><tr><td>${input.newPages}</td><td>${formatJuz(input.pastJuz)}</td></tr></tbody>
     </table>
 
     <h3 class="section">سبر الطالب</h3>
@@ -328,7 +342,27 @@ export function studentReportHtml(input: {
         <td><span class="pass">${input.nomPass}</span> / <span class="fail">${input.nomFail}</span></td>
         <td><span class="pass">${input.realPass}</span> / <span class="fail">${input.realFail}</span></td>
       </tr></tbody>
-    </table>`;
+    </table>
+
+    <h3 class="section">إذن الطالب</h3>
+    ${
+      input.permits.length === 0
+        ? `<table><tbody><tr><td>لا يوجد إذن</td></tr></tbody></table>`
+        : `<table>
+      <thead><tr><th>نوع الإذن</th><th>الوقت</th><th>أيام الإذن</th><th>السبب</th><th>قائم منذ</th></tr></thead>
+      <tbody>${input.permits
+        .map(
+          (p) => `<tr>
+        <td>${p.kind === "ENTRY" ? "إذن دخول" : "إذن خروج"}</td>
+        <td>${p.kind === "ENTRY" ? "يدخل في" : "يخرج في"} ${formatTime12(p.time)}</td>
+        <td>${p.days.length ? escapeHtml(p.days.join("، ")) : "كل أيام الدوام"}</td>
+        <td class="note">${p.note ? escapeHtml(p.note) : "—"}</td>
+        <td>${formatDateAr(p.since)}</td>
+      </tr>`
+        )
+        .join("")}</tbody>
+    </table>`
+    }`;
 
   return (
     htmlHead(input.name) +

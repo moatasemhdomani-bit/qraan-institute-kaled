@@ -25,6 +25,8 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[]; tr
   { id: "reports-hub", href: "/reports", label: "مركز التقارير", roles: ["DIRECTOR", "ADMIN"] },
   // ملاحظات المدرّس الشهرية تُغذّي تقرير تسميع حلقات القرآن — لا عمود ملاحظات في تقرير القراءة العربية
   { id: "monthly-report", href: "/monthly-report", label: "التقرير الشهري", roles: ["TEACHER"], track: "QURAN" },
+  // تقرير طالب للمدرّس — مشاهدة فقط، بلا إصدار ولا PDF
+  { id: "student-report", href: "/student-report", label: "تقرير طالب", roles: ["TEACHER"] },
 ];
 
 /** ترتيب الشاشات عند المدير والإداري كما طلبته الإدارة — بقية الأدوار تبقى بترتيب NAV نفسه. */

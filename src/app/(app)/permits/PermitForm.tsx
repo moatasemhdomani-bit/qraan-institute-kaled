@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
-import { savePermit, deletePermit, type FormState } from "./actions";
+import { savePermit, deleteStudentPermits, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import TimeField from "@/components/TimeField";
@@ -9,19 +9,19 @@ import TimeField from "@/components/TimeField";
 const initialState: FormState = {};
 
 const KINDS = [
-  { id: "ENTRY", label: "إذن دخول", verb: "يدخل في" },
-  { id: "EXIT", label: "إذن خروج", verb: "يخرج في" },
+  { id: "ENTRY", label: "إذن دخول" },
+  { id: "EXIT", label: "إذن خروج" },
 ] as const;
 
 type Halqa = { id: string; name: string; students: { id: string; no: number; name: string }[] };
 
+/** أذونات طالب واحد معًا — دخول و/أو خروج، والأيام والسبب مشتركة بينهما. */
 export type ExistingPermit = {
-  id: string;
   studentId: string;
   studentName: string;
   since: string;
-  kind: "ENTRY" | "EXIT";
-  time: string;
+  entryTime: string | null;
+  exitTime: string | null;
   note: string | null;
   days: string[];
 };
@@ -54,8 +54,11 @@ export default function PermitForm({
   // الأذونات القديمة بلا أيام = كل أيام الدوام؛ والإذن الجديد يبدأ بكل أيام الدوام محدَّدة
   const [days, setDays] = useState<string[]>(existing?.days?.length ? existing.days : workDays);
   const errorRef = useRef<HTMLDivElement>(null);
-  const [kind, setKind] = useState<"ENTRY" | "EXIT" | "">(existing?.kind ?? "");
-  const [time, setTime] = useState(existing?.time ?? "");
+  // دخول أو خروج أو كلاهما معًا
+  const [entryOn, setEntryOn] = useState(!!existing?.entryTime);
+  const [exitOn, setExitOn] = useState(!!existing?.exitTime);
+  const [entryTime, setEntryTime] = useState(existing?.entryTime ?? "");
+  const [exitTime, setExitTime] = useState(existing?.exitTime ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
 
   const wasNew = !existing;
@@ -81,12 +84,10 @@ export default function PermitForm({
     if (errorText) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [errorText, state]);
 
-  const kindInfo = KINDS.find((k) => k.id === kind);
-
   async function handleDelete() {
     if (!existing) return;
     setDeleting(true);
-    const res = await deletePermit(existing.id);
+    const res = await deleteStudentPermits(existing.studentId);
     setDeleting(false);
     if (res.error) setDeleteError(res.error);
     else {
@@ -100,7 +101,7 @@ export default function PermitForm({
       open
       onClose={onClose}
       title={existing ? "تعديل إذن" : "إذن جديد"}
-      subtitle={existing ? `${existing.studentName} — الإذن قائم منذ ${existing.since}` : "اختاروا الطالب ثم النوع والوقت"}
+      subtitle={existing ? `${existing.studentName} — الإذن قائم منذ ${existing.since}` : "اختاروا الطالب ثم النوع والوقت — يمكن اختيار الدخول والخروج معًا"}
       footer={
         <>
           <button form="permit-form" type="submit" disabled={pending} style={{ ...primaryButtonStyle, flex: 1, opacity: pending ? 0.7 : 1 }}>
@@ -123,10 +124,12 @@ export default function PermitForm({
       }
     >
       <form id="permit-form" action={formAction} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        <input type="hidden" name="id" value={existing?.id ?? ""} />
+        <input type="hidden" name="editing" value={existing ? "1" : ""} />
         <input type="hidden" name="studentId" value={existing?.studentId ?? studentId} />
-        <input type="hidden" name="kind" value={kind} />
-        <input type="hidden" name="time" value={time} />
+        <input type="hidden" name="kind_ENTRY" value={entryOn ? "1" : ""} />
+        <input type="hidden" name="kind_EXIT" value={exitOn ? "1" : ""} />
+        <input type="hidden" name="entryTime" value={entryOn ? entryTime : ""} />
+        <input type="hidden" name="exitTime" value={exitOn ? exitTime : ""} />
         <input type="hidden" name="note" value={note} />
         <input type="hidden" name="daysJson" value={JSON.stringify(days)} />
 
@@ -180,17 +183,31 @@ export default function PermitForm({
         )}
 
         <div>
-          <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>نوع الإذن</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>نوع الإذن — يمكن اختيار النوعين معًا</div>
           <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
-            {KINDS.map((k) => (
-              <button key={k.id} type="button" onClick={() => setKind(k.id)} style={{ ...chipStyle(kind === k.id), minHeight: 44, padding: "10px 22px" }}>
-                {k.label}
-              </button>
-            ))}
+            {KINDS.map((k) => {
+              const on = k.id === "ENTRY" ? entryOn : exitOn;
+              return (
+                <button
+                  key={k.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => (k.id === "ENTRY" ? setEntryOn(!entryOn) : setExitOn(!exitOn))}
+                  style={{ ...chipStyle(on), minHeight: 44, padding: "10px 22px" }}
+                >
+                  {on ? "✓ " : ""}
+                  {k.label}
+                </button>
+              );
+            })}
           </div>
+          {entryOn && exitOn && (
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 6 }}>إذنا دخول وخروج معًا — الأيام والسبب مشتركان بينهما.</div>
+          )}
         </div>
 
-        <TimeField label={kindInfo ? `الوقت الذي ${kindInfo.verb}ه الطالب` : "وقت الإذن"} value={time} onChange={setTime} />
+        {entryOn && <TimeField label="الوقت الذي يدخل فيه الطالب" value={entryTime} onChange={setEntryTime} />}
+        {exitOn && <TimeField label="الوقت الذي يخرج فيه الطالب" value={exitTime} onChange={setExitTime} />}
 
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>أيام الإذن</div>

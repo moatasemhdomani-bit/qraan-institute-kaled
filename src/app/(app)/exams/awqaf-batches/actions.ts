@@ -212,3 +212,20 @@ export async function archiveBatchCerts(_prev: FormState, formData: FormData): P
   revalidatePath("/exam-monitor");
   return { ok: true };
 }
+
+/** حذف نتيجة سبر الأوقاف الفعلي (الطالب من الدفعة) — للإدارة وحدها. */
+export async function deleteAwqafResult(id: string): Promise<FormState> {
+  const session = await getSession();
+  if (!canManage(session)) return { error: "غير مصرَّح لك بهذا الإجراء." };
+
+  const result = await prisma.awqafResult.findUnique({ where: { id }, include: { student: true, batch: true } });
+  if (!result) return { error: "السجل غير موجود." };
+
+  await prisma.awqafResult.delete({ where: { id } });
+  await logAction(session.userId, `حذف سبر الأوقاف الفعلي للطالب «${result.student.name}» من دفعة ${result.batch.date}`);
+
+  revalidateAwqafPaths();
+  revalidatePath(`/exams/awqaf-batches/${result.batchId}`);
+  revalidatePath("/exam-monitor");
+  return { ok: true };
+}

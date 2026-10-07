@@ -1,5 +1,6 @@
 "use client";
 
+import { formatJuz } from "@/lib/pastRecitation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -20,6 +21,8 @@ type Block = {
   meta: string;
   uploaded: boolean;
   totalPages: number;
+  /** مجموع الماضي بالأجزاء */
+  totalPastJuz: number;
   rows: Row[];
 };
 
@@ -156,7 +159,7 @@ export default function RecitationMonitorClient({
                       background: "var(--chip)",
                     }}
                   >
-                    {b.totalPages} صفحة
+                    {b.totalPages} صفحة جديد{b.totalPastJuz > 0 ? ` · ${formatJuz(b.totalPastJuz)} جزء ماضٍ` : ""}
                   </span>
                 )}
                 <span

@@ -22,7 +22,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     // أعمدة الشبكة في globals.css (.app-shell) كي يطويها زر ☰ — الشريط الجانبي ينسحب وتتسع الشاشة
-    <div className={`app-shell role-${session.role.toLowerCase()}${navCollapsed ? " nav-collapsed" : ""}`}>
+    <div className={`app-shell role-${session.role.toLowerCase()} track-${session.track.toLowerCase()}${navCollapsed ? " nav-collapsed" : ""}`}>
       <NavToggle initialCollapsed={navCollapsed} />
       <Sidebar role={session.role} name={displayName} roleLabel={staffRoleLabel(session.role, session.track, ROLE_LABELS)} track={session.track} theme={theme} />
       <MobileNav role={session.role} name={displayName} track={session.track} theme={theme} />

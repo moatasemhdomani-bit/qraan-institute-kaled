@@ -205,3 +205,28 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   revalidateExamPaths();
   return { ok: true, examId };
 }
+
+/**
+ * حذف سبر: الإدارة (المدير والإداري) تحذف أي سبر من أي نوع، والمختبِر يحذف ما أجراه هو فقط.
+ * الحذف لا يُلغي ترفّعًا سبق أن تمّ بنجاح هذا السبر — يُعدَّل مستوى الطالب من شؤون الطلاب إن لزم.
+ */
+export async function deleteExam(id: string): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { error: "غير مصرَّح لك بهذا الإجراء." };
+
+  const exam = await prisma.exam.findUnique({ where: { id }, include: { student: { select: { name: true } } } });
+  if (!exam) return { error: "السبر غير موجود." };
+
+  const isAdmin = session.role === "DIRECTOR" || session.role === "ADMIN";
+  const isOwnExam = examinerLike(session.role) && exam.examinerId === session.userId;
+  if (!isAdmin && !isOwnExam) return { error: "يحذف المختبِر السبر الذي أجراه هو فقط." };
+
+  await prisma.exam.delete({ where: { id } });
+  await logAction(
+    session.userId,
+    `حذف ${examLabel(exam.type as ExamTypeId, exam.localKind as LocalKindId | null)}${exam.type === "ARABIC" && exam.stage ? ` (${arabicStageLabel(exam.stage)})` : ""} للطالب «${exam.student.name}» بتاريخ ${exam.date}`
+  );
+
+  revalidateExamPaths();
+  return { ok: true };
+}

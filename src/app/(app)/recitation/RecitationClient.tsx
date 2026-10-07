@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { saveStudentRecitation } from "./actions";
+import { saveStudentRecitation, saveStudentNote } from "./actions";
 import { GRADES } from "@/lib/daily";
 import { pageRange, AMMA_SURAHS, type TrackId, type RecitationMode } from "@/lib/track";
 import { validateEntry, validateSurahEntry } from "@/lib/recitation";
 import { chipStyle } from "@/lib/ui";
 import NumberField from "@/components/NumberField";
+import Select from "@/components/Select";
+import { PAST_KINDS, JUZ_COUNT, pastItemLabel, pastJuzTotal, formatJuz, type PastKind } from "@/lib/pastRecitation";
+
+/** بند ماضٍ في النموذج: النوع، ورقم الجزء نصًّا (فارغ = لم يُختر بعد)، وتقديره. */
+type PastRow = { kind: PastKind; juz: string; grade: string };
 
 type Entry = {
   none: boolean;
@@ -14,10 +19,9 @@ type Entry = {
   noPast: boolean;
   nf: string;
   nt: string;
-  rf: string;
-  rt: string;
   gradeNew: string;
-  gradePast: string;
+  /** الماضي لطلاب القرآن: حزب 1 / حزب 2 / جزء من الأجزاء 1–30، لكل بند تقديره */
+  past: PastRow[];
   /** تسميع بالسور: أسماء السور مفصولة بـ | (نص لا مصفوفة كي تبقى المقارنة بالحفظ بسيطة) */
   surahs: string;
 };
@@ -30,7 +34,8 @@ type Student = {
   mode: RecitationMode;
   saved: Entry | null;
   lastNewTo: number | null;
-  lastPastTo: number | null;
+  /** «ملاحظة الطالب» الخاصة بالمدرّس — null = لا تظهر (المدير) */
+  note: string | null;
 };
 
 /**
@@ -53,10 +58,8 @@ const blank = (s: Student, track: TrackId): Entry => ({
           ? ""
           : String(pageRange(track).min),
   nt: "",
-  rf: "",
-  rt: "",
   gradeNew: "",
-  gradePast: "",
+  past: [],
   surahs: "",
 });
 
@@ -75,7 +78,12 @@ const pageNum = (v: string): number | null => {
 };
 
 const sameEntry = (a: Entry | undefined, b: Entry) =>
-  !!a && (Object.keys(b) as (keyof Entry)[]).every((k) => a[k] === b[k]);
+  !!a && (Object.keys(b) as (keyof Entry)[]).every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
+
+const JUZ_OPTIONS = Array.from({ length: JUZ_COUNT }, (_, i) => ({ value: String(i + 1), label: `الجزء ${i + 1}` }));
+const GRADE_OPTIONS = GRADES.map((g) => ({ value: g, label: g }));
+const pastRowsToItems = (rows: PastRow[]) =>
+  rows.map((p) => ({ kind: p.kind, juz: p.juz ? parseInt(p.juz, 10) : null, grade: p.grade }));
 
 /** سبب رفض سطر الطالب (نفس قواعد الخادم تمامًا)، أو null إن كان جاهزًا للحفظ. */
 function entryProblem(s: Student, e: Entry, track: TrackId): string | null {
@@ -88,10 +96,8 @@ function entryProblem(s: Student, e: Entry, track: TrackId): string | null {
       noPast: e.noPast,
       newFrom: pageNum(e.nf),
       newTo: pageNum(e.nt),
-      pastFrom: pageNum(e.rf),
-      pastTo: pageNum(e.rt),
       gradeNew: e.gradeNew || null,
-      gradePast: e.gradePast || null,
+      pastItems: pastRowsToItems(e.past),
     },
     s.lastNewTo,
     track
@@ -101,9 +107,11 @@ function entryProblem(s: Student, e: Entry, track: TrackId): string | null {
 function summaryOf(e: Entry, mode: RecitationMode): string {
   if (e.none) return "لم يسمّع اليوم";
   if (mode === "surah") return `سور: ${surahList(e).join("، ")} (${e.gradeNew})`;
-  const newPart = e.noNew ? "لم يسمّع جديدًا" : `تسميع جديد ${e.nf}→${e.nt} (${e.gradeNew})`;
+  const newPart = e.noNew ? "لم يسمّع جديدًا" : `تسميع جديد ${e.nf}←${e.nt} (${e.gradeNew})`;
   if (mode === "arabic") return `من الصفحة ${e.nf} إلى ${e.nt} (${e.gradeNew})`;
-  const pastPart = e.noPast ? "لم يقرأ ماضي" : `ماضي ${e.rf}→${e.rt} (${e.gradePast})`;
+  const pastPart = e.noPast
+    ? "لم يقرأ ماضي"
+    : `ماضي: ${e.past.map((p) => `${pastItemLabel({ kind: p.kind, juz: parseInt(p.juz, 10) })} (${p.grade})`).join("، ")}`;
   return `${newPart} · ${pastPart}`;
 }
 
@@ -136,6 +144,25 @@ export default function RecitationClient({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [errorTick, setErrorTick] = useState(0);
+  // «ملاحظة الطالب»: تُحفظ وحدها عند مغادرة الخانة، مستقلة عن حفظ التسميع
+  const [notes, setNotes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(students.filter((s) => s.note !== null).map((s) => [s.id, s.note as string]))
+  );
+  const [savedNotes, setSavedNotes] = useState<Record<string, string>>(notes);
+  const [noteStatus, setNoteStatus] = useState<Record<string, string>>({});
+
+  async function persistNote(id: string) {
+    const text = (notes[id] ?? "").trim();
+    if (text === (savedNotes[id] ?? "").trim()) return;
+    setNoteStatus((p) => ({ ...p, [id]: "جارٍ حفظ الملاحظة…" }));
+    const res = await saveStudentNote(id, text);
+    if (res.error) {
+      setNoteStatus((p) => ({ ...p, [id]: `لم تُحفظ الملاحظة — ${res.error}` }));
+      return;
+    }
+    setSavedNotes((p) => ({ ...p, [id]: text }));
+    setNoteStatus((p) => ({ ...p, [id]: "حُفظت الملاحظة ✓" }));
+  }
   const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -163,7 +190,7 @@ export default function RecitationClient({
     }
     setSavingId(s.id);
     startTransition(async () => {
-      const res = await saveStudentRecitation({ halqaId, date, studentId: s.id, ...e });
+      const res = await saveStudentRecitation({ halqaId, date, studentId: s.id, ...e, past: pastRowsToItems(e.past) });
       setSavingId(null);
       if (res.error) {
         fail(s.id, res.error);
@@ -241,6 +268,9 @@ export default function RecitationClient({
                     {summary}
                     {justSaved === s.id && saved ? " — تم الحفظ ✓" : ""}
                   </span>
+                  {s.note !== null && (savedNotes[s.id] ?? "").trim() && (
+                    <span style={{ fontSize: 12, color: "var(--gold)" }}>ملاحظة: {savedNotes[s.id]}</span>
+                  )}
                 </span>
               </button>
 
@@ -255,6 +285,25 @@ export default function RecitationClient({
                     borderTop: "1px solid var(--line-2)",
                   }}
                 >
+                  {s.note !== null && (
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>ملاحظة الطالب: (اختيارية — تظهر لك وحدك)</label>
+                      <textarea
+                        value={notes[s.id] ?? ""}
+                        onChange={(ev) => {
+                          const v = ev.target.value;
+                          setNotes((p) => ({ ...p, [s.id]: v }));
+                          setNoteStatus((p) => ({ ...p, [s.id]: "" }));
+                        }}
+                        onBlur={() => persistNote(s.id)}
+                        rows={2}
+                        maxLength={1000}
+                        placeholder="الملاحظة التي تعمل على تصحيحها للطالب — لتتذكّر على ماذا تركّز معه"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 13.5, lineHeight: 1.6, fontFamily: "inherit", resize: "vertical" }}
+                      />
+                      {noteStatus[s.id] && <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 4 }}>{noteStatus[s.id]}</div>}
+                    </div>
+                  )}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       type="button"
@@ -321,10 +370,8 @@ export default function RecitationClient({
                           [
                             { label: withPast ? "تسميع جديد — من صفحة" : "من الصفحة", key: "nf", off: e.noNew },
                             { label: withPast ? "تسميع جديد — إلى صفحة" : "إلى الصفحة", key: "nt", off: e.noNew },
-                            { label: "ماضي — من صفحة", key: "rf", off: e.noPast },
-                            { label: "ماضي — إلى صفحة", key: "rt", off: e.noPast },
                           ] as const
-                        ).filter((f) => withPast || (f.key !== "rf" && f.key !== "rt")).map((f) => (
+                        ).map((f) => (
                           <div key={f.key}>
                             <label style={{ display: "block", fontSize: 11.5, color: "var(--ink-2)", marginBottom: 5 }}>
                               {f.label}
@@ -341,9 +388,6 @@ export default function RecitationClient({
                       </div>
                       <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
                         {withPast ? "تسميع جديد «من» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت جديدًا — لا يجوز النزول تحتها." : "«من الصفحة» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت — لا يجوز النزول تحتها."}
-                        {withPast
-                          ? ` الماضي مراجعة حرّة، لأي صفحة سابقة${s.lastPastTo ? ` (آخر ماضٍ وصل إلى صفحة ${s.lastPastTo})` : ""}.`
-                          : ""}
                         {` الصفحات بين ${pageRange(track).min} و${pageRange(track).max}.`}
                       </div>
                       </>
@@ -364,13 +408,52 @@ export default function RecitationClient({
 
                       {withPast && !e.noPast && (
                         <div>
-                          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 7 }}>تقدير الماضي</div>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {GRADES.map((g) => (
-                              <button key={g} type="button" onClick={() => set(s.id, { gradePast: g })} style={chipStyle(e.gradePast === g)}>
-                                {g}
-                              </button>
-                            ))}
+                          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 7 }}>
+                            الماضي — اختاروا الجزء وتقديره تحت كل نوع (يمكن أكثر من نوع، وتكرار النوع لأجزاء مختلفة)
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+                            {PAST_KINDS.map((k) => {
+                              const usedJuz = e.past.filter((p) => p.kind === k.id).map((p) => p.juz);
+                              return (
+                                <div key={k.id} style={{ display: "flex", flexDirection: "column", gap: 7, padding: 8, borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-grad)", minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 700, textAlign: "center" }}>{k.label}</div>
+                                  {e.past.map((p, i) =>
+                                    p.kind !== k.id ? null : (
+                                      <div key={i} style={{ display: "flex", flexDirection: "column", gap: 5, paddingTop: 6, borderTop: "1px solid var(--line-2)" }}>
+                                        {/* لا يتكرّر البند نفسه: الأجزاء المختارة لهذا النوع تُحذف من قوائمه الأخرى */}
+                                        <Select
+                                          value={p.juz}
+                                          placeholder="الجزء"
+                                          options={JUZ_OPTIONS.filter((o) => o.value === p.juz || !usedJuz.includes(o.value))}
+                                          onChange={(v) => set(s.id, { past: e.past.map((x, j) => (j === i ? { ...x, juz: v } : x)) })}
+                                        />
+                                        <Select
+                                          value={p.grade}
+                                          placeholder="التقدير"
+                                          options={GRADE_OPTIONS}
+                                          onChange={(v) => set(s.id, { past: e.past.map((x, j) => (j === i ? { ...x, grade: v } : x)) })}
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => set(s.id, { past: e.past.filter((_, j) => j !== i) })}
+                                          style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid rgba(224,138,138,0.45)", background: "transparent", color: "var(--bad-ink)", fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" }}
+                                        >
+                                          حذف
+                                        </button>
+                                      </div>
+                                    )
+                                  )}
+                                  <button
+                                    type="button"
+                                    disabled={usedJuz.length >= JUZ_COUNT}
+                                    onClick={() => set(s.id, { past: [...e.past, { kind: k.id, juz: "", grade: "" }] })}
+                                    style={{ marginTop: "auto", padding: "7px 6px", borderRadius: 9, border: "1px dashed var(--accent-line)", background: "var(--chip)", color: "var(--ink)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}
+                                  >
+                                    + {k.label}
+                                  </button>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -403,7 +486,7 @@ export default function RecitationClient({
                       </span>
                       {withPast && (
                         <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
-                          صفحات الماضي: {e.none || e.noPast ? 0 : span(e.rf, e.rt, track)}
+                          الماضي: {e.none || e.noPast ? 0 : formatJuz(pastJuzTotal(e.past))} جزء
                         </span>
                       )}
                     </div>
