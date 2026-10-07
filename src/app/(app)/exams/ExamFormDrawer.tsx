@@ -14,6 +14,9 @@ import {
   arabicStageLabel,
   ARABIC_PASS_MARK,
   ARABIC_FAIL_GRADE,
+  ARABIC_NOTE_OPTIONS,
+  composeArabicNotes,
+  splitArabicNotes,
   TYPE_LABELS,
   passFailLabel,
   passThreshold,
@@ -131,6 +134,8 @@ export default function ExamFormDrawer({
   const [nominationPresent, setNominationPresent] = useState<boolean | null>(existing?.nominationPresent ?? null);
   const [nominationParts, setNominationParts] = useState<number | null>(existing?.nominationParts ?? null);
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  // سبر القراءة العربية: ملاحظات ثابتة يُختار منها + ملاحظة حرّة، وتُجمع في حقل الملاحظات نفسه
+  const [arabicNotes, setArabicNotes] = useState(() => splitArabicNotes(existing?.notes));
   const [stage, setStage] = useState<number | null>(existing?.stage ?? null);
   const [grade, setGrade] = useState(existing?.grade ?? "");
   useEffect(() => {
@@ -452,12 +457,32 @@ export default function ExamFormDrawer({
 
         <div>
           <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>ملاحظات المختبِر</label>
+          {isArabic && (
+            <>
+              <input type="hidden" name="notes" value={composeArabicNotes(arabicNotes.selected, arabicNotes.free)} />
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 10 }}>
+                {ARABIC_NOTE_OPTIONS.map((o) => {
+                  const on = arabicNotes.selected.includes(o);
+                  return (
+                    <button
+                      key={o}
+                      type="button"
+                      onClick={() => setArabicNotes((n) => ({ ...n, selected: on ? n.selected.filter((x) => x !== o) : [...n.selected, o] }))}
+                      style={{ ...chipStyle(on), minHeight: 42, padding: "9px 16px" }}
+                    >
+                      {o}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <textarea
-            name="notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={4}
-            placeholder="ما يحتاج المدرّس أن يعرفه"
+            name={isArabic ? undefined : "notes"}
+            value={isArabic ? arabicNotes.free : notes}
+            onChange={(e) => (isArabic ? setArabicNotes((n) => ({ ...n, free: e.target.value })) : setNotes(e.target.value))}
+            rows={isArabic ? 2 : 4}
+            placeholder={isArabic ? "ملاحظة أخرى (اختياري)" : "ما يحتاج المدرّس أن يعرفه"}
             style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 14, lineHeight: 1.6, resize: "vertical" }}
           />
           <div style={{ marginTop: 6, fontSize: 12, color: "var(--ink-3)" }}>

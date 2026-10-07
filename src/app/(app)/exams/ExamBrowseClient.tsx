@@ -260,7 +260,7 @@ export default function ExamBrowseClient({
                     <span>المختبِر: {e.examinerName}</span>
                     <span>{formatDateAr(e.date)}</span>
                   </div>
-                  {e.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>ملاحظات: {e.notes}</div>}
+                  {e.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)", whiteSpace: "pre-line" }}>ملاحظات: {e.notes}</div>}
                 </div>
               );
             })}

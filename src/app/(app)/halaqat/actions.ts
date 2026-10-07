@@ -37,8 +37,12 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
   const cascade = !!current && current.track !== track && current.teacherId === teacherId && current.cohortId === cohortId;
 
   // غير ذلك: المدرّس «مدرس» من نوع الحلقة في فوجها
-  const teacher = await prisma.staffAssignment.findUnique({ where: { userId_cohortId: { userId: teacherId, cohortId } } });
-  if (!teacher || teacher.role !== "TEACHER" || (!cascade && teacher.track !== teacherTrackFor(track))) {
+  // (قد يكون للموظف أكثر من دور في الفوج نفسه)
+  const teacherRows = await prisma.staffAssignment.findMany({ where: { userId: teacherId, cohortId, role: "TEACHER" } });
+  const teacher =
+    teacherRows.find((t) => t.track === teacherTrackFor(track)) ??
+    (cascade ? teacherRows.find((t) => t.track === teacherTrackFor(current.track)) : undefined);
+  if (!teacher) {
     return { error: `حلقة «${TRACK_LABELS[track]}» يدرّسها مدرس ${TRACK_LABELS[teacherTrackFor(track)]} فقط.` };
   }
 
@@ -64,7 +68,16 @@ export async function saveHalqa(_prev: FormState, formData: FormData): Promise<F
     await prisma.$transaction([
       prisma.halqa.update({ where: { id }, data: { name, teacherId, cohortId, track } }),
       prisma.student.updateMany({ where: { halqaId: id }, data: { track } }),
-      prisma.staffAssignment.update({ where: { userId_cohortId: { userId: teacherId, cohortId } }, data: { track: teacherTrackFor(track) } }),
+      ...(teacher.track !== teacherTrackFor(track)
+        ? [
+            prisma.staffAssignment.delete({ where: { id: teacher.id } }),
+            prisma.staffAssignment.upsert({
+              where: { userId_cohortId_role_track: { userId: teacherId, cohortId, role: "TEACHER", track: teacherTrackFor(track) } },
+              update: {},
+              create: { userId: teacherId, cohortId, role: "TEACHER", track: teacherTrackFor(track) },
+            }),
+          ]
+        : []),
     ]);
     await logAction(session.userId, `غيّر نوع الحلقة «${name}» إلى «${TRACK_LABELS[track]}» — ومعه مستوى طلابها ودور مدرّسها في فوجها`);
   } else if (id) {

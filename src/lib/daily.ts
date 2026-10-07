@@ -6,6 +6,9 @@ export const MAX_PAGE = 604;
 
 export const GRADES = ["ممتاز", "جيد جدًا", "جيد", "ضعيف", "إعادة"] as const;
 
+/** تقدير «إعادة»: كأن الطالب لم يسمّع — لا تُحسب صفحاته في التقارير ولا يتقدّم بها عدّاد «من صفحة». */
+export const REPEAT_GRADE = "إعادة";
+
 export const ATT_STATES = [
   { id: "PRESENT", label: "حاضر", color: "var(--ok)" },
   { id: "LATE", label: "متأخر", color: "var(--gold)" },
@@ -146,6 +149,12 @@ export function timeRangeLabel(start: string | null, end: string | null): string
   if (!start && !end) return "غير محدَّد";
   if (start && end) return `${formatTime12(start)} — ${formatTime12(end)}`;
   return formatTime12(start || end) || "غير محدَّد";
+}
+
+/** صفحات التسميع الجديد المحسوبة — صفر إن كان تقديره «إعادة»، أو كانت صفحة واحدة لم يُضغط عليها «تمت الصفحة». */
+export function countedNewPages(r: { newFrom: number | null; newTo: number | null; gradeNew?: string | null; pageDone?: boolean | null }): number {
+  if (r.gradeNew === REPEAT_GRADE || r.pageDone === false) return 0;
+  return pageSpan(r.newFrom, r.newTo);
 }
 
 export function pageSpan(from: number | null, to: number | null): number {

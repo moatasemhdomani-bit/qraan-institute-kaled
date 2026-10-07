@@ -29,7 +29,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   }
 
   const id = String(formData.get("id") || "") || null;
-  // الدور في كل فوج — الموظف قد يأخذ أدوارًا مختلفة باختلاف الأفواج
+  // الأدوار في كل فوج — الموظف قد يأخذ أدوارًا مختلفة باختلاف الأفواج، وأكثر من دور في الفوج نفسه
   let rawAssignments: { cohortId: string; kind: string }[] = [];
   try {
     rawAssignments = JSON.parse(String(formData.get("assignmentsJson") || "[]"));
@@ -39,7 +39,8 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   const cohortRows = await prisma.cohort.findMany({ select: { id: true, name: true } });
   const assignments = rawAssignments
     .filter((a) => STAFF_KIND_ROLES[a.kind] && cohortRows.some((c) => c.id === a.cohortId))
-    .map((a) => ({ cohortId: a.cohortId, ...STAFF_KIND_ROLES[a.kind] }));
+    .map((a) => ({ cohortId: a.cohortId, ...STAFF_KIND_ROLES[a.kind] }))
+    .filter((a, i, all) => all.findIndex((x) => x.cohortId === a.cohortId && x.role === a.role && x.track === a.track) === i);
   if (assignments.length === 0) return { error: "اختاروا دور الموظف في فوج واحد على الأقل." };
   // الحساب الذي يدخل عليه أولًا: أول أدواره بالترتيب
   const { role, track } = assignments[0];
@@ -54,8 +55,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
   if (id) {
     const taught = await prisma.halqa.findMany({ where: { teacherId: id }, select: { name: true, cohortId: true, track: true } });
     for (const h of taught) {
-      const a = assignments.find((x) => x.cohortId === h.cohortId);
-      if (!a || a.role !== "TEACHER" || a.track !== teacherTrackFor(h.track)) {
+      if (!assignments.some((x) => x.cohortId === h.cohortId && x.role === "TEACHER" && x.track === teacherTrackFor(h.track))) {
         const cohortName = cohortRows.find((c) => c.id === h.cohortId)?.name ?? "";
         return {
           error: `له حلقة «${h.name}» في فوج «${cohortName}» — يبقى فيه «${staffRoleLabel("TEACHER", teacherTrackFor(h.track), ROLE_LABELS)}» حتى تُسند الحلقة إلى مدرّس غيره.`,

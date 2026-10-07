@@ -1,4 +1,4 @@
-import { GRADES } from "./daily";
+import { GRADES, REPEAT_GRADE } from "./daily";
 
 /**
  * التسميع الماضي لطلاب القرآن بالأجزاء والأحزاب (بدل الصفحات): كل بند «حزب 1» أو «حزب 2» أو «جزء» من
@@ -25,8 +25,9 @@ export function pastItemLabel(i: { kind: PastKind; juz: number }): string {
 /** مقدار البند بالأجزاء: الجزء 1، والحزب نصف جزء. */
 export const pastItemJuz = (i: { kind: PastKind }) => (i.kind === "JUZ" ? 1 : 0.5);
 
-export function pastJuzTotal(items: { kind: PastKind }[]): number {
-  return items.reduce((sum, i) => sum + pastItemJuz(i), 0);
+/** مجموع الأجزاء — البند المقدَّر «إعادة» لا يُحسب (كأنه لم يُسمَّع). */
+export function pastJuzTotal(items: { kind: PastKind; grade?: string }[]): number {
+  return items.reduce((sum, i) => sum + (i.grade === REPEAT_GRADE ? 0 : pastItemJuz(i)), 0);
 }
 
 /** عرض عدد الأجزاء: 3 أو 3.5. */

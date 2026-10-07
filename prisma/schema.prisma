@@ -112,7 +112,9 @@ model StaffAssignment {
   role     Role
   track    Track  @default(QURAN)
 
-  @@unique([userId, cohortId])
+  // قد يأخذ الموظف أكثر من دور في الفوج نفسه
+  @@unique([userId, cohortId, role, track])
+  @@index([userId, cohortId])
 }
 
 model CohortTeacher {
@@ -413,6 +415,8 @@ model Recitation {
   newTo   Int?
 
   gradeNew String? // ممتاز | جيد جدًا | جيد | ضعيف | إعادة
+  /// تسميع صفحة واحدة (من = إلى): «تمت الصفحة» — false = لم تتم فلا تُحسب ولا يتقدّم بها العدّاد؛ null = أكثر من صفحة أو تسميع قديم
+  pageDone Boolean?
 
   // الماضي لطلاب القرآن بالأجزاء والأحزاب: [{ kind: HIZB1|HIZB2|JUZ, juz: 1–30, grade }] — انظر lib/pastRecitation.ts
   pastItems Json @default("[]")

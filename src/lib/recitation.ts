@@ -1,4 +1,4 @@
-import { pageRange, hasPastRecitation, AMMA_SURAHS, type TrackId } from "./track";
+import { pageRange, hasPastRecitation, surahsFor, type TrackId } from "./track";
 import { validatePastItems, type PastKind } from "./pastRecitation";
 
 export type RecEntry = {
@@ -16,11 +16,10 @@ export type RecEntry = {
 
 /**
  * يُرجع سبب رفض السطر، أو null إن كان مكتملًا وصحيحًا.
- * maxPriorNewTo: أعلى صفحة جديدة سُمِّعت من قبل لهذا الطالب — لا يجوز أن يبدأ التسميع الجديد قبلها
- * أو منها (لا يُعاد تسميع صفحة سبق حفظها). الماضي مراجعة حرّة، بلا هذا القيد.
+ * يجوز تسميع أي صفحة ولو سُمِّعت من قبل (القرآن والقراءة العربية).
  * track: نوع الحلقة — القراءة العربية صفحاتها 5–48 وتسميعها جديد فقط بلا ماضٍ.
  */
-export function validateEntry(e: RecEntry, maxPriorNewTo?: number | null, track: TrackId = "QURAN"): string | null {
+export function validateEntry(e: RecEntry, track: TrackId = "QURAN"): string | null {
   if (e.none) return null;
   const { min: MIN_PAGE, max: MAX_PAGE } = pageRange(track);
   const inRange = (n: number | null) => n != null && n >= MIN_PAGE && n <= MAX_PAGE;
@@ -40,9 +39,6 @@ export function validateEntry(e: RecEntry, maxPriorNewTo?: number | null, track:
     if (e.newTo < e.newFrom) {
       return `إدخال ${T} غير صحيح — «${to}» (${e.newTo}) أصغر من «${from}» (${e.newFrom}).`;
     }
-    if (maxPriorNewTo != null && e.newFrom <= maxPriorNewTo) {
-      return `لا يمكن تسميع صفحة مسمَّعة مسبقًا — آخر صفحة سُمِّعت${hasPastRecitation(track) ? " جديدًا" : ""}: ${maxPriorNewTo}، فابدأ من ${maxPriorNewTo + 1}.`;
-    }
     if (!e.gradeNew) return `لم يتم تحديد تقدير ${T}.`;
   }
   if (!e.noPast) {
@@ -56,10 +52,10 @@ export function validateEntry(e: RecEntry, maxPriorNewTo?: number | null, track:
  * تسميع بالسور (عمَّ غيباً، و«بينة للناس» لطالب القراءة العربية بعد المرحلة 6): سورة أو أكثر من القائمة،
  * مع تقدير التسميع. يُرجع سبب الرفض أو null.
  */
-export function validateSurahEntry(e: { none: boolean; surahs: string[]; gradeNew: string | null }): string | null {
+export function validateSurahEntry(e: { none: boolean; surahs: string[]; gradeNew: string | null }, track: TrackId): string | null {
   if (e.none) return null;
   if (e.surahs.length === 0) return "اختاروا سورة واحدة على الأقل.";
-  if (e.surahs.some((s) => !AMMA_SURAHS.includes(s))) return "سورة غير معروفة.";
+  if (e.surahs.some((s) => !surahsFor(track).includes(s))) return "سورة غير معروفة.";
   if (!e.gradeNew) return "لم يتم تحديد تقدير التسميع.";
   return null;
 }

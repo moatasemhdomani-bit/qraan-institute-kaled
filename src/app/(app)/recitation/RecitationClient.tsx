@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { saveStudentRecitation, saveStudentNote } from "./actions";
-import { GRADES } from "@/lib/daily";
-import { pageRange, AMMA_SURAHS, type TrackId, type RecitationMode } from "@/lib/track";
+import { GRADES, REPEAT_GRADE } from "@/lib/daily";
+import { pageRange, surahsFor, type TrackId, type RecitationMode } from "@/lib/track";
 import { validateEntry, validateSurahEntry } from "@/lib/recitation";
 import { chipStyle } from "@/lib/ui";
 import NumberField from "@/components/NumberField";
@@ -20,6 +20,8 @@ type Entry = {
   nf: string;
   nt: string;
   gradeNew: string;
+  /** صفحة واحدة (من = إلى): «تمت الصفحة» — بدونه لا تُحسب مسمَّعة */
+  pageDone: boolean;
   /** الماضي لطلاب القرآن: حزب 1 / حزب 2 / جزء من الأجزاء 1–30، لكل بند تقديره */
   past: PastRow[];
   /** تسميع بالسور: أسماء السور مفصولة بـ | (نص لا مصفوفة كي تبقى المقارنة بالحفظ بسيطة) */
@@ -39,8 +41,8 @@ type Student = {
 };
 
 /**
- * «تسميع جديد — من» يبدأ من الصفحة التالية لأعلى صفحة جديدة سُمِّعت من قبل — قابل للتعديل، لكن لا يجوز
- * النزول تحتها (لا يُعاد تسميع صفحة سُمِّعت جديدًا من قبل).
+ * «تسميع جديد — من» يبدأ من الصفحة التالية لأعلى صفحة جديدة سُمِّعت من قبل (التسميع المقدَّر «إعادة» لا يُحرّكه)
+ * — قابل للتعديل، ويجوز تسميع صفحة سابقة.
  * «ماضي — من» يُترك فارغًا عمدًا: الماضي مراجعة، لا يُشترط أن يكمل من حيث انتهى آخر مرة، ويجوز
  * الرجوع لأي صفحة سابقة.
  */
@@ -59,9 +61,14 @@ const blank = (s: Student, track: TrackId): Entry => ({
           : String(pageRange(track).min),
   nt: "",
   gradeNew: "",
+  pageDone: false,
   past: [],
   surahs: "",
 });
+
+/** صفحة واحدة: «من» = «إلى» */
+const singlePage = (e: Entry) => e.nf.trim() !== "" && pageNumOf(e.nf) === pageNumOf(e.nt);
+const pageNumOf = (v: string) => (v.trim() ? Number(v.trim()) : NaN);
 
 const surahList = (e: Entry) => (e.surahs ? e.surahs.split("|") : []);
 
@@ -87,7 +94,7 @@ const pastRowsToItems = (rows: PastRow[]) =>
 
 /** سبب رفض سطر الطالب (نفس قواعد الخادم تمامًا)، أو null إن كان جاهزًا للحفظ. */
 function entryProblem(s: Student, e: Entry, track: TrackId): string | null {
-  if (s.mode === "surah") return validateSurahEntry({ none: e.none, surahs: surahList(e), gradeNew: e.gradeNew || null });
+  if (s.mode === "surah") return validateSurahEntry({ none: e.none, surahs: surahList(e), gradeNew: e.gradeNew || null }, track);
   return validateEntry(
     {
       studentId: s.id,
@@ -99,7 +106,6 @@ function entryProblem(s: Student, e: Entry, track: TrackId): string | null {
       gradeNew: e.gradeNew || null,
       pastItems: pastRowsToItems(e.past),
     },
-    s.lastNewTo,
     track
   );
 }
@@ -340,7 +346,7 @@ export default function RecitationClient({
                         {s.mode === "surah" && track === "ARABIC" ? "بينة للناس — السور المسمَّعة" : "السور المسمَّعة"} (سورة أو أكثر)
                       </div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {AMMA_SURAHS.map((name) => {
+                        {surahsFor(track).map((name) => {
                           const on = surahList(e).includes(name);
                           return (
                             <button
@@ -349,7 +355,7 @@ export default function RecitationClient({
                               onClick={() => {
                                 const next = on ? surahList(e).filter((x) => x !== name) : [...surahList(e), name];
                                 // بترتيب السور في المصحف
-                                set(s.id, { surahs: AMMA_SURAHS.filter((x) => next.includes(x)).join("|") });
+                                set(s.id, { surahs: surahsFor(track).filter((x) => next.includes(x)).join("|") });
                               }}
                               style={chipStyle(on)}
                             >
@@ -386,8 +392,23 @@ export default function RecitationClient({
                           </div>
                         ))}
                       </div>
+                      {!e.noNew && singlePage(e) && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            onClick={() => set(s.id, { pageDone: !e.pageDone })}
+                            style={{ ...chipStyle(e.pageDone), minHeight: 42, padding: "9px 18px" }}
+                          >
+                            {e.pageDone ? "✓ تمت الصفحة" : "تمت الصفحة"}
+                          </button>
+                          <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
+                            {e.pageDone ? "تُحسب الصفحة مسمَّعة." : "صفحة واحدة — لا تُحسب مسمَّعة ولا يتقدّم العدّاد إلا عند الضغط على «تمت الصفحة»."}
+                          </span>
+                        </div>
+                      )}
                       <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
-                        {withPast ? "تسميع جديد «من» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت جديدًا — لا يجوز النزول تحتها." : "«من الصفحة» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت — لا يجوز النزول تحتها."}
+                        {withPast ? "تسميع جديد «من» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت جديدًا، ويجوز تعديله لتسميع صفحة سابقة." : "«من الصفحة» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت، ويجوز تعديله لتسميع صفحة سابقة."}
+                        {" التقدير «إعادة» لا تُحسب صفحاته ولا يتقدّم به العدّاد."}
                         {` الصفحات بين ${pageRange(track).min} و${pageRange(track).max}.`}
                       </div>
                       </>
@@ -482,7 +503,7 @@ export default function RecitationClient({
                       <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
                         {isSurah
                           ? `عدد السور: ${e.none ? 0 : surahList(e).length}`
-                          : `${withPast ? "صفحات الجديد" : "إجمالي صفحات اليوم"}: ${e.none || e.noNew ? 0 : span(e.nf, e.nt, track)}`}
+                          : `${withPast ? "صفحات الجديد" : "إجمالي صفحات اليوم"}: ${e.none || e.noNew || e.gradeNew === REPEAT_GRADE || (singlePage(e) && !e.pageDone) ? 0 : span(e.nf, e.nt, track)}`}
                       </span>
                       {withPast && (
                         <span style={{ fontSize: 13, color: "var(--ink-2)" }}>

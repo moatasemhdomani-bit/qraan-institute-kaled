@@ -1,5 +1,5 @@
 import { prisma, rawPrisma } from "./db";
-import { pageSpan } from "./daily";
+import { countedNewPages } from "./daily";
 import { passFailLabel } from "./exam";
 import { awqafPassed } from "./awqaf";
 import { examFamily } from "./track";
@@ -9,6 +9,8 @@ type RecitationRow = {
   date: string;
   newFrom: number | null;
   newTo: number | null;
+  gradeNew: string | null;
+  pageDone?: boolean | null;
   /** الماضي بالأجزاء والأحزاب (JSON) */
   pastItems: unknown;
 };
@@ -16,12 +18,13 @@ type RecitationRow = {
 /**
  * من/إلى صفحة: أول وآخر صفحة تسميع جديد بترتيب التاريخ ضمن الفترة.
  * الجديد والماضي مفصولان دائمًا — الماضي مراجعة حرّة لا تُحسب مع تقدّم الحفظ الجديد.
+ * التسميع المقدَّر «إعادة» لا يُحسب (كأنه لم يُسمَّع).
  * الجديد بالصفحات، والماضي بالأجزاء (الحزب = نصف جزء).
  */
 export function pagesSummary(recitations: RecitationRow[]): { from: number | null; to: number | null; newTotal: number; pastJuz: number } {
   const sorted = [...recitations].sort((a, b) => a.date.localeCompare(b.date));
-  const withNew = sorted.filter((r) => r.newFrom != null && r.newTo != null);
-  const newTotal = recitations.reduce((sum, r) => sum + pageSpan(r.newFrom, r.newTo), 0);
+  const withNew = sorted.filter((r) => r.newFrom != null && r.newTo != null && countedNewPages(r) > 0);
+  const newTotal = recitations.reduce((sum, r) => sum + countedNewPages(r), 0);
   const pastJuz = recitations.reduce((sum, r) => sum + pastJuzTotal(parsePastItems(r.pastItems)), 0);
   return {
     from: withNew[0]?.newFrom ?? null,
@@ -356,7 +359,7 @@ export async function buildArabicTeachersRows(from: string, to: string): Promise
         teacherId: t.id,
         teacherName: t.name,
         halqaNames: t.halaqatTaught.map((h) => `${h.name} · ${h.cohort.name}`).join("، "),
-        pages: recitations.filter((r) => ids.has(r.studentId)).reduce((sum, r) => sum + pageSpan(r.newFrom, r.newTo), 0),
+        pages: recitations.filter((r) => ids.has(r.studentId)).reduce((sum, r) => sum + countedNewPages(r), 0),
         pass: marks.filter((m) => m.passed === true).length,
         fail: marks.filter((m) => m.passed === false).length,
         count: ids.size,

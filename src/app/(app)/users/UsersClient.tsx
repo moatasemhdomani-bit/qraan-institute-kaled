@@ -363,15 +363,19 @@ function StaffForm({
   onClose: () => void;
 }) {
   const [state, formAction, pending] = useActionState(saveStaff, initialState);
-  // الدور في كل فوج — الموظف قد يأخذ أدوارًا مختلفة باختلاف الأفواج («» = لا دور له في هذا الفوج)
-  const [roles, setRoles] = useState<Record<string, string>>(
-    () => Object.fromEntries((initial?.assignments ?? []).map((a) => [a.cohortId, a.kind])) as Record<string, string>
-  );
-  const assignments: Assignment[] = cohorts.filter((c) => roles[c.id]).map((c) => ({ cohortId: c.id, kind: roles[c.id] }));
-  const kindOptions = [
-    { value: "", label: "— لا دور في هذا الفوج —" },
-    ...STAFF_KINDS.filter((k) => isDirector || k.role !== "DIRECTOR").map((k) => ({ value: k.id, label: kindLabel(k) })),
-  ];
+  // الأدوار في كل فوج — الموظف قد يأخذ أدوارًا مختلفة باختلاف الأفواج، وأكثر من دور في الفوج نفسه
+  const [roles, setRoles] = useState<Record<string, string[]>>(() => {
+    const m: Record<string, string[]> = {};
+    for (const a of initial?.assignments ?? []) m[a.cohortId] = [...(m[a.cohortId] ?? []), a.kind];
+    return m;
+  });
+  const kindOrder = (kinds: string[]) => STAFF_KINDS.map((k) => k.id).filter((id) => kinds.includes(id));
+  const addRole = (cohortId: string, kind: string) =>
+    setRoles((prev) => ({ ...prev, [cohortId]: kindOrder([...(prev[cohortId] ?? []), kind]) }));
+  const removeRole = (cohortId: string, kind: string) =>
+    setRoles((prev) => ({ ...prev, [cohortId]: (prev[cohortId] ?? []).filter((k) => k !== kind) }));
+  const assignments: Assignment[] = cohorts.flatMap((c) => (roles[c.id] ?? []).map((kind) => ({ cohortId: c.id, kind })));
+  const kindOptions = STAFF_KINDS.filter((k) => isDirector || k.role !== "DIRECTOR").map((k) => ({ value: k.id, label: kindLabel(k) }));
   // تأكيد قبل «حذف الموظف» أو «تعليق الموظف» (أو إلغاء تعليقه)
   const [confirmAction, setConfirmAction] = useState<null | "delete" | "suspend">(null);
   const [deleteState, deleteAction, deletePending] = useActionState(
@@ -521,24 +525,56 @@ function StaffForm({
         <PhotoField name="photo" label={initial ? "صورة شخصية" : "صورة شخصية"} existingUrl={initial?.photoUrl} />
 
         <div>
-          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 4 }}>الدور في كل فوج</div>
+          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 4 }}>الأدوار في كل فوج</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 10 }}>
-            قد يختلف دور الموظف باختلاف الأفواج — ويتنقّل بين حساباته أعلى الشاشة. الأفواج ذات الدور نفسه تجتمع في حساب واحد.
+            قد يختلف دور الموظف باختلاف الأفواج، وقد يأخذ أكثر من دور في الفوج نفسه — ويتنقّل بين حساباته أعلى الشاشة. الأفواج ذات الدور نفسه تجتمع في حساب واحد.
           </div>
           <div style={{ marginBottom: 10, maxWidth: 360 }}>
             <Select
               value=""
-              onChange={(v) => setRoles(Object.fromEntries(cohorts.map((c) => [c.id, v])))}
-              options={[{ value: "", label: "تطبيق دور واحد على كل الأفواج…" }, ...kindOptions.slice(1)]}
+              onChange={(v) => v && cohorts.forEach((c) => addRole(c.id, v))}
+              options={[{ value: "", label: "إضافة دور إلى كل الأفواج…" }, ...kindOptions]}
             />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {cohorts.map((c) => (
-              <div key={c.id} style={{ display: "grid", gridTemplateColumns: "110px minmax(0,1fr)", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 600 }}>{c.name}</span>
-                <Select value={roles[c.id] ?? ""} onChange={(v) => setRoles((prev) => ({ ...prev, [c.id]: v }))} options={kindOptions} />
-              </div>
-            ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {cohorts.map((c) => {
+              const mine = roles[c.id] ?? [];
+              const left = kindOptions.filter((o) => !mine.includes(o.value));
+              return (
+                <div key={c.id} style={{ display: "grid", gridTemplateColumns: "110px minmax(0,1fr)", alignItems: "start", gap: 10 }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, paddingTop: 10 }}>{c.name}</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                    {mine.length > 0 && (
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {mine.map((kind) => {
+                          const k = STAFF_KINDS.find((x) => x.id === kind);
+                          return (
+                            <span key={kind} style={{ ...chipStyle(true), display: "inline-flex", alignItems: "center", gap: 6, cursor: "default" }}>
+                              {k ? kindLabel(k) : kind}
+                              <button
+                                type="button"
+                                onClick={() => removeRole(c.id, kind)}
+                                aria-label="إزالة الدور"
+                                style={{ border: "none", background: "transparent", color: "inherit", fontSize: 15, lineHeight: 1, cursor: "pointer", padding: 0 }}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {left.length > 0 && (
+                      <Select
+                        value=""
+                        onChange={(v) => v && addRole(c.id, v)}
+                        options={[{ value: "", label: mine.length ? "+ إضافة دور آخر…" : "— لا دور في هذا الفوج — (إضافة دور…)" }, ...left]}
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

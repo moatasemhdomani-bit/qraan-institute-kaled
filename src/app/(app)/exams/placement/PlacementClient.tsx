@@ -61,7 +61,7 @@ export default function PlacementClient({
                   <span>المختبِر: {r.examinerName}</span>
                   <span>{formatDateAr(r.date)}</span>
                 </div>
-                {r.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>ملاحظات: {r.notes}</div>}
+                {r.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)", whiteSpace: "pre-line" }}>ملاحظات: {r.notes}</div>}
               </div>
             );
           })

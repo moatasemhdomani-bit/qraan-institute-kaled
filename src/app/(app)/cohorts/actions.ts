@@ -41,13 +41,14 @@ export async function addTeacherToCohort(cohortId: string, userId: string) {
     update: {},
     create: { cohortId, userId },
   });
-  // دوره في هذا الفوج: «مدرس» بنوعه في أفواجه الأخرى — إن لم يكن له دور فيه بعد
-  const other = await prisma.staffAssignment.findFirst({ where: { userId, role: "TEACHER" }, select: { track: true } });
-  await prisma.staffAssignment.upsert({
-    where: { userId_cohortId: { userId, cohortId } },
-    update: {},
-    create: { userId, cohortId, role: "TEACHER", track: other?.track ?? "QURAN" },
-  });
+  // دوره في هذا الفوج: «مدرس» بنوعه في أفواجه الأخرى — إن لم يكن مدرّسًا فيه بعد (وتبقى أدواره الأخرى فيه)
+  const [other, already] = await Promise.all([
+    prisma.staffAssignment.findFirst({ where: { userId, role: "TEACHER" }, select: { track: true } }),
+    prisma.staffAssignment.count({ where: { userId, cohortId, role: "TEACHER" } }),
+  ]);
+  if (!already) {
+    await prisma.staffAssignment.create({ data: { userId, cohortId, role: "TEACHER", track: other?.track ?? "QURAN" } });
+  }
   const [cohort, user] = await Promise.all([
     prisma.cohort.findUnique({ where: { id: cohortId } }),
     prisma.user.findUnique({ where: { id: userId } }),

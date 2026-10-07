@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
-import { today, isValidDate, formatDateAr, pageSpan } from "@/lib/daily";
+import { today, isValidDate, formatDateAr, pageSpan, countedNewPages } from "@/lib/daily";
 import { hasPastRecitation } from "@/lib/track";
 import PageHeader from "@/components/PageHeader";
 import RecitationMonitorClient from "./RecitationMonitorClient";
@@ -37,7 +37,7 @@ export default async function RecitationMonitorPage({
     const uploaded = h.recitations.length > 0;
 
     // الجديد بالصفحات، والماضي بالأجزاء (الحزب = نصف جزء)
-    const totalPages = h.recitations.reduce((sum, r) => sum + pageSpan(r.newFrom, r.newTo), 0);
+    const totalPages = h.recitations.reduce((sum, r) => sum + countedNewPages(r), 0);
     const totalPastJuz = h.recitations.reduce((sum, r) => sum + pastJuzTotal(parsePastItems(r.pastItems)), 0);
 
     return {
@@ -62,7 +62,7 @@ export default async function RecitationMonitorPage({
               ? `سور: ${r.surahs.join("، ")} — ${r.gradeNew ?? ""}`
               : r.noNew
                 ? "لم يسمّع جديدًا"
-                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
+                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم تتم الصفحة" : ""}`,
             // الماضي لمستويَي القرآن حاضراً وغيباً وحدهما
             ...(!hasPastRecitation(h.track)
               ? []

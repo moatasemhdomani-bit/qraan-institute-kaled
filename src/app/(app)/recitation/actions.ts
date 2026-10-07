@@ -23,6 +23,8 @@ export type StudentRecitationInput = {
   nf: string;
   nt: string;
   gradeNew: string;
+  /** صفحة واحدة (من = إلى): ضُغط «تمت الصفحة» */
+  pageDone?: boolean;
   /** الماضي: حزب 1 / حزب 2 / جزء من الأجزاء 1–30، لكل بند تقديره */
   past: { kind: string; juz: number | null; grade: string }[];
   /** تسميع بالسور: أسماء السور مفصولة بـ | */
@@ -63,7 +65,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
   if (recitationMode(halqa.track, stage6.has(studentId)) === "surah") {
     const surahs = input.surahs ? input.surahs.split("|").filter(Boolean) : [];
     if (input.gradeNew && !GRADES.includes(input.gradeNew as never)) return { error: "تقدير غير معروف." };
-    const bad = validateSurahEntry({ none: input.none, surahs, gradeNew: input.gradeNew || null });
+    const bad = validateSurahEntry({ none: input.none, surahs, gradeNew: input.gradeNew || null }, halqa.track);
     if (bad) return { error: bad };
     const surahData = {
       none: input.none,
@@ -89,11 +91,6 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
     return { ok: true };
   }
 
-  const prior = await prisma.recitation.aggregate({
-    where: { studentId, date: { lt: date }, none: false, noNew: false },
-    _max: { newTo: true },
-  });
-
   const e: RecEntry = {
     studentId,
     none: input.none,
@@ -110,7 +107,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
   if (e.gradeNew && !GRADES.includes(e.gradeNew as never)) return { error: "تقدير غير معروف." };
   // القراءة العربية: جديد فقط بلا ماضٍ
   if (!hasPastRecitation(halqa.track)) e.noPast = true;
-  const bad = validateEntry(e, prior._max.newTo, halqa.track);
+  const bad = validateEntry(e, halqa.track);
   if (bad) return { error: bad };
 
   const data = {
@@ -120,6 +117,8 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
     newFrom: e.none || e.noNew ? null : e.newFrom,
     newTo: e.none || e.noNew ? null : e.newTo,
     gradeNew: e.none || e.noNew ? null : e.gradeNew,
+    // صفحة واحدة: تُحسب مسمَّعة ويتقدّم بها العدّاد فقط عند «تمت الصفحة»
+    pageDone: e.none || e.noNew || e.newFrom !== e.newTo ? null : !!input.pageDone,
     // بنود الماضي بالترتيب: حسب الجزء ثم النوع
     pastItems:
       e.none || e.noPast

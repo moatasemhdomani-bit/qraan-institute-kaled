@@ -101,7 +101,7 @@ export default async function ParentPage({
           ? `السور: ${todayRec.surahs.join("، ")} — ${todayRec.gradeNew}`
           : todayRec.noNew
             ? "لم يسمّع جديدًا"
-            : `تسميع جديد: من ${todayRec.newFrom} إلى ${todayRec.newTo} (${pageSpan(todayRec.newFrom, todayRec.newTo)} صفحة) — ${todayRec.gradeNew}`
+            : `تسميع جديد: من ${todayRec.newFrom} إلى ${todayRec.newTo} (${pageSpan(todayRec.newFrom, todayRec.newTo)} صفحة) — ${todayRec.gradeNew}${todayRec.pageDone === false ? " — لم تتم الصفحة" : ""}`
       );
       // الماضي لمستويَي القرآن حاضراً وغيباً وحدهما
       if (hasPastRecitation(child.track) && todayRec.surahs.length === 0)
@@ -144,7 +144,7 @@ export default async function ParentPage({
               ? `سور: ${r.surahs.join("، ")} — ${r.gradeNew ?? ""}`
               : r.noNew
                 ? "لم يسمّع جديدًا"
-                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}`,
+                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم تتم الصفحة" : ""}`,
           pastLine: !hasPastRecitation(child.track) || r.surahs.length > 0
             ? ""
             : r.noPast

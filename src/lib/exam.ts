@@ -31,6 +31,26 @@ export const ARABIC_PASS_MARK = 90;
 export const ARABIC_GRADES = ["ممتاز", "جيد جدًا", "جيد", "إعادة"];
 export const ARABIC_FAIL_GRADE = "إعادة";
 
+/** ملاحظات سبر القراءة العربية الثابتة — يختار المختبِر منها، ويضيف ملاحظة حرّة إن شاء */
+export const ARABIC_NOTE_OPTIONS = ["درج وتشكيل", "حفظ القواعد", "عدم تمطيط الحركات", "ضبط الحركات", "تحضير كامل المرحلة"] as const;
+const ARABIC_NOTE_SEP = "، ";
+
+/** تُحفظ في حقل الملاحظات نفسه: السطر الأول للملاحظات المختارة، وما بعده للملاحظة الحرّة */
+export function composeArabicNotes(selected: string[], free: string): string {
+  const fixed = ARABIC_NOTE_OPTIONS.filter((o) => selected.includes(o)).join(ARABIC_NOTE_SEP);
+  return [fixed, free.trim()].filter(Boolean).join("\n");
+}
+
+export function splitArabicNotes(notes: string | null | undefined): { selected: string[]; free: string } {
+  const text = notes ?? "";
+  const [first, ...rest] = text.split("\n");
+  const parts = first.split(ARABIC_NOTE_SEP).map((p) => p.trim());
+  if (first && parts.every((p) => (ARABIC_NOTE_OPTIONS as readonly string[]).includes(p))) {
+    return { selected: parts, free: rest.join("\n") };
+  }
+  return { selected: [], free: text };
+}
+
 export type LocalKindId = "GHAYBAN" | "HADIRAN" | "AMMA_GHAYBAN";
 
 export const LOCAL_KINDS: LocalKindId[] = ["GHAYBAN", "HADIRAN", "AMMA_GHAYBAN"];

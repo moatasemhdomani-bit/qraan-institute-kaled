@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
-import { today, isValidDate, dayLockReason, rotationSlot, timeRangeLabel, formatDateAr } from "@/lib/daily";
+import { today, isValidDate, dayLockReason, rotationSlot, timeRangeLabel, formatDateAr, REPEAT_GRADE } from "@/lib/daily";
 import PageHeader from "@/components/PageHeader";
 import DailyShell from "@/components/DailyShell";
 import RecitationClient from "./RecitationClient";
@@ -38,12 +38,12 @@ export default async function RecitationPage({
   const saved = halqa ? await prisma.recitation.findMany({ where: { halqaId: halqa.id, date } }) : [];
   const savedMap = Object.fromEntries(saved.map((r) => [r.studentId, r]));
 
-  // حقل «تسميع جديد — من» يُملأ تلقائيًا من أعلى صفحة جديدة سُمِّعت من قبل لكل طالب — ولا يجوز
-  // النزول عنها لاحقًا (لا يُعاد تسميع صفحة سُمِّعت جديدًا من قبل). الماضي بالأجزاء والأحزاب، مراجعة حرّة.
+  // حقل «من صفحة» يُملأ تلقائيًا بعد أعلى صفحة سُمِّعت من قبل لكل طالب — والتسميع المقدَّر «إعادة» لا يُحرّك
+  // هذا العدّاد، ولا الصفحة الواحدة التي لم تتم («تمت الصفحة»). يجوز تعديل الحقل وتسميع صفحة سابقة. الماضي بالأجزاء والأحزاب.
   const studentIds = students.map((s) => s.id);
   const maxNewToRows = await prisma.recitation.groupBy({
     by: ["studentId"],
-    where: { studentId: { in: studentIds }, date: { lt: date }, none: false, noNew: false },
+    where: { studentId: { in: studentIds }, date: { lt: date }, none: false, noNew: false, NOT: { gradeNew: REPEAT_GRADE }, OR: [{ pageDone: null }, { pageDone: true }] },
     _max: { newTo: true },
   });
   // طلاب القراءة العربية الناجحون في المرحلة 6 يسمّعون «بينة للناس» بالسور
@@ -96,6 +96,7 @@ export default async function RecitationPage({
                   nf: savedMap[s.id].newFrom?.toString() ?? "",
                   nt: savedMap[s.id].newTo?.toString() ?? "",
                   gradeNew: savedMap[s.id].gradeNew ?? "",
+                  pageDone: savedMap[s.id].pageDone === true,
                   past: parsePastItems(savedMap[s.id].pastItems).map((p) => ({ kind: p.kind, juz: String(p.juz), grade: p.grade })),
                   surahs: savedMap[s.id].surahs.join("|"),
                 }
