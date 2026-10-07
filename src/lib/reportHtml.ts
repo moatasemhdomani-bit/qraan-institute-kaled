@@ -257,6 +257,7 @@ export type TeachersReportRow = {
   newPages: number;
   pastJuz: number;
   locPass: number; locFail: number;
+  nomPass: number; nomFail: number;
   awqPass: number; awqFail: number;
   count: number;
   note: string;
@@ -270,7 +271,7 @@ export function teachersReportHtml(input: {
     <table>
       <thead><tr>
         <th>المدرس</th><th>الحلقة</th><th>صفحات جديد لكل الطلاب</th><th>أجزاء ماضٍ لكل الطلاب</th>
-        <th>اختبارات محلية (ناجحة/إعادة)</th><th>اختبارات الأوقاف (ناجحة/إعادة)</th>
+        <th>اختبارات محلية (ناجحة/إعادة)</th><th>ترشيح الأوقاف (ناجحة/إعادة)</th><th>سبر الأوقاف الفعلي (ناجحة/إعادة)</th>
         <th>عدد الطلاب</th><th>ملاحظات</th>
       </tr></thead>
       <tbody>
@@ -282,6 +283,7 @@ export function teachersReportHtml(input: {
               <td>${r.newPages}</td>
               <td>${formatJuz(r.pastJuz)}</td>
               <td><span class="pass">${r.locPass}</span> / <span class="fail">${r.locFail}</span></td>
+              <td><span class="pass">${r.nomPass}</span> / <span class="fail">${r.nomFail}</span></td>
               <td><span class="pass">${r.awqPass}</span> / <span class="fail">${r.awqFail}</span></td>
               <td>${r.count}</td>
               <td style="text-align:start">${escapeHtml(r.note || "—")}</td>
@@ -309,6 +311,8 @@ export function studentReportHtml(input: {
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
   behavior: string;
+  /** طالب القراءة العربية: بلا ماضٍ ولا سبر أوقاف، و«الاختبارات» بدل «اختبار محلي» */
+  arabic: boolean;
   permits: { kind: "ENTRY" | "EXIT"; time: string; days: string[]; note: string | null; since: string }[];
 }): string {
   const body = `
@@ -330,7 +334,20 @@ export function studentReportHtml(input: {
 
     <h3 class="section">تسميع الطالب</h3>
     <table>
-      <thead><tr><th>صفحات جديد</th><th>أجزاء ماضٍ</th></tr></thead>
+${
+      input.arabic
+        ? `      <thead><tr><th>الصفحات</th></tr></thead>
+      <tbody><tr><td>${input.newPages}</td></tr></tbody>
+    </table>
+
+    <h3 class="section">اختبارات الطالب</h3>
+    <table>
+      <thead><tr><th>الاختبارات</th></tr></thead>
+      <tbody><tr>
+        <td><span class="pass">${input.locPass}</span> / <span class="fail">${input.locFail}</span></td>
+      </tr></tbody>
+    </table>`
+        : `      <thead><tr><th>صفحات جديد</th><th>أجزاء ماضٍ</th></tr></thead>
       <tbody><tr><td>${input.newPages}</td><td>${formatJuz(input.pastJuz)}</td></tr></tbody>
     </table>
 
@@ -342,7 +359,8 @@ export function studentReportHtml(input: {
         <td><span class="pass">${input.nomPass}</span> / <span class="fail">${input.nomFail}</span></td>
         <td><span class="pass">${input.realPass}</span> / <span class="fail">${input.realFail}</span></td>
       </tr></tbody>
-    </table>
+    </table>`
+    }
 
     <h3 class="section">إذن الطالب</h3>
     ${

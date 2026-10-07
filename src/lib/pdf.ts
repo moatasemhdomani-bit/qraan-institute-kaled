@@ -1,5 +1,6 @@
 import puppeteer, { type LaunchOptions } from "puppeteer-core";
 import { existsSync } from "fs";
+import { reportFooterSvg, REPORT_FOOTER_RATIO } from "./reportFooter";
 
 const CANDIDATE_BROWSERS = [
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -34,11 +35,17 @@ export async function renderPdf(html: string, landscape = false): Promise<Buffer
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
+    // زخرفة الأقواس الذهبية (متجهية) أسفل كل صفحة بعرض مساحة الطباعة (A4 ناقص الهامشين)، والهامش السفلي يتّسع لها
+    const contentWidthMm = (landscape ? 297 : 210) - 20;
+    const footerHeightMm = contentWidthMm * REPORT_FOOTER_RATIO;
     const buf = await page.pdf({
       format: "A4",
       landscape,
       printBackground: true,
-      margin: { top: "10mm", bottom: "10mm", left: "10mm", right: "10mm" },
+      displayHeaderFooter: true,
+      headerTemplate: "<span></span>",
+      footerTemplate: `<div style="width:100%;margin:0;padding:0 10mm 4mm;box-sizing:border-box;-webkit-print-color-adjust:exact;">${reportFooterSvg()}</div>`,
+      margin: { top: "10mm", bottom: `${Math.ceil(footerHeightMm + 9)}mm`, left: "10mm", right: "10mm" },
     });
     return Buffer.from(buf);
   } finally {

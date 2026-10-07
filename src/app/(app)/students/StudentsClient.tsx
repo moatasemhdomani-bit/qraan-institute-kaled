@@ -403,7 +403,8 @@ function StudentForm({
   const [active, setActive] = useState(initial?.active ?? true);
   const [isOrphan, setIsOrphan] = useState(initial?.isOrphan ?? false);
   const [track, setTrack] = useState<TrackId>(initial?.track ?? "QURAN");
-  const [feeStatus, setFeeStatus] = useState(initial?.feeStatus ?? "");
+  // الطالب الجديد يبدأ «تم الدفع» — ويمكن تغييرها
+  const [feeStatus, setFeeStatus] = useState(initial ? initial.feeStatus : "PAID");
   const [feeAmount, setFeeAmount] = useState(initial?.feeAmount ?? "");
 
   useEffect(() => {
@@ -544,9 +545,11 @@ function StudentForm({
                 <NumberField
                   value={feeAmount}
                   onChange={(e) => setFeeAmount(e.target.value)}
-                  placeholder={feeStatus === "PAID" ? "ادخل المبلغ المدفوع بالعملة الجديدة" : "ادخل المبلغ المتبقي بالعملة الجديدة"}
+                  placeholder={feeStatus === "PAID" ? "ادخل المبلغ المدفوع بالعملة الجديدة (اختياري)" : "ادخل المبلغ المتبقي بالعملة الجديدة"}
                   aria-label={feeStatus === "PAID" ? "المبلغ المدفوع" : "المبلغ المتبقي"}
+                  maxLength={4}
                 />
+                <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 4 }}>المبلغ من 50 إلى 2000 بالعملة الجديدة.</div>
               </div>
             )}
           </div>

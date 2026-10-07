@@ -21,6 +21,10 @@ async function savePhoto(file: File): Promise<string> {
   return uploadFile(filename, bytes, mimeFromExt(ext));
 }
 
+/** حدود مبلغ الرسوم بالعملة الجديدة. */
+const FEE_MIN = 50;
+const FEE_MAX = 2000;
+
 export async function saveStudent(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();
   if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) {
@@ -39,17 +43,18 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
 
   if (!name) return { error: "اكتبوا اسم الطالب." };
 
-  // الرسوم: «تم الدفع» مع المبلغ المدفوع، «لم يدفع»، أو «متبقي» مع المبلغ المتبقي — المبلغ رقم صحيح بالعملة الجديدة
+  // الرسوم: «تم الدفع» (المبلغ المدفوع اختياري)، «لم يدفع»، أو «متبقي» (المبلغ المتبقي إلزامي) — المبلغ رقم صحيح بالعملة الجديدة
   const rawFee = String(formData.get("feeStatus") || "");
   const feeStatus: FeeStatus | null = rawFee === "PAID" || rawFee === "UNPAID" || rawFee === "REMAINING" ? rawFee : null;
   const rawAmount = String(formData.get("feeAmount") || "").trim();
   let feeAmount: number | null = null;
-  if (feeStatus === "PAID" || feeStatus === "REMAINING") {
-    if (!/^\d+$/.test(rawAmount) || Number(rawAmount) <= 0) {
-      return { error: feeStatus === "PAID" ? "اكتبوا المبلغ المدفوع بالعملة الجديدة (أرقام فقط)." : "اكتبوا المبلغ المتبقي بالعملة الجديدة (أرقام فقط)." };
+  if (feeStatus === "REMAINING" || (feeStatus === "PAID" && rawAmount)) {
+    if (!/^\d+$/.test(rawAmount)) {
+      return { error: feeStatus === "PAID" ? "المبلغ المدفوع أرقام فقط بالعملة الجديدة — أو اتركوه فارغًا." : "اكتبوا المبلغ المتبقي بالعملة الجديدة (أرقام فقط)." };
     }
     feeAmount = Number(rawAmount);
-    if (!Number.isSafeInteger(feeAmount) || feeAmount > 2_000_000_000) return { error: "المبلغ كبير جدًا." };
+    // مبلغ الرسوم بين 50 و2000 بالعملة الجديدة
+    if (feeAmount < FEE_MIN || feeAmount > FEE_MAX) return { error: `مبلغ الرسوم بين ${FEE_MIN} و${FEE_MAX} بالعملة الجديدة.` };
   }
 
   const guardianPhone = normalizePhone(String(formData.get("guardianPhone") || ""));

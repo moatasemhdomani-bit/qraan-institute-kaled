@@ -117,10 +117,15 @@ export default function StudentReportClient({
             <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>اسم التقرير في السجل</label>
             <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle()} />
           </div>
-          <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
             <button type="button" onClick={loadPreview} disabled={pending || !picked} style={{ ...primaryButtonStyle, opacity: pending || !picked ? 0.7 : 1, width: "100%" }}>
               {pending ? "جارٍ التحميل…" : "معاينة"}
             </button>
+            {preview && (
+              <button type="submit" form="report-issue-form" disabled={issuing || pending} style={{ ...primaryButtonStyle, opacity: issuing || pending ? 0.7 : 1, width: "100%" }}>
+                {issuing ? "جارٍ الإصدار…" : "إصدار التقرير"}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -133,6 +138,7 @@ export default function StudentReportClient({
 
       {preview && (
         <form
+          id="report-issue-form"
           action={(fd) => {
             fd.set("studentId", preview.studentId);
             fd.set("from", from);
@@ -150,10 +156,6 @@ export default function StudentReportClient({
           {state.ok && state.reportId && <IssuedNotice reportId={state.reportId} name={name} duplicate={state.duplicate} />}
 
           <StudentReportPreview preview={preview} />
-
-          <button type="submit" disabled={issuing} style={{ ...primaryButtonStyle, alignSelf: "flex-start", opacity: issuing ? 0.7 : 1 }}>
-            {issuing ? "جارٍ الإصدار…" : "إصدار التقرير"}
-          </button>
         </form>
       )}
     </div>

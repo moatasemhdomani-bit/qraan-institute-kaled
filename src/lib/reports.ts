@@ -2,6 +2,7 @@ import { prisma, rawPrisma } from "./db";
 import { pageSpan } from "./daily";
 import { passFailLabel } from "./exam";
 import { awqafPassed } from "./awqaf";
+import { examFamily } from "./track";
 import { parsePastItems, pastJuzTotal } from "./pastRecitation";
 
 type RecitationRow = {
@@ -198,6 +199,9 @@ export type TeachersPreviewRow = {
   newPages: number;
   pastJuz: number;
   locPass: number; locFail: number;
+  /** سبر ترشيح الأوقاف */
+  nomPass: number; nomFail: number;
+  /** سبر الأوقاف الفعلي */
   awqPass: number; awqFail: number;
   count: number;
 };
@@ -228,7 +232,7 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
     .map((t) => {
       const halqaIds = new Set(t.halaqatTaught.map((h) => h.id));
       const studs = allStudents.filter((s) => s.halqaId && halqaIds.has(s.halqaId));
-      let newPages = 0, pastJuz = 0, locPass = 0, locFail = 0, awqPass = 0, awqFail = 0;
+      let newPages = 0, pastJuz = 0, locPass = 0, locFail = 0, nomPass = 0, nomFail = 0, awqPass = 0, awqFail = 0;
       for (const s of studs) {
         const pages = pagesSummary(recitations.filter((r) => r.studentId === s.id));
         newPages += pages.newTotal;
@@ -237,14 +241,14 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
         locPass += loc.pass; locFail += loc.fail;
         const nom = nominationSplit(nomExams.filter((e) => e.studentId === s.id));
         const real = realAwqafSplit(awqafResults.filter((r) => r.studentId === s.id));
-        awqPass += nom.pass + real.pass;
-        awqFail += nom.fail + real.fail;
+        nomPass += nom.pass; nomFail += nom.fail;
+        awqPass += real.pass; awqFail += real.fail;
       }
       return {
         teacherId: t.id,
         teacherName: t.name,
         halqaNames: t.halaqatTaught.map((h) => h.name).join("، ") || "—",
-        newPages, pastJuz, locPass, locFail, awqPass, awqFail,
+        newPages, pastJuz, locPass, locFail, nomPass, nomFail, awqPass, awqFail,
         count: studs.length,
       };
     })
@@ -373,6 +377,8 @@ export type StudentPreview = {
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
   behavior: string;
+  /** طالب القراءة العربية: لا ماضٍ ولا سبر أوقاف، و«الاختبارات» = اختبارات مراحل القراءة العربية */
+  arabic: boolean;
   /** أذونات الطالب الدائمة (دخول ثم خروج) — فارغة إن لم يكن لديه إذن */
   permits: { kind: "ENTRY" | "EXIT"; time: string; days: string[]; note: string | null; since: string }[];
 };
@@ -384,18 +390,23 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
   });
   if (!student) return null;
 
+  const arabic = examFamily(student.track) === "ARABIC";
   const [attendance, recitations, localExams, nomExams, awqafResults] = await Promise.all([
     prisma.attendance.findMany({ where: { studentId, date: { gte: from, lte: to } } }),
     prisma.recitation.findMany({ where: { studentId, date: { gte: from, lte: to } } }),
-    prisma.exam.findMany({ where: { studentId, type: "LOCAL", date: { gte: from, lte: to } } }),
+    // طالب القراءة العربية: اختباراته اختبارات المراحل (ARABIC) بدل السبر المحلي
+    prisma.exam.findMany({ where: { studentId, type: arabic ? "ARABIC" : "LOCAL", date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
     prisma.awqafResult.findMany({ where: { studentId, batch: { date: { gte: from, lte: to } } } }),
   ]);
 
   const pages = pagesSummary(recitations);
-  const loc = localSplit(localExams);
-  const nom = nominationSplit(nomExams);
-  const real = realAwqafSplit(awqafResults);
+  const arabicMarks = arabic ? arabicExamMarks(localExams) : [];
+  const loc = arabic
+    ? { pass: arabicMarks.filter((m) => m.passed === true).length, fail: arabicMarks.filter((m) => m.passed === false).length }
+    : localSplit(localExams);
+  const nom = arabic ? { pass: 0, fail: 0 } : nominationSplit(nomExams);
+  const real = arabic ? { pass: 0, fail: 0 } : realAwqafSplit(awqafResults);
 
   return {
     studentId: student.id,
@@ -415,6 +426,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     nomPass: nom.pass, nomFail: nom.fail,
     realPass: real.pass, realFail: real.fail,
     behavior: student.behavior,
+    arabic,
     permits: [...student.permits]
       .sort((a, b) => (a.kind === "ENTRY" ? 0 : 1) - (b.kind === "ENTRY" ? 0 : 1))
       .map((p) => ({ kind: p.kind, time: p.time, days: p.days, note: p.note, since: p.since })),

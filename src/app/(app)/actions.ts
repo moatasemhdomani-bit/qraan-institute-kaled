@@ -17,7 +17,7 @@ export async function switchAccount(formData: FormData) {
     await prisma.user.update({ where: { id: session.userId }, data: { role: acc.role, track: acc.track } });
     await createSession({ userId: session.userId, role: acc.role, name: session.name, track: acc.track });
   }
-  redirect("/dashboard");
+  redirect("/");
 }
 
 export async function logout() {

@@ -78,10 +78,15 @@ export default function ArabicHalaqatReportClient({ halaqat, initial }: { halaqa
           <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>اسم التقرير في السجل</label>
           <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle()} placeholder="مثلاً: تسميع القراءة العربية — أيلول" />
         </div>
-        <div style={{ display: "flex", alignItems: "flex-end" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
           <button type="button" onClick={loadPreview} disabled={pending} style={{ ...primaryButtonStyle, opacity: pending ? 0.7 : 1, width: "100%" }}>
             {pending ? "جارٍ التحميل…" : "معاينة"}
           </button>
+          {blocks && blocks.length > 0 && (
+            <button type="submit" form="report-issue-form" disabled={issuing || pending} style={{ ...primaryButtonStyle, opacity: issuing || pending ? 0.7 : 1, width: "100%" }}>
+              {issuing ? "جارٍ الإصدار…" : "إصدار التقرير"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -95,6 +100,7 @@ export default function ArabicHalaqatReportClient({ halaqat, initial }: { halaqa
 
       {blocks && blocks.length > 0 && (
         <form
+          id="report-issue-form"
           action={(fd) => {
             fd.set("from", from);
             fd.set("to", to);
@@ -157,10 +163,6 @@ export default function ArabicHalaqatReportClient({ halaqat, initial }: { halaqa
           <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
             الاختبارات بأرقام مراحلها: <b style={{ color: "var(--ok)" }}>الأخضر ناجح</b>، <b style={{ color: "var(--bad)" }}>الأحمر إعادة</b>.
           </div>
-
-          <button type="submit" disabled={issuing} style={{ ...primaryButtonStyle, alignSelf: "flex-start", opacity: issuing ? 0.7 : 1 }}>
-            {issuing ? "جارٍ الإصدار…" : "إصدار التقرير"}
-          </button>
         </form>
       )}
     </div>

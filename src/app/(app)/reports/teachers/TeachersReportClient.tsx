@@ -67,10 +67,15 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
           <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>اسم التقرير في السجل</label>
           <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle()} placeholder="مثلاً: التقرير الشهري — أيلول" />
         </div>
-        <div style={{ display: "flex", alignItems: "flex-end" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
           <button type="button" onClick={loadPreview} disabled={pending} style={{ ...primaryButtonStyle, opacity: pending ? 0.7 : 1, width: "100%" }}>
             {pending ? "جارٍ التحميل…" : "معاينة"}
           </button>
+          {rows && rows.length > 0 && (
+            <button type="submit" form="report-issue-form" disabled={issuing || pending} style={{ ...primaryButtonStyle, opacity: issuing || pending ? 0.7 : 1, width: "100%" }}>
+              {issuing ? "جارٍ الإصدار…" : "إصدار التقرير"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -86,6 +91,7 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
 
       {rows && rows.length > 0 && (
         <form
+          id="report-issue-form"
           action={(fd) => {
             fd.set("from", from);
             fd.set("to", to);
@@ -111,7 +117,8 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
                   <th style={{ padding: 8 }}>صفحات جديد لكل الطلاب</th>
                   <th style={{ padding: 8 }}>أجزاء ماضٍ لكل الطلاب</th>
                   <th style={{ padding: 8 }}>اختبارات محلية</th>
-                  <th style={{ padding: 8 }}>اختبارات الأوقاف</th>
+                  <th style={{ padding: 8 }}>ترشيح الأوقاف</th>
+                  <th style={{ padding: 8 }}>سبر الأوقاف الفعلي</th>
                   <th style={{ padding: 8 }}>عدد الطلاب</th>
                   <th style={{ padding: 8, minWidth: 200 }}>ملاحظات</th>
                 </tr>
@@ -124,6 +131,7 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
                     <td style={{ padding: 8, textAlign: "center" }}>{r.newPages}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{formatJuz(r.pastJuz)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.locPass, r.locFail)}</td>
+                    <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.nomPass, r.nomFail)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.awqPass, r.awqFail)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{r.count}</td>
                     <td style={{ padding: 6 }}>
@@ -138,10 +146,6 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
               </tbody>
             </table>
           </div>
-
-          <button type="submit" disabled={issuing} style={{ ...primaryButtonStyle, alignSelf: "flex-start", opacity: issuing ? 0.7 : 1 }}>
-            {issuing ? "جارٍ الإصدار…" : "إصدار التقرير"}
-          </button>
         </form>
       )}
     </div>

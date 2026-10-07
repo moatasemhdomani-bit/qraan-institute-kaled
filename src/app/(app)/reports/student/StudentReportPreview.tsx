@@ -41,12 +41,15 @@ export default function StudentReportPreview({ preview }: { preview: StudentPrev
         </div>
         <div style={box}>
           <div style={{ fontSize: 18, fontWeight: 700 }}>{preview.newPages}</div>
-          <div style={{ fontSize: 11, color: "var(--ink-2)" }}>صفحات جديد</div>
+          <div style={{ fontSize: 11, color: "var(--ink-2)" }}>{preview.arabic ? "الصفحات" : "صفحات جديد"}</div>
         </div>
-        <div style={box}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>{formatJuz(preview.pastJuz)}</div>
-          <div style={{ fontSize: 11, color: "var(--ink-2)" }}>أجزاء ماضٍ</div>
-        </div>
+        {/* القراءة العربية بلا ماضٍ */}
+        {!preview.arabic && (
+          <div style={box}>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{formatJuz(preview.pastJuz)}</div>
+            <div style={{ fontSize: 11, color: "var(--ink-2)" }}>أجزاء ماضٍ</div>
+          </div>
+        )}
         <div style={box}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>{preview.behavior}</div>
           <div style={{ fontSize: 11, color: "var(--ink-2)" }}>سلوك الطالب</div>
@@ -55,17 +58,22 @@ export default function StudentReportPreview({ preview }: { preview: StudentPrev
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
         <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
-          <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>اختبار محلي</div>
+          <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>{preview.arabic ? "الاختبارات" : "اختبار محلي"}</div>
           {passFailCell(preview.locPass, preview.locFail)}
         </div>
-        <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
-          <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>ترشيح الأوقاف</div>
-          {passFailCell(preview.nomPass, preview.nomFail)}
-        </div>
-        <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
-          <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>سبر الأوقاف الفعلي</div>
-          {passFailCell(preview.realPass, preview.realFail)}
-        </div>
+        {/* القراءة العربية بلا سبر أوقاف */}
+        {!preview.arabic && (
+          <>
+            <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>ترشيح الأوقاف</div>
+              {passFailCell(preview.nomPass, preview.nomFail)}
+            </div>
+            <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>سبر الأوقاف الفعلي</div>
+              {passFailCell(preview.realPass, preview.realFail)}
+            </div>
+          </>
+        )}
       </div>
 
       <div style={{ marginTop: 14 }}>

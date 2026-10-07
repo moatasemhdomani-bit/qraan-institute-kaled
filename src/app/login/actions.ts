@@ -26,5 +26,6 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   // يدخل على آخر حساب استعمله (دوره ونوعه) — وتعرض الصفحات بعدها التنقّل بين حساباته في الأفواج
   await createSession({ userId: user.id, role: user.role as RoleId, name: user.name, track: user.track });
-  redirect("/dashboard");
+  // الشاشة الأولى حسب الدور تحدّدها الصفحة الرئيسية «/»
+  redirect("/");
 }
