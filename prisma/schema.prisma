@@ -415,7 +415,7 @@ model Recitation {
   newTo   Int?
 
   gradeNew String? // ممتاز | جيد جدًا | جيد | ضعيف | إعادة
-  /// تسميع صفحة واحدة (من = إلى): «تمت الصفحة» — false = لم تتم فلا تُحسب ولا يتقدّم بها العدّاد؛ null = أكثر من صفحة أو تسميع قديم
+  /// تسميع صفحة واحدة (من = إلى): «أنهى الصفحة» — false = لم تتم فلا تُحسب ولا يتقدّم بها العدّاد؛ null = أكثر من صفحة أو تسميع قديم
   pageDone Boolean?
 
   // الماضي لطلاب القرآن بالأجزاء والأحزاب: [{ kind: HIZB1|HIZB2|JUZ, juz: 1–30, grade }] — انظر lib/pastRecitation.ts
@@ -423,6 +423,8 @@ model Recitation {
 
   // تسميع بالسور (عمَّ غيباً، وطالب القراءة العربية بعد المرحلة 6 — «بينة للناس»): السور المسمَّعة بدل أرقام الصفحات
   surahs String[] @default([])
+  /// السور التي أنهاها الطالب («أنهى السورة») — وحدها تُحسب مسمَّعة
+  surahsDone String[] @default([])
 
   studentId String
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)

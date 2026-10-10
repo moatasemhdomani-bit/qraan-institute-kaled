@@ -151,7 +151,7 @@ export function timeRangeLabel(start: string | null, end: string | null): string
   return formatTime12(start || end) || "غير محدَّد";
 }
 
-/** صفحات التسميع الجديد المحسوبة — صفر إن كان تقديره «إعادة»، أو كانت صفحة واحدة لم يُضغط عليها «تمت الصفحة». */
+/** صفحات التسميع الجديد المحسوبة — صفر إن كان تقديره «إعادة»، أو كانت صفحة واحدة لم يُضغط عليها «أنهى الصفحة». */
 export function countedNewPages(r: { newFrom: number | null; newTo: number | null; gradeNew?: string | null; pageDone?: boolean | null }): number {
   if (r.gradeNew === REPEAT_GRADE || r.pageDone === false) return 0;
   return pageSpan(r.newFrom, r.newTo);

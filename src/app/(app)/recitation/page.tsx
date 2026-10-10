@@ -39,7 +39,7 @@ export default async function RecitationPage({
   const savedMap = Object.fromEntries(saved.map((r) => [r.studentId, r]));
 
   // حقل «من صفحة» يُملأ تلقائيًا بعد أعلى صفحة سُمِّعت من قبل لكل طالب — والتسميع المقدَّر «إعادة» لا يُحرّك
-  // هذا العدّاد، ولا الصفحة الواحدة التي لم تتم («تمت الصفحة»). يجوز تعديل الحقل وتسميع صفحة سابقة. الماضي بالأجزاء والأحزاب.
+  // هذا العدّاد، ولا الصفحة الواحدة التي لم تتم («أنهى الصفحة»). يجوز تعديل الحقل وتسميع صفحة سابقة. الماضي بالأجزاء والأحزاب.
   const studentIds = students.map((s) => s.id);
   const maxNewToRows = await prisma.recitation.groupBy({
     by: ["studentId"],
@@ -99,6 +99,7 @@ export default async function RecitationPage({
                   pageDone: savedMap[s.id].pageDone === true,
                   past: parsePastItems(savedMap[s.id].pastItems).map((p) => ({ kind: p.kind, juz: String(p.juz), grade: p.grade })),
                   surahs: savedMap[s.id].surahs.join("|"),
+                  surahsDone: savedMap[s.id].surahsDone.join("|"),
                 }
               : null,
             lastNewTo: lastPages[s.id]?.newTo ?? null,

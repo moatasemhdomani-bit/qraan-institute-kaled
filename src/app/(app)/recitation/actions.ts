@@ -23,12 +23,14 @@ export type StudentRecitationInput = {
   nf: string;
   nt: string;
   gradeNew: string;
-  /** صفحة واحدة (من = إلى): ضُغط «تمت الصفحة» */
+  /** صفحة واحدة (من = إلى): ضُغط «أنهى الصفحة» */
   pageDone?: boolean;
   /** الماضي: حزب 1 / حزب 2 / جزء من الأجزاء 1–30، لكل بند تقديره */
   past: { kind: string; juz: number | null; grade: string }[];
   /** تسميع بالسور: أسماء السور مفصولة بـ | */
   surahs: string;
+  /** السور التي أنهاها («أنهى السورة») مفصولة بـ | — وحدها تُحسب مسمَّعة */
+  surahsDone?: string;
 };
 
 const page = (v: string): number | null => {
@@ -76,6 +78,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
       pastItems: [],
       gradeNew: input.none ? null : input.gradeNew,
       surahs: input.none ? [] : surahs,
+      surahsDone: input.none ? [] : (input.surahsDone ?? "").split("|").filter((x) => surahs.includes(x)),
       halqaId,
       recordedById: session.userId,
     };
@@ -117,7 +120,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
     newFrom: e.none || e.noNew ? null : e.newFrom,
     newTo: e.none || e.noNew ? null : e.newTo,
     gradeNew: e.none || e.noNew ? null : e.gradeNew,
-    // صفحة واحدة: تُحسب مسمَّعة ويتقدّم بها العدّاد فقط عند «تمت الصفحة»
+    // صفحة واحدة: تُحسب مسمَّعة ويتقدّم بها العدّاد فقط عند «أنهى الصفحة»
     pageDone: e.none || e.noNew || e.newFrom !== e.newTo ? null : !!input.pageDone,
     // بنود الماضي بالترتيب: حسب الجزء ثم النوع
     pastItems:
@@ -127,6 +130,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
             .sort((a, b) => (a.juz ?? 0) - (b.juz ?? 0) || PAST_ORDER.indexOf(a.kind) - PAST_ORDER.indexOf(b.kind))
             .map((p) => ({ kind: p.kind, juz: p.juz as number, grade: p.grade })),
     surahs: [],
+    surahsDone: [],
     halqaId,
     recordedById: session.userId,
   };

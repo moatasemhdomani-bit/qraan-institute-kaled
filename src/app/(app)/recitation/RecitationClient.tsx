@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { saveStudentRecitation, saveStudentNote } from "./actions";
 import { GRADES, REPEAT_GRADE } from "@/lib/daily";
 import { pageRange, surahsFor, type TrackId, type RecitationMode } from "@/lib/track";
-import { validateEntry, validateSurahEntry } from "@/lib/recitation";
+import { validateEntry, validateSurahEntry, surahsLabel } from "@/lib/recitation";
 import { chipStyle } from "@/lib/ui";
 import NumberField from "@/components/NumberField";
 import Select from "@/components/Select";
@@ -20,12 +20,14 @@ type Entry = {
   nf: string;
   nt: string;
   gradeNew: string;
-  /** صفحة واحدة (من = إلى): «تمت الصفحة» — بدونه لا تُحسب مسمَّعة */
+  /** صفحة واحدة (من = إلى): «أنهى الصفحة» — بدونه لا تُحسب مسمَّعة */
   pageDone: boolean;
   /** الماضي لطلاب القرآن: حزب 1 / حزب 2 / جزء من الأجزاء 1–30، لكل بند تقديره */
   past: PastRow[];
   /** تسميع بالسور: أسماء السور مفصولة بـ | (نص لا مصفوفة كي تبقى المقارنة بالحفظ بسيطة) */
   surahs: string;
+  /** السور التي أنهاها («أنهى السورة») مفصولة بـ | — وحدها تُحسب مسمَّعة */
+  surahsDone: string;
 };
 
 type Student = {
@@ -64,6 +66,7 @@ const blank = (s: Student, track: TrackId): Entry => ({
   pageDone: false,
   past: [],
   surahs: "",
+  surahsDone: "",
 });
 
 /** صفحة واحدة: «من» = «إلى» */
@@ -71,6 +74,7 @@ const singlePage = (e: Entry) => e.nf.trim() !== "" && pageNumOf(e.nf) === pageN
 const pageNumOf = (v: string) => (v.trim() ? Number(v.trim()) : NaN);
 
 const surahList = (e: Entry) => (e.surahs ? e.surahs.split("|") : []);
+const doneList = (e: Entry) => (e.surahsDone ? e.surahsDone.split("|") : []);
 
 const span = (a: string, b: string, track: TrackId) => {
   const x = parseInt(a, 10);
@@ -112,7 +116,7 @@ function entryProblem(s: Student, e: Entry, track: TrackId): string | null {
 
 function summaryOf(e: Entry, mode: RecitationMode): string {
   if (e.none) return "لم يسمّع اليوم";
-  if (mode === "surah") return `سور: ${surahList(e).join("، ")} (${e.gradeNew})`;
+  if (mode === "surah") return `سور: ${surahsLabel(surahList(e), doneList(e))} (${e.gradeNew})`;
   const newPart = e.noNew ? "لم يسمّع جديدًا" : `تسميع جديد ${e.nf}←${e.nt} (${e.gradeNew})`;
   if (mode === "arabic") return `من الصفحة ${e.nf} إلى ${e.nt} (${e.gradeNew})`;
   const pastPart = e.noPast
@@ -355,7 +359,10 @@ export default function RecitationClient({
                               onClick={() => {
                                 const next = on ? surahList(e).filter((x) => x !== name) : [...surahList(e), name];
                                 // بترتيب السور في المصحف
-                                set(s.id, { surahs: surahsFor(track).filter((x) => next.includes(x)).join("|") });
+                                set(s.id, {
+                                  surahs: surahsFor(track).filter((x) => next.includes(x)).join("|"),
+                                  surahsDone: doneList(e).filter((x) => next.includes(x)).join("|"),
+                                });
                               }}
                               style={chipStyle(on)}
                             >
@@ -364,6 +371,32 @@ export default function RecitationClient({
                           );
                         })}
                       </div>
+                      {surahList(e).length > 0 && (
+                        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 7 }}>
+                          <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>لا تُحسب السورة مسمَّعة إلا عند الضغط على «أنهى السورة».</div>
+                          {surahList(e).map((name) => {
+                            const done = doneList(e).includes(name);
+                            return (
+                              <div key={name} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                <span style={{ minWidth: 80, fontSize: 13.5, fontWeight: 600 }}>{name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    set(s.id, {
+                                      surahsDone: surahList(e)
+                                        .filter((x) => (x === name ? !done : doneList(e).includes(x)))
+                                        .join("|"),
+                                    })
+                                  }
+                                  style={{ ...chipStyle(done), minHeight: 38, padding: "7px 14px" }}
+                                >
+                                  {done ? "✓ أنهى السورة" : "أنهى السورة"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -399,10 +432,10 @@ export default function RecitationClient({
                             onClick={() => set(s.id, { pageDone: !e.pageDone })}
                             style={{ ...chipStyle(e.pageDone), minHeight: 42, padding: "9px 18px" }}
                           >
-                            {e.pageDone ? "✓ تمت الصفحة" : "تمت الصفحة"}
+                            {e.pageDone ? "✓ أنهى الصفحة" : "أنهى الصفحة"}
                           </button>
                           <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
-                            {e.pageDone ? "تُحسب الصفحة مسمَّعة." : "صفحة واحدة — لا تُحسب مسمَّعة ولا يتقدّم العدّاد إلا عند الضغط على «تمت الصفحة»."}
+                            {e.pageDone ? "تُحسب الصفحة مسمَّعة." : "صفحة واحدة — لا تُحسب مسمَّعة ولا يتقدّم العدّاد إلا عند الضغط على «أنهى الصفحة»."}
                           </span>
                         </div>
                       )}
@@ -502,7 +535,7 @@ export default function RecitationClient({
                     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
                         {isSurah
-                          ? `عدد السور: ${e.none ? 0 : surahList(e).length}`
+                          ? `السور المنتهية: ${e.none ? 0 : doneList(e).length}`
                           : `${withPast ? "صفحات الجديد" : "إجمالي صفحات اليوم"}: ${e.none || e.noNew || e.gradeNew === REPEAT_GRADE || (singlePage(e) && !e.pageDone) ? 0 : span(e.nf, e.nt, track)}`}
                       </span>
                       {withPast && (

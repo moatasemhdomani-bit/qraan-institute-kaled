@@ -1,3 +1,4 @@
+import { surahsLabel } from "@/lib/recitation";
 import { parsePastItems, pastSummary } from "@/lib/pastRecitation";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
@@ -98,10 +99,10 @@ export default async function ParentPage({
     } else {
       recLines.push(
         todayRec.surahs.length > 0
-          ? `السور: ${todayRec.surahs.join("، ")} — ${todayRec.gradeNew}`
+          ? `السور: ${surahsLabel(todayRec.surahs, todayRec.surahsDone)} — ${todayRec.gradeNew}`
           : todayRec.noNew
             ? "لم يسمّع جديدًا"
-            : `تسميع جديد: من ${todayRec.newFrom} إلى ${todayRec.newTo} (${pageSpan(todayRec.newFrom, todayRec.newTo)} صفحة) — ${todayRec.gradeNew}${todayRec.pageDone === false ? " — لم تتم الصفحة" : ""}`
+            : `تسميع جديد: من ${todayRec.newFrom} إلى ${todayRec.newTo} (${pageSpan(todayRec.newFrom, todayRec.newTo)} صفحة) — ${todayRec.gradeNew}${todayRec.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`
       );
       // الماضي لمستويَي القرآن حاضراً وغيباً وحدهما
       if (hasPastRecitation(child.track) && todayRec.surahs.length === 0)
@@ -141,10 +142,10 @@ export default async function ParentPage({
           blank: r.none,
           newLine:
             r.surahs.length > 0
-              ? `سور: ${r.surahs.join("، ")} — ${r.gradeNew ?? ""}`
+              ? `سور: ${surahsLabel(r.surahs, r.surahsDone)} — ${r.gradeNew ?? ""}`
               : r.noNew
                 ? "لم يسمّع جديدًا"
-                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم تتم الصفحة" : ""}`,
+                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`,
           pastLine: !hasPastRecitation(child.track) || r.surahs.length > 0
             ? ""
             : r.noPast

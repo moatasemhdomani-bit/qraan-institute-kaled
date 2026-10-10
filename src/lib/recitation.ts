@@ -59,3 +59,8 @@ export function validateSurahEntry(e: { none: boolean; surahs: string[]; gradeNe
   if (!e.gradeNew) return "لم يتم تحديد تقدير التسميع.";
   return null;
 }
+
+/** عرض السور المسمَّعة: السورة التي لم يُنهِها الطالب تُعلَّم بـ «لم يُنهِها» (لا تُحسب مسمَّعة). */
+export function surahsLabel(surahs: string[], done: string[]): string {
+  return surahs.map((s) => (done.includes(s) ? s : `${s} (لم يُنهِها)`)).join("، ");
+}

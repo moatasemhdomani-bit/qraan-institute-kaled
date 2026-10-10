@@ -1,3 +1,4 @@
+import { surahsLabel } from "@/lib/recitation";
 import { parsePastItems, pastSummary, pastJuzTotal } from "@/lib/pastRecitation";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
@@ -59,10 +60,10 @@ export default async function RecitationMonitorPage({
           lines: [
             // تسميع بالسور (عمَّ غيباً / بينة للناس)
             r.surahs.length > 0
-              ? `سور: ${r.surahs.join("، ")} — ${r.gradeNew ?? ""}`
+              ? `سور: ${surahsLabel(r.surahs, r.surahsDone)} — ${r.gradeNew ?? ""}`
               : r.noNew
                 ? "لم يسمّع جديدًا"
-                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم تتم الصفحة" : ""}`,
+                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`,
             // الماضي لمستويَي القرآن حاضراً وغيباً وحدهما
             ...(!hasPastRecitation(h.track)
               ? []
