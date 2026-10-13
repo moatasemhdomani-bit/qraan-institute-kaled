@@ -42,6 +42,12 @@ export default function PermitsClient({
   readOnly?: boolean;
 }) {
   const [kindFilter, setKindFilter] = useState<"all" | "ENTRY" | "EXIT">("all");
+  // عدد الطلاب الذين ينطبق عليهم كل خيار
+  const kindCount = (k: "all" | "ENTRY" | "EXIT") => {
+    const ids = new Set<string>();
+    for (const h of halaqat) for (const p of h.permits) if (k === "all" || p.kind === k) ids.add(p.studentId);
+    return ids.size;
+  };
   // initialStudentId: فُتح النموذج من نتيجة البحث «لا يوجد إذن» على طالب بعينه
   const [formOpen, setFormOpen] = useState<{ existing: ExistingPermit | null; initialStudentId?: string } | null>(null);
   const [notice, setNotice] = useState("");
@@ -118,7 +124,7 @@ export default function PermitsClient({
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {(["all", "ENTRY", "EXIT"] as const).map((k) => (
             <button key={k} onClick={() => setKindFilter(k)} style={chipStyle(kindFilter === k)}>
-              {k === "all" ? "النوعان" : KIND_LABELS[k]}
+              {k === "all" ? "النوعان" : KIND_LABELS[k]} ({kindCount(k)})
             </button>
           ))}
         </div>

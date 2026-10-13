@@ -4,6 +4,7 @@ import { prisma, rawPrisma, nameWithNasab } from "@/lib/db";
 import { halqaWithTrack } from "@/lib/track";
 import PageHeader from "@/components/PageHeader";
 import StudentsClient from "./StudentsClient";
+import { sunnahLevelsFor } from "@/lib/sunnahServer";
 import { decryptPassword } from "@/lib/guardian";
 import { dateOnly, formatDateAr } from "@/lib/daily";
 
@@ -25,6 +26,9 @@ export default async function StudentsPage() {
     }),
     prisma.halqa.findMany({ include: { cohort: true, teacher: true }, orderBy: { name: "asc" } }),
   ]);
+
+  // مستوى كل طالب في مناهج السنة النبوية الثلاثة
+  const sunnahLevels = await sunnahLevelsFor(studentsRaw.map((s) => s.id));
 
   const students = studentsRaw.map((s) => ({
     id: s.id,
@@ -54,6 +58,8 @@ export default async function StudentsPage() {
     feeAmount: s.feeAmount != null ? String(s.feeAmount) : "",
     track: s.track,
     promoted: !!s.promotedAt,
+    stars: s.stars,
+    sunnahLevels: sunnahLevels[s.id] ?? [],
     behaviorLog: s.behaviorLog.map((l) => ({
       previousValue: l.previousValue,
       newValue: l.newValue,

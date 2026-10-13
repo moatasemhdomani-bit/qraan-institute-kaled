@@ -76,6 +76,22 @@ export default function StudentReportPreview({ preview }: { preview: StudentPrev
         )}
       </div>
 
+      <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700 }}>رصيد النجوم</div>
+        <span style={{ fontSize: 14, fontWeight: 800, color: "var(--gold)" }}>★ {preview.stars}</span>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>مستوى الطالب في مناهج السنة النبوية</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {preview.sunnahLevels.map((l) => (
+            <div key={l.section} style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)", fontSize: 12.5, lineHeight: 1.7 }}>
+              <b>{l.label}:</b> <span style={{ color: "var(--ink-2)" }}>{l.status}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div style={{ marginTop: 14 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>السنة النبوية</div>
         {preview.sunnah.length === 0 ? (

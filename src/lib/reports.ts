@@ -2,6 +2,7 @@ import { prisma, rawPrisma } from "./db";
 import { countedNewPages } from "./daily";
 import { passFailLabel } from "./exam";
 import { sunnahBranchLabel } from "./sunnah";
+import { sunnahLevelsFor } from "./sunnahServer";
 import { awqafPassed } from "./awqaf";
 import { examFamily } from "./track";
 import { parsePastItems, pastJuzTotal } from "./pastRecitation";
@@ -387,6 +388,10 @@ export type StudentPreview = {
   permits: { kind: "ENTRY" | "EXIT"; time: string; days: string[]; note: string | null; since: string }[];
   /** سبر السنة النبوية في الفترة (محلي ومن الأوقاف) */
   sunnah: { date: string; kind: string; branch: string; result: string; passed: boolean }[];
+  /** مستواه الآن في كل منهج من مناهج السنة النبوية */
+  sunnahLevels: { section: string; label: string; status: string }[];
+  /** رصيد النجوم */
+  stars: number;
 };
 
 export async function buildStudentPreview(studentId: string, from: string, to: string): Promise<StudentPreview | null> {
@@ -437,6 +442,8 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     permits: [...student.permits]
       .sort((a, b) => (a.kind === "ENTRY" ? 0 : 1) - (b.kind === "ENTRY" ? 0 : 1))
       .map((p) => ({ kind: p.kind, time: p.time, days: p.days, note: p.note, since: p.since })),
+    sunnahLevels: (await sunnahLevelsFor([student.id]))[student.id] ?? [],
+    stars: student.stars,
     sunnah: sunnahExams.map((e) => ({
       date: e.date,
       kind: e.type === "SUNNAH_STAGE" ? "سبر مرحلة" : e.type === "SUNNAH" ? "سبر مستوى (محلي)" : e.type === "SUNNAH_NOMINATION" ? "ترشيح الأوقاف" : "سبر الأوقاف",

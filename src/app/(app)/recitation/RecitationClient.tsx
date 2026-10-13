@@ -167,6 +167,8 @@ export default function RecitationClient({
   const [pastKind, setPastKind] = useState<Record<string, PastKind>>({});
   // نافذة «تسميع الماضي»: الطالب المفتوحة له
   const [pastOpen, setPastOpen] = useState<string | null>(null);
+  // «+ ماضٍ آخر»: إظهار اختيار النوع والرقم من جديد
+  const [pastAdding, setPastAdding] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [justSaved, setJustSaved] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -264,9 +266,11 @@ export default function RecitationClient({
   const pastEditor = (s: Student, e: Entry) => {
     const kind = pastKind[s.id] ?? "JUZ";
     const usedJuz = e.past.filter((x) => x.kind === kind).map((x) => x.juz);
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 10, borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-grad)" }}>
-        <div style={{ fontSize: 13, fontWeight: 700 }}>الماضي — اختاروا النوع ثم رقم الجزء ثم التقدير</div>
+    // رقم واحد في كل مرة: بعد اختياره تختفي الشبكة، و«+ ماضٍ آخر» يعيد اختيار النوع والرقم
+    const choosing = e.past.length === 0 || pastAdding[s.id] === true;
+    const picker = (
+      <>
+        <div style={{ fontSize: 13, fontWeight: 700 }}>اختاروا النوع ثم رقم الجزء</div>
         <div style={{ display: "flex", gap: 8 }}>
           {PAST_KINDS.map((k) => (
             <button
@@ -287,7 +291,10 @@ export default function RecitationClient({
                 key={j}
                 type="button"
                 disabled={used}
-                onClick={() => set(s.id, { past: [...e.past, { kind, juz: j, grade: "" }] })}
+                onClick={() => {
+                  set(s.id, { past: [...e.past, { kind, juz: j, grade: "" }] });
+                  setPastAdding((prev) => ({ ...prev, [s.id]: false }));
+                }}
                 style={{ ...chipStyle(used), minHeight: 48, fontSize: 18, fontWeight: 700, padding: 0, opacity: used ? 0.55 : 1 }}
               >
                 {j}
@@ -295,6 +302,10 @@ export default function RecitationClient({
             );
           })}
         </div>
+      </>
+    );
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 10, borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-grad)" }}>
         {e.past.map((x, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", padding: "8px 10px", borderRadius: 10, border: `1px solid ${x.grade ? "var(--line)" : "var(--accent-line)"}`, background: "var(--card-2-grad)" }}>
             <span style={{ fontSize: 14, fontWeight: 700, minWidth: 150 }}>{pastItemLabel({ kind: x.kind, juz: parseInt(x.juz, 10) })}</span>
@@ -312,6 +323,24 @@ export default function RecitationClient({
             </button>
           </div>
         ))}
+        {choosing ? (
+          <>
+            {picker}
+            {e.past.length > 0 && (
+              <button type="button" onClick={() => setPastAdding((prev) => ({ ...prev, [s.id]: false }))} style={{ ...chipStyle(false), alignSelf: "flex-start", padding: "7px 14px" }}>
+                إلغاء
+              </button>
+            )}
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPastAdding((prev) => ({ ...prev, [s.id]: true }))}
+            style={{ alignSelf: "flex-start", padding: "9px 18px", borderRadius: 10, border: "1px dashed var(--accent-line)", background: "var(--chip)", color: "var(--ink)", fontSize: 14, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}
+          >
+            + ماضٍ آخر
+          </button>
+        )}
       </div>
     );
   };

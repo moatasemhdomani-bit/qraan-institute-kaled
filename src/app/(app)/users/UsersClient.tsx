@@ -96,6 +96,7 @@ export default function UsersClient({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<StaffRow | null>(null);
 
+  const bySearch = (u: StaffRow) => !search.trim() || u.fullName.includes(search.trim());
   const filtered = useMemo(
     () =>
       staff
@@ -131,11 +132,11 @@ export default function UsersClient({
           />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button style={chipStyle(roleFilter === "ALL")} onClick={() => setRoleFilter("ALL")}>
-              الكل
+              الكل ({staff.filter(bySearch).length})
             </button>
             {STAFF_KINDS.map((k) => (
               <button key={k.id} style={chipStyle(roleFilter === k.id)} onClick={() => setRoleFilter(k.id)}>
-                {kindLabel(k)}
+                {kindLabel(k)} ({staff.filter((u) => bySearch(u) && u.assignments.some((a) => a.kind === k.id)).length})
               </button>
             ))}
           </div>

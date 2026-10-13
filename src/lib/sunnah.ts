@@ -10,9 +10,9 @@ export const SUNNAH_SECTIONS: { id: SunnahSectionId; label: string; branches: st
     id: "HADITH",
     label: "الحديث الشريف",
     branches: [
-      "مختارات من الأحاديث والأذكار النبوية",
+      "المختارات",
       "الأربعين النووية",
-      "أحاديث مختارة من رياض الصالحين",
+      "مختارات من رياض الصالحين",
       "عمدة الأحكام — إلى آخر باب الاعتكاف",
       "عمدة الأحكام — كامل",
       "رياض الصالحين — المئة الأولى",
@@ -81,11 +81,12 @@ export function sunnahProgressWarning(history: { section: string | null; branch:
  * كتب كل منهج للتسميع بالأرقام: الترقيم يبدأ من 1 في كل كتاب ويستمر عبر فروع الكتاب نفسه
  * (رياض الصالحين مثلًا من الفرع السادس إلى الحادي عشر). unit: ما يُعدّ في الكتاب.
  */
-export const SUNNAH_BOOKS: Record<SunnahSectionId, { id: string; label: string; unit: string; branches: number[] }[]> = {
+/** perStage: الترقيم يبدأ من 1 في كل مرحلة (المختارات) — ويُحفظ التسميع بمفتاح «الكتاب:المرحلة» */
+export const SUNNAH_BOOKS: Record<SunnahSectionId, { id: string; label: string; unit: string; branches: number[]; perStage?: boolean }[]> = {
   HADITH: [
-    { id: "MUKHTARAT", label: "مختارات من الأحاديث والأذكار النبوية", unit: "الحديث", branches: [1] },
+    { id: "MUKHTARAT", label: "المختارات", unit: "الحديث", branches: [1], perStage: true },
     { id: "ARBAEEN", label: "الأربعين النووية", unit: "الحديث", branches: [2] },
-    { id: "RIYAD_SELECTED", label: "أحاديث مختارة من رياض الصالحين", unit: "الحديث", branches: [3] },
+    { id: "RIYAD_SELECTED", label: "مختارات من رياض الصالحين", unit: "الحديث", branches: [3] },
     { id: "UMDA", label: "عمدة الأحكام", unit: "الحديث", branches: [4, 5] },
     { id: "RIYAD", label: "رياض الصالحين", unit: "الحديث", branches: [6, 7, 8, 9, 10, 11] },
   ],
@@ -101,13 +102,19 @@ export const SUNNAH_BOOKS: Record<SunnahSectionId, { id: string; label: string; 
   ],
 };
 
-export const sunnahBook = (section: string, book: string) => SUNNAH_BOOKS[section as SunnahSectionId]?.find((b) => b.id === book);
+export const sunnahBook = (section: string, book: string) => SUNNAH_BOOKS[section as SunnahSectionId]?.find((b) => b.id === book.split(":")[0]);
+/** «المختارات — المرحلة 2» لمفتاح الكتاب ذي الترقيم لكل مرحلة، وإلا اسم الكتاب */
+export function sunnahBookLabel(section: string, book: string): string {
+  const b = sunnahBook(section, book);
+  const st = book.split(":")[1];
+  return b ? (st ? `${b.label} — المرحلة ${st}` : b.label) : book;
+}
 
 /** «الأربعين النووية — الحديث 7» / «… — الحديث 7 إلى 9» */
 export function sunnahRecLabel(section: string, book: string, from: number, to: number): string {
   const b = sunnahBook(section, book);
   const range = from === to ? `${from}` : `${from} إلى ${to}`;
-  return b ? `${b.label} — ${b.unit} ${range}` : range;
+  return b ? `${sunnahBookLabel(section, book)} — ${b.unit} ${range}` : range;
 }
 
 export const SUNNAH_REPEAT_GRADE = "إعادة";
@@ -193,21 +200,24 @@ export function sunnahPosition(
   const top = Math.max(0, ...passedLevels);
   const finished = top >= total;
   const level = Math.min(top + 1, total);
-  const book = levelBook(section, level).id;
   const stages = finished ? null : levelStages(section, level);
   let stage: number | null = null;
   if (stages) {
     const i = stages.findIndex((_, k) => !passedStages.some((p) => p.level === level && p.stage === k + 1));
     stage = i >= 0 ? i + 1 : null;
   }
+  // المرحلة المعتبرة لنطاق الأرقام: الحالية، أو الأخيرة إن أتمّ المراحل كلها
+  const rangeStage = stages ? (stage ?? stages.length) : null;
+  const range = rangeStage ? stageRange(section, level, rangeStage) : null;
+  const book = rangeStage ? stageBookKey(section, level, rangeStage) : levelBook(section, level).id;
   return {
     section,
     level,
     book,
     stages,
     stage,
-    stageStart: stages && stage ? (stage > 1 ? stages[stage - 2] + 1 : levelStartNo(section, level)) : null,
-    stageEnd: stages && stage ? stages[stage - 1] : stages ? stages[stages.length - 1] : null,
+    stageStart: stage && range ? range.from : null,
+    stageEnd: range ? range.to : null,
     awaitingLevelExam: !!stages && stage === null,
     finished,
   };
@@ -221,17 +231,33 @@ export function sunnahPositionLabel(p: SunnahPosition): string {
   if (p.finished) return "أنهى كل مستويات المنهج";
   const b = sunnahBook(p.section, p.book);
   const lvl = `المستوى ${p.level} (${b?.label ?? ""})`;
+  // الترقيم لكل مرحلة: «المرحلة 2 من 4 (من الحديث 1 إلى 20)»
   if (!p.stages) return lvl;
   if (p.awaitingLevelExam) return `${lvl} — أنهى مراحله كلها، ينتظر سبر المستوى`;
   return `${lvl} — المرحلة ${p.stage} من ${p.stages.length} (من ${b?.unit ?? "الرقم"} ${p.stageStart} إلى ${p.stageEnd})`;
 }
 
-/** أول رقم في المستوى (ترقيم الكتاب) */
+/** أول رقم في المستوى (ترقيم الكتاب) — 1 للكتاب ذي الترقيم لكل مرحلة */
 export function levelStartNo(section: SunnahSectionId, level: number): number {
+  if (levelBook(section, level).perStage) return 1;
   const ends = levelStages(section, level);
   const counts = SUNNAH_STAGE_COUNTS[section]?.[level];
   return ends && counts ? ends[0] - counts[0] + 1 : 1;
 }
+
+/** نطاق أرقام المرحلة: متصل في الكتاب، أو من 1 إلى عدد أحاديثها في الكتاب ذي الترقيم لكل مرحلة (المختارات) */
+export function stageRange(section: SunnahSectionId, level: number, stage: number): { from: number; to: number } {
+  const counts = SUNNAH_STAGE_COUNTS[section]?.[level] ?? [];
+  if (levelBook(section, level).perStage) return { from: 1, to: counts[stage - 1] ?? 1 };
+  const ends = levelStages(section, level) ?? [];
+  return { from: stage > 1 ? ends[stage - 2] + 1 : levelStartNo(section, level), to: ends[stage - 1] };
+}
+
+/** مفتاح الكتاب الذي يُحفظ به التسميع: «MUKHTARAT:2» للترقيم لكل مرحلة، وإلا معرّف الكتاب */
+export const stageBookKey = (section: SunnahSectionId, level: number, stage: number) => {
+  const b = levelBook(section, level);
+  return b.perStage ? `${b.id}:${stage}` : b.id;
+};
 
 /** موقع الطالب من سبوره في المنهج: المستويات الناجحة (محليًا أو من الأوقاف، النجاح 80) والمراحل الناجحة (بغير «إعادة») */
 /** الإعداد الأول للطالب في منهج: يبدأ من مستوى ومرحلة ورقم — ما قبلها يُعدّ منجزًا */
@@ -274,7 +300,7 @@ export function sunnahSuggest(
 ): { book: string; nos: number[] } {
   const inBook = history.filter((h) => h.section === pos.section && h.book === pos.book);
   // لم يسمّع بعد في كتاب المستوى: يبدأ من الرقم الذي اختاره المختبِر في الإعداد الأول
-  const fromStart = startPoint && startPoint.level === pos.level && !inBook.length ? startPoint.startNo : null;
+  const fromStart = startPoint && startPoint.level === pos.level && (startPoint.stage ?? null) === (pos.stage ?? null) && !inBook.length ? startPoint.startNo : null;
   if (!pos.stages) return fromStart ? { book: pos.book, nos: [fromStart] } : inBook.length ? sunnahNext(pos.section, inBook) : { book: pos.book, nos: [1] };
   const start = levelStartNo(pos.section, pos.level);
   const base = inBook.length ? sunnahNext(pos.section, inBook) : { book: pos.book, nos: [fromStart ?? pos.stageStart ?? start] };

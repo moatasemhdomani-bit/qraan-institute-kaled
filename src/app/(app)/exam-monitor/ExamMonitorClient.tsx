@@ -21,6 +21,7 @@ const EXAM_SCREENS = [
   { href: "/exams/placement", label: "تحديد مستوى" },
   { href: "/exams/arabic", label: "سبر القراءة العربية" },
   { href: "/exams/sunnah", label: "سبر السنة النبوية" },
+  { href: "/exams/sunnah/nomination", label: "ترشيح الأوقاف للسنة النبوية" },
 ];
 
 const examBtnStyle = {
@@ -84,8 +85,15 @@ export default function ExamMonitorClient({
     return Array.from(names);
   }, [blocks]);
 
-  const { shown: cohortTeacherBlocks, selects } = useCohortTeacherFilter(blocks);
   const q = search.trim();
+  const byType = (x: Row) => typeFilter === "all" || x.type === typeFilter;
+  const byExaminer = (x: Row) => examinerFilter === "all" || x.examinerName === examinerFilter;
+  const bySearch = (x: Row) => !q || x.studentName.includes(q);
+  const { shown: cohortTeacherBlocks, selects } = useCohortTeacherFilter(blocks, (b) => b.rows.filter((x) => byType(x) && byExaminer(x) && bySearch(x)).length);
+  // عدد السبورات لكل خيار (ضمن بقية الفلاتر)
+  const ctRows = cohortTeacherBlocks.flatMap((b) => b.rows).filter(bySearch);
+  const typeCount = (t: string) => ctRows.filter((x) => byExaminer(x) && (t === "all" || x.type === t)).length;
+  const examinerCount = (n: string) => ctRows.filter((x) => byType(x) && (n === "all" || x.examinerName === n)).length;
   const filteredBlocks = cohortTeacherBlocks
     .map((b) => ({
       ...b,
@@ -153,13 +161,16 @@ export default function ExamMonitorClient({
             onChange={(v) => setTypeFilter(v as typeof typeFilter)}
             options={(["all", ...typeFilters] as const).map((t) => ({
               value: t,
-              label: t === "all" ? "كل الأنواع" : t === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[t],
+              label: `${t === "all" ? "كل الأنواع" : t === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[t]} (${typeCount(t)})`,
             }))}
           />
-          <Select value={examinerFilter} onChange={setExaminerFilter} options={[{ value: "all", label: "كل المختبِرين" }, ...examinerNames.map((n) => ({ value: n, label: n }))]} />
+          <Select value={examinerFilter} onChange={setExaminerFilter} options={[{ value: "all", label: `كل المختبِرين (${examinerCount("all")})` }, ...examinerNames.map((n) => ({ value: n, label: `${n} (${examinerCount(n)})` }))]} />
           {selects}
         </div>
       </div>
+
+
+      <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>عدد النتائج: {filteredBlocks.reduce((n, b) => n + b.rows.length, 0)} سبرًا في {filteredBlocks.length} حلقة</div>
 
       {filteredBlocks.length === 0 && (
         <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>

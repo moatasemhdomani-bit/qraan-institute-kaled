@@ -40,7 +40,7 @@ export default function StarArchive({
         <div style={{ fontSize: 15, fontWeight: 700, flex: 1 }}>{title}</div>
         {(["ALL", "CHARGE", "WITHDRAW"] as const).map((k) => (
           <button key={k} type="button" onClick={() => setFilter(k)} style={chipStyle(filter === k)}>
-            {k === "ALL" ? "الكل" : starKindLabel(k)}
+            {k === "ALL" ? "الكل" : starKindLabel(k)} ({k === "ALL" ? rows.length : rows.filter((r) => r.kind === k).length})
           </button>
         ))}
       </div>

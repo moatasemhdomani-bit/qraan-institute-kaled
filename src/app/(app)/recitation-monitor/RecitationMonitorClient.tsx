@@ -52,7 +52,11 @@ export default function RecitationMonitorClient({
   const router = useRouter();
   const [filter, setFilter] = useState("all");
   // فلترة الحلقات بالفوج والمدرّس
-  const { shown: shownBlocks, selects } = useCohortTeacherFilter(blocks);
+  const match = (x: Row) => filter === "all" || x.state === filter;
+  const { shown: shownBlocks, selects } = useCohortTeacherFilter(blocks, (b) => b.rows.filter(match).length);
+  const shownRows = shownBlocks.flatMap((b) => b.rows);
+  const filterOptions = FILTERS.map((f) => ({ ...f, label: `${f.label} (${f.value === "all" ? shownRows.length : shownRows.filter((x) => x.state === f.value).length})` }));
+  const resultCount = shownRows.filter(match).length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -107,7 +111,7 @@ export default function RecitationMonitorClient({
         }}
       >
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, flex: "1 1 460px" }}>
-          <Select value={filter} onChange={setFilter} options={FILTERS} />
+          <Select value={filter} onChange={setFilter} options={filterOptions} />
           {selects}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginInlineStart: "auto" }}>
@@ -121,6 +125,9 @@ export default function RecitationMonitorClient({
           لا توجد حلقات بعد — أنشئ حلقة أولًا.
         </div>
       )}
+
+
+      <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>عدد النتائج: {resultCount} طالبًا في {shownBlocks.length} حلقة</div>
 
       {blocks.length > 0 && shownBlocks.length === 0 && (
         <div style={{ padding: "32px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا حلقات مطابقة للفلترة.</div>

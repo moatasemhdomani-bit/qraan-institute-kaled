@@ -125,7 +125,7 @@ export default function ReportsHubClient({ issued, isDirector }: { issued: Issue
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {FILTERS.map((f) => (
           <button key={f.id} onClick={() => setFilter(f.id)} style={chipStyle(filter === f.id)}>
-            {f.label}
+            {f.label} ({f.id === "all" ? issued.length : issued.filter((r) => r.kind === f.id).length})
           </button>
         ))}
       </div>

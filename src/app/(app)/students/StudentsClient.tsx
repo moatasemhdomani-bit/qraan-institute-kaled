@@ -30,6 +30,10 @@ type StudentRow = {
   track: TrackId;
   /** أُخرج من حلقته بترفّعه إلى مستوى جديد (لا طالبًا جديدًا) */
   promoted: boolean;
+  /** رصيد النجوم */
+  stars: number;
+  /** مستواه في كل منهج من مناهج السنة النبوية */
+  sunnahLevels: { section: string; label: string; status: string }[];
   father: string;
   mother: string;
   familyName: string;
@@ -463,6 +467,20 @@ function StudentForm({
         <PhotoField name="photo" label="صورة الطالب" existingUrl={initial?.photoUrl} />
 
         {initial && initial.guardianUsername && <GuardianBox student={initial} />}
+
+        {initial && (
+          <div style={{ padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, flex: 1 }}>السنة النبوية</div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>★ {initial.stars} نجمة</span>
+            </div>
+            {initial.sunnahLevels.map((l) => (
+              <div key={l.section} style={{ fontSize: 12.5, lineHeight: 1.6 }}>
+                <b>{l.label}:</b> <span style={{ color: "var(--ink-2)" }}>{l.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
           <ReadOnly label="رقم الطالب" value={initial ? initial.no : "يُحدَّد تلقائيًا عند الحفظ"} />

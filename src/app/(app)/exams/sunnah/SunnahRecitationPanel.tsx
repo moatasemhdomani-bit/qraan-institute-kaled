@@ -15,7 +15,8 @@ import {
   sunnahMaxNo,
   sunnahPositionLabel,
   levelStages,
-  levelStartNo,
+  stageRange,
+  sunnahBookLabel,
   SUNNAH_PASS_STARS,
   SUNNAH_REPEAT_STARS,
   SUNNAH_DAILY_ALERT,
@@ -271,18 +272,21 @@ export default function SunnahRecitationPanel({
       {mode === "recite" && canRecite && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
-            يظهر التالي بعد آخر ما سمّعه الطالب، وما كان «{SUNNAH_REPEAT_GRADE}» يبقى ضمن التالي — يمكنكم الرجوع والتقدّم بالسهمين.
+            يظهر التالي بعد آخر ما سمّعه الطالب، وما كان «{SUNNAH_REPEAT_GRADE}» يبقى ضمن التالي — يمكنكم الرجوع والتقدّم بزرّي − و+.
           </div>
           {items.map((it, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: 10, borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
               <span style={{ fontSize: 13, color: "var(--ink-2)" }}>{unit}</span>
-              <button type="button" onClick={() => shift(i, -1)} aria-label="السابق" style={{ ...chipStyle(false), padding: "6px 12px" }}>
-                ▶
-              </button>
-              <NumberField value={it.no} onChange={(e) => setItem(i, { no: e.target.value })} style={{ width: 76, minHeight: 40, padding: 8, fontSize: 17, textAlign: "center" }} />
-              <button type="button" onClick={() => shift(i, 1)} aria-label="التالي" style={{ ...chipStyle(false), padding: "6px 12px" }}>
-                ◀
-              </button>
+              {/* − الرقم + متلاصقة لا تنفصل على شاشة الجوال */}
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flex: "none" }}>
+                <button type="button" onClick={() => shift(i, -1)} aria-label="السابق" style={{ ...chipStyle(false), width: 36, minHeight: 36, padding: 0, fontSize: 18, fontWeight: 700 }}>
+                  −
+                </button>
+                <NumberField value={it.no} onChange={(e) => setItem(i, { no: e.target.value })} style={{ width: 52, minHeight: 36, padding: "4px 2px", fontSize: 15, textAlign: "center" }} />
+                <button type="button" onClick={() => shift(i, 1)} aria-label="التالي" style={{ ...chipStyle(false), width: 36, minHeight: 36, padding: 0, fontSize: 18, fontWeight: 700 }}>
+                  +
+                </button>
+              </div>
               {SUNNAH_REC_GRADES.map((g) => (
                 <button key={g} type="button" onClick={() => setItem(i, { grade: g })} style={{ ...chipStyle(it.grade === g), minHeight: 40, padding: "8px 16px" }}>
                   {g}
@@ -323,7 +327,7 @@ export default function SunnahRecitationPanel({
             return (
               <div key={g[0].id} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--line)", fontSize: 12.5, display: "flex", flexDirection: "column", gap: 5 }}>
                 <div style={{ color: "var(--ink-2)" }}>
-                  {formatDateAr(g[0].date)} · {b?.label ?? g[0].book} · {g[0].examinerName}
+                  {formatDateAr(g[0].date)} · {b ? sunnahBookLabel(g[0].section, g[0].book) : g[0].book} · {g[0].examinerName}
                 </div>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                   {g.map((r) => {
@@ -381,7 +385,7 @@ function SetupForm({ section, studentId }: { section: SunnahSectionId; studentId
   const b = books.find((x) => x.id === book);
   const stages = level ? levelStages(section, level) : null;
   const range =
-    level && stages && stage ? { from: stage > 1 ? stages[stage - 2] + 1 : levelStartNo(section, level), to: stages[stage - 1] } : null;
+    level && stages && stage ? stageRange(section, level, stage) : null;
 
   function save() {
     setError("");
@@ -444,8 +448,8 @@ function SetupForm({ section, studentId }: { section: SunnahSectionId; studentId
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>المرحلة</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {stages.map((end, k) => {
-              const from = k > 0 ? stages[k - 1] + 1 : levelStartNo(section, level);
+            {stages.map((_, k) => {
+              const { from, to: end } = stageRange(section, level, k + 1);
               return (
                 <button
                   key={k}

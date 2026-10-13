@@ -5,7 +5,7 @@ import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { isValidDate, GRADES } from "@/lib/daily";
 import { passFailLabel, ARABIC_GRADES, ARABIC_FAIL_GRADE, TYPE_LABELS } from "@/lib/exam";
-import { SUNNAH_PASS_MARK, validSunnahStars, sunnahSection, sunnahBranchLabel, sunnahBook, sunnahRecLabel, levelStages, positionFromExams, sunnahMaxNo, levelExamBlock, sunnahMode, SUNNAH_REC_GRADES, levelStartNo, SUNNAH_NOT_AVAILABLE, type SunnahSectionId } from "@/lib/sunnah";
+import { SUNNAH_PASS_MARK, validSunnahStars, sunnahSection, sunnahBranchLabel, sunnahBook, sunnahRecLabel, levelStages, positionFromExams, sunnahMaxNo, levelExamBlock, sunnahMode, SUNNAH_REC_GRADES, stageRange, SUNNAH_NOT_AVAILABLE, type SunnahSectionId } from "@/lib/sunnah";
 import { revalidatePath } from "next/cache";
 import { applyStars } from "@/lib/starsServer";
 
@@ -330,8 +330,7 @@ export async function saveSunnahStart(input: { studentId: string; section: Sunna
   const stage = stages ? input.stage : null;
   if (!Number.isInteger(input.startNo) || input.startNo < 1) return { error: "اكتبوا رقم الحديث." };
   if (stages && stage) {
-    const from = stage > 1 ? stages[stage - 2] + 1 : levelStartNo(input.section, input.level);
-    const to = stages[stage - 1];
+    const { from, to } = stageRange(input.section, input.level, stage);
     if (input.startNo < from || input.startNo > to) return { error: `رقم الحديث في هذه المرحلة من ${from} إلى ${to}.` };
   }
   const student = await prisma.student.findUnique({ where: { id: input.studentId }, select: { name: true } });

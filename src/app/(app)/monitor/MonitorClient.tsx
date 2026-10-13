@@ -35,8 +35,15 @@ export default function MonitorClient({
   const router = useRouter();
   const [filter, setFilter] = useState<string>("all");
 
-  const filters = [{ value: "all", label: "كل الطلاب" }, ...ATT_STATES.map((s) => ({ value: s.id, label: s.label }))];
-  const { shown, selects } = useCohortTeacherFilter(blocks);
+  const match = (r: Block["rows"][number]) => filter === "all" || r.status === filter;
+  const { shown, selects } = useCohortTeacherFilter(blocks, (b) => b.rows.filter(match).length);
+  // عدد ما ينطبق عليه كل خيار (ضمن الفوج والمدرّس المختارين)
+  const shownRows = shown.flatMap((b) => b.rows);
+  const filters = [
+    { value: "all", label: `كل الطلاب (${shownRows.length})` },
+    ...ATT_STATES.map((s) => ({ value: s.id, label: `${s.label} (${shownRows.filter((r) => r.status === s.id).length})` })),
+  ];
+  const resultCount = shownRows.filter(match).length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -105,6 +112,9 @@ export default function MonitorClient({
           لا توجد حلقات بعد — أنشئ حلقة أولًا.
         </div>
       )}
+
+
+      <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>عدد النتائج: {resultCount} طالبًا في {shown.length} حلقة</div>
 
       {blocks.length > 0 && shown.length === 0 && (
         <div style={{ padding: "32px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا حلقات مطابقة للفلترة.</div>
