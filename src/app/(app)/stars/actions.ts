@@ -10,7 +10,6 @@ export type StarResult = { error?: string; ok?: boolean };
 
 const isAdmin = (role: string) => role === "DIRECTOR" || role === "ADMIN";
 
-/** السبب اختياري */
 function checkInput(kind: string, amount: number): string | null {
   if (kind !== "CHARGE" && kind !== "WITHDRAW") return "اختاروا العملية: شحن أو سحب.";
   if (!Number.isInteger(amount) || amount < 1) return "اكتبوا عدد النجوم (نجمة واحدة على الأقل).";
@@ -27,7 +26,7 @@ function done() {
 }
 
 /** الإدارة: شحن رصيد طالب أو سحبه مباشرة — لا يمسّ رصيد حلقته. */
-export async function adminStudentStars(input: { studentId: string; kind: StarKind; amount: number; reason: string }): Promise<StarResult> {
+export async function adminStudentStars(input: { studentId: string; kind: StarKind; amount: number }): Promise<StarResult> {
   const session = await getSession();
   if (!session || !isAdmin(session.role)) return { error: "إدارة النجوم من صلاحية الإدارة." };
   const bad = checkInput(input.kind, input.amount);
@@ -52,7 +51,6 @@ export async function adminStudentStars(input: { studentId: string; kind: StarKi
           halqaId: student.halqaId,
           byId: session.userId,
           byRole: session.role,
-          reason: input.reason.trim() || null,
         },
       });
     });
@@ -66,7 +64,7 @@ export async function adminStudentStars(input: { studentId: string; kind: StarKi
 }
 
 /** الإدارة: «نجوم الحلقات» — شحن رصيد حلقة أو أكثر أو سحبه (العدد نفسه لكل حلقة مختارة). */
-export async function adminHalqaStars(input: { halqaIds: string[]; kind: StarKind; amount: number; reason: string }): Promise<StarResult> {
+export async function adminHalqaStars(input: { halqaIds: string[]; kind: StarKind; amount: number }): Promise<StarResult> {
   const session = await getSession();
   if (!session || !isAdmin(session.role)) return { error: "إدارة النجوم من صلاحية الإدارة." };
   const bad = checkInput(input.kind, input.amount);
@@ -102,7 +100,6 @@ export async function adminHalqaStars(input: { halqaIds: string[]; kind: StarKin
           halqaId: h.id,
           byId: session.userId,
           byRole: session.role,
-          reason: input.reason.trim() || null,
         })),
       });
     });
@@ -122,7 +119,7 @@ export async function adminHalqaStars(input: { halqaIds: string[]; kind: StarKin
  * المدرّس: يصرف من رصيد حلقته على أحد طلابها (شحن)، أو يسحب من الطالب فتعود النجوم إلى رصيد الحلقة.
  * رصيد كل حلقة لا يُصرف إلا لطلابها.
  */
-export async function teacherStudentStars(input: { studentId: string; kind: StarKind; amount: number; reason: string }): Promise<StarResult> {
+export async function teacherStudentStars(input: { studentId: string; kind: StarKind; amount: number }): Promise<StarResult> {
   const session = await getSession();
   if (!session || session.role !== "TEACHER") return { error: "متابعة النجوم من صلاحية المدرّس." };
   const bad = checkInput(input.kind, input.amount);
@@ -157,7 +154,6 @@ export async function teacherStudentStars(input: { studentId: string; kind: Star
           fromPool: true,
           byId: session.userId,
           byRole: session.role,
-          reason: input.reason.trim() || null,
         },
       });
     });
@@ -171,7 +167,7 @@ export async function teacherStudentStars(input: { studentId: string; kind: Star
 }
 
 /** مسؤول النشاط: يسحب النجوم من أي طالب في المعهد مقابل دخوله النشاط — لا تعود إلى رصيد الحلقة. */
-export async function activityWithdrawStars(input: { studentId: string; amount: number; reason: string }): Promise<StarResult> {
+export async function activityWithdrawStars(input: { studentId: string; amount: number }): Promise<StarResult> {
   const session = await getSession();
   if (!session || session.role !== "ACTIVITY_OFFICER") return { error: "سحب نجوم النشاط من صلاحية مسؤول النشاط." };
   const bad = checkInput("WITHDRAW", input.amount);
@@ -193,7 +189,6 @@ export async function activityWithdrawStars(input: { studentId: string; amount: 
           halqaId: student.halqaId,
           byId: session.userId,
           byRole: session.role,
-          reason: input.reason.trim() || null,
         },
       });
     });

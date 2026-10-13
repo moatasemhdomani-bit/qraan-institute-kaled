@@ -119,7 +119,8 @@ export async function saveSunnahExam(input: SunnahExamInput): Promise<SunnahSave
     session.userId,
     `${input.id ? "عدّل" : "سجّل"} ${TYPE_LABELS[input.type]} — ${sunnahBranchLabel(input.section, input.branch, false)} للطالب «${student.name}»${result ? ` — ${result}` : ""}`
   );
-  revalidatePath("/exams/sunnah");
+  revalidatePath("/exams/sunnah", "layout");
+  revalidatePath("/exams/awqaf-batches");
   revalidatePath("/exam-monitor");
   revalidatePath("/parent");
   revalidatePath("/students");
@@ -194,7 +195,8 @@ export async function saveSunnahRecitation(input: {
     `سجّل تسميع السنة النبوية للطالب «${student.name}»: ${book.label} — ${items.map((it) => `${it.no} (${it.grade})`).join("، ")}`
   );
   await sunnahStars(input.studentId, stars, `تسميع السنة النبوية — ${book.label}: ${items.map((it) => it.no).join("، ")}`, session);
-  revalidatePath("/exams/sunnah");
+  revalidatePath("/exams/sunnah", "layout");
+  revalidatePath("/exams/awqaf-batches");
   return { ok: true };
 }
 
@@ -207,7 +209,8 @@ export async function deleteSunnahRecitation(id: string): Promise<SunnahSaveResu
   if (!isAdmin(session.role) && rec.examinerId !== session.userId) return { error: "يحذف المختبِر ما سجّله هو فقط." };
   await prisma.sunnahRecitation.delete({ where: { id } });
   await logAction(session.userId, `حذف تسميع السنة النبوية للطالب «${rec.student.name}»: ${sunnahRecLabel(rec.section, rec.book, rec.fromNo, rec.toNo)}`);
-  revalidatePath("/exams/sunnah");
+  revalidatePath("/exams/sunnah", "layout");
+  revalidatePath("/exams/awqaf-batches");
   return { ok: true };
 }
 
@@ -280,7 +283,8 @@ export async function saveSunnahStageExam(input: {
     session.userId,
     `${input.id ? "عدّل" : "سجّل"} سبر المرحلة ${input.stage} — ${sunnahBranchLabel(input.section, input.level, false)} للطالب «${student.name}» — ${input.grade}`
   );
-  revalidatePath("/exams/sunnah");
+  revalidatePath("/exams/sunnah", "layout");
+  revalidatePath("/exams/awqaf-batches");
   revalidatePath("/exam-monitor");
   revalidatePath("/parent");
   return { ok: true };

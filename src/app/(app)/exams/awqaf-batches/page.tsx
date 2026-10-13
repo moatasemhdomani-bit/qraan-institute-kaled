@@ -6,6 +6,8 @@ import { formatDateAr } from "@/lib/daily";
 import { passFailLabel } from "@/lib/exam";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import AwqafBatchesClient from "./AwqafBatchesClient";
+import SunnahAwqafPanel from "../sunnah/SunnahAwqafPanel";
+import { loadSunnahExamRows, loadSunnahStudents } from "../sunnah/data";
 
 export default async function AwqafBatchesPage() {
   const session = await getSession();
@@ -104,6 +106,10 @@ export default async function AwqafBatchesPage() {
         subtitle="الاختبار تُجريه جهة الأوقاف خارج النظام — هنا تُدار الدفعات ودورة الشهادة. حدّ النجاح: 90 حاضرًا (تلاوة) و80 غيبًا (حفظ)."
       />
       <AwqafBatchesClient candidates={candidates} batches={batches} searchStudents={searchStudents} />
+      {/* السنة النبوية: سبر ترشيح الأوقاف يُدار من هنا — الجاهزون وإدخال نتيجة سبر الأوقاف */}
+      <div style={{ marginTop: 18 }}>
+        <SunnahAwqafPanel students={await loadSunnahStudents()} exams={await loadSunnahExamRows(undefined, ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF"])} />
+      </div>
     </>
   );
 }

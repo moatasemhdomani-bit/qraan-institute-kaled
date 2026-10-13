@@ -66,13 +66,12 @@ export default function ActivityStarsClient({
           title="سحب نجوم للنشاط"
           subtitle={op.name}
           kinds={["WITHDRAW"]}
-          defaultReason="دخول النشاط"
           info={
             <div style={{ padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13.5 }}>
               رصيد الطالب: <StarBadge n={op.stars} /> — {op.halqaName ?? "غير مفروز"}
             </div>
           }
-          onSubmit={(v) => activityWithdrawStars({ studentId: op.id, amount: v.amount, reason: v.reason })}
+          onSubmit={(v) => activityWithdrawStars({ studentId: op.id, amount: v.amount })}
           onClose={() => setOp(null)}
         />
       )}

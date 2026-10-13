@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { chipStyle, primaryButtonStyle } from "@/lib/ui";
 import { GRADES, today, formatDateAr } from "@/lib/daily";
 import {
@@ -47,6 +47,8 @@ type Item = { no: string; grade: string };
  * (وما كان «إعادة» يبقى ضمن التالي) — للمساعدة فقط، ويمكنه الرجوع والتقدّم. أكثر من رقم في الجلسة، لكل رقم تقديره.
  */
 export default function SunnahRecitationPanel({
+  section: fixedSection,
+  dayCounts,
   studentId,
   recitations,
   exams,
@@ -56,6 +58,10 @@ export default function SunnahRecitationPanel({
   canRecite,
   canDelete,
 }: {
+  /** المنهج — كل منهج واجهة مستقلة */
+  section: SunnahSectionId;
+  /** عدد ما سمّعه الطالب في كل يوم من هذا الأسبوع (المناهج الثلاثة، المحفوظ) */
+  dayCounts: Record<string, number>;
   studentId: string;
   recitations: SunnahRecRow[];
   /** سبور الطالب في السنة النبوية — منها موقعه: المستوى والمرحلة */
@@ -69,6 +75,19 @@ export default function SunnahRecitationPanel({
   canDelete: (r: SunnahRecRow) => boolean;
 }) {
   const [section, setSection] = useState<SunnahSectionId | null>(null);
+  // بعد الحفظ: يُعاد الاقتراح حين تصل البيانات الجديدة من الخادم
+  const [refreshAfterSave, setRefreshAfterSave] = useState(false);
+  // واجهة منهج واحد: يُفتح التسميع مباشرة بالتالي المقترح
+  useEffect(() => {
+    if (section === null && canRecite) pick(fixedSection);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section, fixedSection, canRecite]);
+  useEffect(() => {
+    if (!refreshAfterSave) return;
+    setRefreshAfterSave(false);
+    pick(fixedSection, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recitations, exams]);
   const [book, setBook] = useState("");
   const [items, setItems] = useState<Item[]>([]);
   const [date, setDate] = useState(today());
@@ -91,7 +110,8 @@ export default function SunnahRecitationPanel({
 
   // تنبيهات للمختبِر (حتى لو أخذ «إعادة» في بعض الأحاديث)
   const gradedNow = items.filter((it) => it.grade).length;
-  const countOn = (d: string) => recitations.filter((r) => r.date === d).length;
+  // المحفوظ في المناهج الثلاثة (من الخادم) لأيام هذا الأسبوع، وإلا ما في هذا المنهج
+  const countOn = (d: string) => dayCounts[d] ?? recitations.filter((r) => r.date === d).length;
   const dayCount = countOn(date) + gradedNow;
   const lastWorkDay = weekDates[weekDates.length - 1];
   const everyDayThisWeek =
@@ -113,13 +133,13 @@ export default function SunnahRecitationPanel({
   const pos = section ? posOf(section) : null;
   const maxNo = pos ? sunnahMaxNo(pos) : null;
 
-  function pick(sec: SunnahSectionId) {
+  function pick(sec: SunnahSectionId, keepSaved = false) {
     const next = sunnahSuggest(posOf(sec), recitations);
     setSection(sec);
     setBook(next.book);
     setItems(next.nos.map((n) => ({ no: String(n), grade: "" })));
     setError("");
-    setSaved(false);
+    if (!keepSaved) setSaved(false);
     setStageOpen(false);
     setStarsEdit(null);
     setStageStarsEdit(null);
@@ -144,7 +164,7 @@ export default function SunnahRecitationPanel({
       });
       if (res.error) return setStageError(res.error);
       setSaved(true);
-      setSection(null);
+      setRefreshAfterSave(true);
     });
   }
 
@@ -183,7 +203,7 @@ export default function SunnahRecitationPanel({
       setSaved(true);
       setNotes("");
       setStarsEdit(null);
-      setSection(null);
+      setRefreshAfterSave(true);
     });
   }
 
@@ -201,13 +221,7 @@ export default function SunnahRecitationPanel({
   return (
     <div style={{ padding: 12, borderRadius: 12, border: "1px solid var(--accent-line, var(--line))", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ fontSize: 14.5, fontWeight: 700 }}>تسميع السنة النبوية</div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {SUNNAH_SECTIONS.map((s) => (
-          <button key={s.id} type="button" onClick={() => pick(s.id)} style={{ ...chipStyle(section === s.id), minHeight: 42, padding: "9px 16px" }}>
-            {s.label}
-          </button>
-        ))}
-      </div>
+
       {saved && <div style={{ fontSize: 13, color: "var(--ok)" }}>✓ حُفظ التسميع.</div>}
 
       {section && canRecite && (
@@ -219,7 +233,7 @@ export default function SunnahRecitationPanel({
           )}
           {pos?.awaitingLevelExam && (
             <div style={{ padding: "11px 13px", borderRadius: 11, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 13 }}>
-              أنهى الطالب مراحل المستوى {pos.level} كلها — يُجرى له سبر المستوى من «＋ سبر جديد» ثم ينتقل إلى المستوى التالي.
+              أنهى الطالب مراحل المستوى {pos.level} كلها — يُجرى له سبر المستوى من «＋ سبر المستوى» ثم ينتقل إلى المستوى التالي.
             </div>
           )}
           {pos?.stage != null && items.length === 0 && (

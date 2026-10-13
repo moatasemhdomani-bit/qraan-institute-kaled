@@ -17,7 +17,10 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[]; tr
   { id: "exams-awqaf", href: "/exams/awqaf", label: "ترشيح الأوقاف", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
   { id: "exams-placement", href: "/exams/placement", label: "تحديد مستوى", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
   { id: "exams-arabic", href: "/exams/arabic", label: "سبر القراءة العربية", roles: ["EXAMINER"], track: "ARABIC" },
-  { id: "exams-sunnah", href: "/exams/sunnah", label: "سبر السنة النبوية", roles: ["SUNNAH_EXAMINER", "ADMIN"] },
+  { id: "exams-sunnah", href: "/exams/sunnah", label: "سبر السنة النبوية", roles: ["ADMIN"] },
+  // مختبر الحديث: «سبر محلي» (المناهج الثلاثة: تسميع، مراحل، سبر المستوى) و«سبر ترشيح الأوقاف»
+  { id: "sunnah-staged", href: "/exams/sunnah", label: "سبر محلي", roles: ["SUNNAH_EXAMINER"] },
+  { id: "sunnah-nomination", href: "/exams/sunnah/nomination", label: "سبر ترشيح الأوقاف", roles: ["SUNNAH_EXAMINER"] },
   { id: "exam-monitor", href: "/exam-monitor", label: "متابعة السبر", roles: ["DIRECTOR", "ADMIN", "TEACHER", "EXAM_SUPERVISOR"] },
   { id: "parent", href: "/parent", label: "متابعة الابن", roles: ["GUARDIAN"] },
   { id: "users", href: "/users", label: "إدارة المستخدمين", roles: ["DIRECTOR"] },
@@ -64,9 +67,9 @@ export function navItemsFor(role: RoleId, track: TrackId | undefined) {
  * يُرجع معرّف عنصر التنقّل الأكثر تحديدًا (أطول href مطابق) بدل كل العناصر المطابقة —
  * وإلا يُظلَّل "السبر" (/exams) مع أي مسار فرعي له مثل /exams/awqaf-batches معًا.
  */
-export function activeNavId(pathname: string): string | undefined {
+export function activeNavId(pathname: string, items: { id: string; href: string }[] = NAV): string | undefined {
   let best: { id: string; href: string } | undefined;
-  for (const n of NAV) {
+  for (const n of items) {
     const on = pathname === n.href || pathname.startsWith(n.href + "/");
     if (on && (!best || n.href.length > best.href.length)) best = n;
   }

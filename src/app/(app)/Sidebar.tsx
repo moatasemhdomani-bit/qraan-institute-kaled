@@ -25,7 +25,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const items = navItemsFor(role, track);
-  const activeId = activeNavId(pathname);
+  const activeId = activeNavId(pathname, items);
 
   return (
     <aside

@@ -13,7 +13,7 @@ import type { TrackId } from "@/lib/track";
 export default function MobileNav({ role, name, track, theme }: { role: RoleId; name: string; track?: TrackId; theme: ThemeId }) {
   const pathname = usePathname();
   const items = navItemsFor(role, track);
-  const activeId = activeNavId(pathname);
+  const activeId = activeNavId(pathname, items);
 
   return (
     <nav

@@ -337,3 +337,8 @@ export const validSunnahStars = (n: unknown): n is number =>
 
 /** عدد الأحاديث في اليوم الذي يُنبَّه عنده المختبِر لزيادة النجوم */
 export const SUNNAH_DAILY_ALERT = 5;
+
+/** روابط واجهات المناهج: /exams/sunnah/hadith … */
+const SUNNAH_SLUGS: Record<SunnahSectionId, string> = { HADITH: "hadith", SHAMAIL: "shamail", SIRA: "sira" };
+export const sunnahSlug = (id: SunnahSectionId) => SUNNAH_SLUGS[id];
+export const sunnahSectionFromSlug = (slug: string) => SUNNAH_SECTIONS.find((s) => SUNNAH_SLUGS[s.id] === slug);

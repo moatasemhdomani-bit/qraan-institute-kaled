@@ -22,7 +22,8 @@ function revalidateExamPaths() {
   revalidatePath("/exams/awqaf");
   revalidatePath("/exams/placement");
   revalidatePath("/exams/arabic");
-  revalidatePath("/exams/sunnah");
+  revalidatePath("/exams/sunnah", "layout");
+  revalidatePath("/exams/awqaf-batches");
   revalidatePath("/exams/local-view");
   revalidatePath("/exam-monitor");
   revalidatePath("/students");

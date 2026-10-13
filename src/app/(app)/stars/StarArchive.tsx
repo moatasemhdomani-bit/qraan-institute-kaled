@@ -5,7 +5,7 @@ import { cardStyle, chipStyle, softButtonStyle } from "@/lib/ui";
 import { starKindLabel, type StarTxnRow } from "@/lib/stars";
 import type { StarResult } from "./actions";
 
-/** أرشيف التعديلات على أرصدة النجوم: الطالب (أو رصيد الحلقة)، الجهة المانحة، العملية، التاريخ، السبب. */
+/** أرشيف التعديلات على أرصدة النجوم: الطالب (أو رصيد الحلقة)، الجهة المانحة، العملية، التاريخ. */
 export default function StarArchive({
   rows,
   limit,
@@ -91,12 +91,7 @@ export default function StarArchive({
               {r.isReturn ? "إعادة" : starKindLabel(r.kind)} {charge ? "+" : "−"}
               {r.amount} ★
             </div>
-            {(r.reason || r.returned) && (
-              <div style={{ gridColumn: "1 / -1", fontSize: 12.5, color: "var(--ink-2)" }}>
-                {r.reason && <>السبب: {r.reason}</>}
-                {r.returned && <span style={{ color: "var(--ink-3)" }}>{r.reason ? " · " : ""}أُعيدت نجومها</span>}
-              </div>
-            )}
+            {r.returned && <div style={{ gridColumn: "1 / -1", fontSize: 12.5, color: "var(--ink-3)" }}>أُعيدت نجومها</div>}
             {canReturn && (
               <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 {confirmId === r.id ? (

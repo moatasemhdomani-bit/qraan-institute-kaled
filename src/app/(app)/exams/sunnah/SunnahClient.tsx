@@ -5,7 +5,7 @@ import { cardStyle, chipStyle, inputStyle, primaryButtonStyle, softButtonStyle }
 import { toWesternDigits } from "@/lib/numbers";
 import { today, formatDateAr } from "@/lib/daily";
 import { TYPE_LABELS } from "@/lib/exam";
-import { SUNNAH_SECTIONS, SUNNAH_PASS_MARK, branchOrdinal, sunnahBranchLabel, sunnahProgressWarning, levelExamBlock, sunnahReadyForAwqaf, SUNNAH_PASS_STARS, SUNNAH_REPEAT_STARS, type SunnahSectionId, type SunnahLevelExamType } from "@/lib/sunnah";
+import { SUNNAH_SECTIONS, SUNNAH_PASS_MARK, branchOrdinal, sunnahBranchLabel, sunnahProgressWarning, levelExamBlock, SUNNAH_PASS_STARS, SUNNAH_REPEAT_STARS, type SunnahSectionId, type SunnahLevelExamType } from "@/lib/sunnah";
 import Drawer from "@/components/Drawer";
 import DateField from "@/components/DateField";
 import NumberField from "@/components/NumberField";
@@ -37,27 +37,33 @@ const passed = (e: SunnahExamRow) => e.type !== "SUNNAH_STAGE" && !e.repeat && e
 const stageOk = (e: SunnahExamRow) => e.type === "SUNNAH_STAGE" && !!e.grade && e.grade !== "إعادة";
 
 export default function SunnahClient({
+  section,
   students,
   exams,
   recitations,
   canRecite,
   weekDates,
   today: todayStr,
+  dayCounts,
   canLocal,
-  canAwqaf,
   isDirector,
   canDeleteAny,
   currentUserId,
 }: {
+  /** المنهج المعروض — كل منهج واجهة مستقلة */
+  section: SunnahSectionId;
   students: StudentRow[];
+  /** سبور هذا المنهج */
   exams: SunnahExamRow[];
+  /** تسميع هذا المنهج */
   recitations: SunnahRecRow[];
   canRecite: boolean;
   /** أيام الدوام في هذا الأسبوع (بلا العطل) */
   weekDates: string[];
   today: string;
+  /** عدد ما سمّعه كل طالب في كل يوم من هذا الأسبوع — في المناهج الثلاثة */
+  dayCounts: Record<string, Record<string, number>>;
   canLocal: boolean;
-  canAwqaf: boolean;
   isDirector: boolean;
   canDeleteAny: boolean;
   currentUserId: string;
@@ -65,8 +71,6 @@ export default function SunnahClient({
   const [search, setSearch] = useState("");
   const [studentId, setStudentId] = useState<string | null>(null);
   const [form, setForm] = useState<{ existing: SunnahExamRow | null; preset?: { type: SunnahLevelExamType; section: SunnahSectionId; branch: number } } | null>(null);
-  // قائمة الجاهزين لسبر الأوقاف: الناجحون في سبر ترشيح الأوقاف ولم تُدخل نتيجة أوقافهم بعد
-  const ready = useMemo(() => sunnahReadyForAwqaf(exams), [exams]);
 
   const student = students.find((s) => s.id === studentId) ?? null;
   const studentExams = useMemo(() => exams.filter((e) => e.studentId === studentId), [exams, studentId]);
@@ -79,7 +83,7 @@ export default function SunnahClient({
   }, [students, search]);
 
   const canEditRow = (e: SunnahExamRow) =>
-    e.type !== "SUNNAH_STAGE" && (isDirector || e.examinerId === currentUserId) && (e.type === "SUNNAH_AWQAF" ? canAwqaf : canLocal);
+    e.type !== "SUNNAH_STAGE" && (isDirector || e.examinerId === currentUserId) && e.type !== "SUNNAH_AWQAF" && canLocal;
   const canDeleteRow = (e: SunnahExamRow) => canDeleteAny || e.examinerId === currentUserId;
 
   const examLine = (e: SunnahExamRow, showStudent: boolean) => {
@@ -159,9 +163,9 @@ export default function SunnahClient({
               </div>
               <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{student.halqaName ?? "غير مفروز"}</div>
             </div>
-            {(canLocal || canAwqaf) && (
+            {canLocal && (
               <button type="button" onClick={() => setForm({ existing: null })} style={{ ...primaryButtonStyle, padding: "10px 18px" }}>
-                ＋ سبر جديد
+                ＋ سبر المستوى
               </button>
             )}
           </div>
@@ -169,7 +173,9 @@ export default function SunnahClient({
           <SunnahRecitationPanel
             key={student.id}
             studentId={student.id}
+            section={section}
             recitations={recitations.filter((r) => r.studentId === student.id)}
+            dayCounts={dayCounts[student.id] ?? {}}
             exams={studentExams}
             balance={student.stars}
             weekDates={weekDates}
@@ -181,7 +187,7 @@ export default function SunnahClient({
           <div style={{ fontSize: 14.5, fontWeight: 700 }}>سبر الفروع</div>
           {/* تقدّم الطالب في كل قسم: الفروع الناجحة، والإعادة، وما لم يُسبر بعد */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 10 }}>
-            {SUNNAH_SECTIONS.map((sec) => {
+            {SUNNAH_SECTIONS.filter((sec) => sec.id === section).map((sec) => {
               // تقدّم المستويات: السبر المحلي للمستوى (أو الأوقاف) — لا المراحل ولا الترشيح
               const mine = studentExams.filter((e) => e.section === sec.id && (e.type === "SUNNAH" || e.type === "SUNNAH_AWQAF"));
               const passedBranches = new Set(mine.filter(passed).map((e) => e.branch));
@@ -236,34 +242,6 @@ export default function SunnahClient({
       )}
 
       <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>الجاهزون لسبر الأوقاف ({ready.length})</div>
-        <div style={{ fontSize: 12, color: "var(--ink-3)" }}>الناجحون في سبر ترشيح الأوقاف — يخرج الطالب من القائمة عند إدخال نتيجة سبر الأوقاف لمستواه.</div>
-        {ready.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا يوجد طلاب جاهزون الآن.</div>}
-        {ready.map((n) => (
-          <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 12px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{nameOf[n.studentId] ?? ""}</div>
-              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
-                {sunnahBranchLabel(n.section, n.branch)} · ترشيح {n.mark} / 100 · {formatDateAr(n.date)}
-              </div>
-            </div>
-            {canAwqaf && (
-              <button
-                type="button"
-                onClick={() => {
-                  setStudentId(n.studentId);
-                  setForm({ existing: null, preset: { type: "SUNNAH_AWQAF", section: n.section, branch: n.branch } });
-                }}
-                style={{ ...softButtonStyle, padding: "8px 14px" }}
-              >
-                إدخال نتيجة الأوقاف
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ fontSize: 15, fontWeight: 700 }}>آخر السبورات</div>
         {exams.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا سبر في السنة النبوية بعد.</div>}
         {exams.slice(0, 40).map((e) => examLine(e, true))}
@@ -274,10 +252,12 @@ export default function SunnahClient({
           student={student}
           existing={form.existing}
           preset={form.preset}
+          fixedSection={section}
+          types={["SUNNAH"]}
           balance={student.stars}
           history={studentExams}
           canLocal={canLocal}
-          canAwqaf={canAwqaf}
+          canAwqaf={false}
           onClose={() => setForm(null)}
         />
       )}
@@ -285,10 +265,18 @@ export default function SunnahClient({
   );
 }
 
-function SunnahExamForm({
+const LEVEL_EXAM_LABELS: Record<SunnahLevelExamType, string> = {
+  SUNNAH: "سبر المستوى المحلي",
+  SUNNAH_NOMINATION: "سبر ترشيح الأوقاف",
+  SUNNAH_AWQAF: "سبر الأوقاف — لمن نجح في سبر ترشيح الأوقاف للمستوى",
+};
+
+export function SunnahExamForm({
   student,
   existing,
   preset,
+  fixedSection,
+  types,
   balance,
   history,
   canLocal,
@@ -298,16 +286,23 @@ function SunnahExamForm({
   student: StudentRow;
   existing: SunnahExamRow | null;
   preset?: { type: SunnahLevelExamType; section: SunnahSectionId; branch: number };
+  /** واجهة منهج واحد: القسم ثابت */
+  fixedSection?: SunnahSectionId;
+  /** أنواع السبر المتاحة في هذه الشاشة */
+  types?: SunnahLevelExamType[];
   balance: number;
   history: SunnahExamRow[];
   canLocal: boolean;
   canAwqaf: boolean;
   onClose: () => void;
 }) {
+  const allowedTypes: SunnahLevelExamType[] = existing
+    ? [existing.type as SunnahLevelExamType]
+    : (types ?? [...(canLocal ? (["SUNNAH", "SUNNAH_NOMINATION"] as const) : []), ...(canAwqaf ? (["SUNNAH_AWQAF"] as const) : [])]);
   const [type, setType] = useState<SunnahLevelExamType | "">(
-    (existing?.type as SunnahLevelExamType | undefined) ?? preset?.type ?? (!canLocal && canAwqaf ? "SUNNAH_AWQAF" : "")
+    (existing?.type as SunnahLevelExamType | undefined) ?? preset?.type ?? (allowedTypes.length === 1 ? allowedTypes[0] : "")
   );
-  const [section, setSection] = useState<SunnahSectionId | "">(existing?.section ?? preset?.section ?? "");
+  const [section, setSection] = useState<SunnahSectionId | "">(existing?.section ?? preset?.section ?? fixedSection ?? "");
   const [branch, setBranch] = useState<number | null>(existing?.branch ?? preset?.branch ?? null);
   const [date, setDate] = useState(existing?.date ?? today());
   const [outcome, setOutcome] = useState<"pass" | "repeat" | "">(existing ? (existing.repeat ? "repeat" : "pass") : "");
@@ -385,31 +380,27 @@ function SunnahExamForm({
         </>
       }
     >
-      {canLocal || existing ? (
+      {allowedTypes.length > 1 ? (
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>نوع السبر</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {canLocal && (
-              <>
-                <button type="button" onClick={() => setType("SUNNAH")} style={{ ...chipStyle(type === "SUNNAH"), minHeight: 44, padding: "10px 20px" }}>
-                  سبر المستوى المحلي
-                </button>
-                <button type="button" onClick={() => setType("SUNNAH_NOMINATION")} style={{ ...chipStyle(type === "SUNNAH_NOMINATION"), minHeight: 44, padding: "10px 20px" }}>
-                  سبر ترشيح الأوقاف
-                </button>
-              </>
-            )}
-            {canAwqaf && (
-              <button type="button" onClick={() => setType("SUNNAH_AWQAF")} style={{ ...chipStyle(type === "SUNNAH_AWQAF"), minHeight: 44, padding: "10px 20px" }}>
-                سبر الأوقاف
+            {allowedTypes.map((t) => (
+              <button key={t} type="button" onClick={() => setType(t)} style={{ ...chipStyle(type === t), minHeight: 44, padding: "10px 20px" }}>
+                {LEVEL_EXAM_LABELS[t]}
               </button>
-            )}
+            ))}
           </div>
         </div>
       ) : (
-        <div style={{ fontSize: 13, color: "var(--ink-2)" }}>سبر الأوقاف — لمن نجح في سبر ترشيح الأوقاف للمستوى</div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink-2)" }}>{allowedTypes[0] ? LEVEL_EXAM_LABELS[allowedTypes[0]] : ""}</div>
       )}
 
+      {preset && (
+        <div style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13.5, fontWeight: 600 }}>
+          {sunnahBranchLabel(preset.section, preset.branch)}
+        </div>
+      )}
+      {!fixedSection && !preset && (
       <div>
         <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>القسم</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -428,10 +419,11 @@ function SunnahExamForm({
           ))}
         </div>
       </div>
+      )}
 
-      {sec && (
+      {sec && !preset && (
         <div>
-          <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>الفرع</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>المستوى — {sec.label}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {sec.branches.map((name, i) => (
               <button

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cardStyle, chipStyle, inputStyle } from "@/lib/ui";
+import { sunnahSlug, type SunnahSectionId } from "@/lib/sunnah";
 import { resultLabel, passFailLabel, examKindLabel, isSunnahType, TYPE_LABELS, type ExamTypeId } from "@/lib/exam";
 import { formatDateAr } from "@/lib/daily";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
@@ -221,10 +222,10 @@ export default function ExamMonitorClient({
                   )}
                   {isSunnahType(r.type) && canEdit && (
                     <Link
-                      href="/exams/sunnah"
+                      href={r.type === "SUNNAH_AWQAF" ? "/exams/awqaf-batches" : `/exams/sunnah/${sunnahSlug((r.sunnahSection ?? "HADITH") as SunnahSectionId)}`}
                       style={{ marginInlineStart: "auto", padding: "6px 13px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, textDecoration: "none" }}
                     >
-                      فتح شاشة السنة النبوية
+                      {r.type === "SUNNAH_AWQAF" ? "فتح سبر الأوقاف" : "فتح شاشة المنهج"}
                     </Link>
                   )}
                   {!isAwqafActual && !isSunnahType(r.type) && canEdit && (isDirector || r.examinerId === currentUserId) && (
