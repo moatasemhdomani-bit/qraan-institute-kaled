@@ -15,7 +15,7 @@ export default async function PlacementExamPage() {
   if (track === "ARABIC") redirect("/exams/arabic");
   const examsRaw = await prisma.exam.findMany({
     where: { type: "PLACEMENT", student: { halqaId: null, active: true, track: { not: "GRADUATED" } } },
-    include: { examiner: { select: { id: true, name: true } }, student: { select: { name: true } } },
+    include: { examiner: { select: { id: true, name: true } }, student: { select: { name: true, studentNo: true } } },
     orderBy: { date: "desc" },
   });
 
@@ -23,6 +23,7 @@ export default async function PlacementExamPage() {
     id: e.id,
     studentId: e.studentId,
     studentName: e.student.name,
+    studentNo: e.student.studentNo,
     examinerId: e.examinerId,
     examinerName: e.examiner.name,
     date: e.date,

@@ -65,7 +65,7 @@ export default function StudentReportPreview({ preview }: { preview: StudentPrev
         {!preview.arabic && (
           <>
             <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
-              <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>ترشيح الأوقاف</div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>ترشيح الأوقاف للقرآن</div>
               {passFailCell(preview.nomPass, preview.nomFail)}
             </div>
             <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
@@ -82,8 +82,12 @@ export default function StudentReportPreview({ preview }: { preview: StudentPrev
       </div>
 
       <div style={{ marginTop: 14 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>مستوى الطالب في مناهج السنة النبوية</div>
+        <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>مستوى الطالب في المناهج</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--accent-line, var(--line))", fontSize: 12.5, lineHeight: 1.7 }}>
+            <b>القرآن الكريم:</b> <span style={{ color: "var(--ink-2)" }}>{preview.quranLevel}</span>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>مناهج السنة النبوية</div>
           {preview.sunnahLevels.map((l) => (
             <div key={l.section} style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)", fontSize: 12.5, lineHeight: 1.7 }}>
               <b>{l.label}:</b> <span style={{ color: "var(--ink-2)" }}>{l.status}</span>

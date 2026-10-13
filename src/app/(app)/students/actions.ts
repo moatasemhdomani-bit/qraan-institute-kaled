@@ -4,7 +4,7 @@ import { zeroStudentStars } from "@/lib/starsServer";
 import type { FeeStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { logAction } from "@/lib/audit";
+import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { normalizePhone, isValidMobile } from "@/lib/phone";
@@ -111,14 +111,14 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
       const { user: guardian } = await createGuardianAccount(before.studentNo, name);
       await prisma.student.update({ where: { id }, data: { guardianUserId: guardian.id } });
       const halqa = await prisma.halqa.findUnique({ where: { id: halqaId } });
-      await logAction(session.userId, `فرز الطالب «${name}» إلى حلقة ${halqa?.name ?? ""}`);
+      await logAction(session.userId, `فرز الطالب ${await studentRef(id)} إلى حلقة ${halqa?.name ?? ""}`);
     } else {
-      await logAction(session.userId, `عدّل بيانات الطالب «${name}»`);
+      await logAction(session.userId, `عدّل بيانات الطالب ${await studentRef(id)}`);
     }
     if (before && before.active !== active) {
       // المنقطع يصبح رصيد نجومه صفرًا
       if (!active) await zeroStudentStars(id, session.userId, session.role);
-      await logAction(session.userId, active ? `أعاد الطالب «${name}» إلى «نشط»` : `غيّر حالة الطالب «${name}» إلى «منقطع» وأخرجه من حلقته`);
+      await logAction(session.userId, active ? `أعاد الطالب ${await studentRef(id)} إلى «نشط»` : `غيّر حالة الطالب ${await studentRef(id)} إلى «منقطع» وأخرجه من حلقته`);
     }
   } else {
     const last = await prisma.student.findFirst({ orderBy: { studentNo: "desc" } });
@@ -132,7 +132,7 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     const halqa = halqaId ? await prisma.halqa.findUnique({ where: { id: halqaId } }) : null;
     await logAction(
       session.userId,
-      halqa ? `سجّل الطالب «${name}» في حلقة ${halqa.name}` : `سجّل الطالب «${name}»`
+      halqa ? `سجّل الطالب ${await studentRef(created.id)} في حلقة ${halqa.name}` : `سجّل الطالب ${await studentRef(created.id)}`
     );
   }
 
@@ -159,7 +159,7 @@ export async function resetGuardianPassword(studentId: string): Promise<ResetSta
   if (!student?.guardianUserId) return { error: "لا يوجد حساب ولي أمر لهذا الطالب." };
 
   const password = await regenerateGuardianPassword(student.guardianUserId);
-  await logAction(session.userId, `ولّد كلمة مرور جديدة لولي أمر الطالب «${student.name}»`);
+  await logAction(session.userId, `ولّد كلمة مرور جديدة لولي أمر الطالب ${await studentRef(studentId)}`);
   revalidatePath("/students");
   return { ok: true, password };
 }

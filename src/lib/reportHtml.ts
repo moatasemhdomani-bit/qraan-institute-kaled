@@ -318,6 +318,7 @@ export function studentReportHtml(input: {
   sunnah: { date: string; kind: string; branch: string; result: string; passed: boolean }[];
   sunnahLevels: { section: string; label: string; status: string }[];
   stars: number;
+  quranLevel: string;
 }): string {
   const body = `
     <h2 class="block">${escapeHtml(input.studentName)} <span>#${escapeHtml(input.studentNo)} — ${escapeHtml(input.halqaName)} · ${escapeHtml(input.cohortName)}</span></h2>
@@ -357,7 +358,7 @@ ${
 
     <h3 class="section">سبر الطالب</h3>
     <table>
-      <thead><tr><th>اختبار محلي</th><th>ترشيح الأوقاف</th><th>سبر الأوقاف الفعلي</th></tr></thead>
+      <thead><tr><th>اختبار محلي</th><th>ترشيح الأوقاف للقرآن</th><th>سبر الأوقاف الفعلي</th></tr></thead>
       <tbody><tr>
         <td><span class="pass">${input.locPass}</span> / <span class="fail">${input.locFail}</span></td>
         <td><span class="pass">${input.nomPass}</span> / <span class="fail">${input.nomFail}</span></td>
@@ -369,10 +370,10 @@ ${
     <h3 class="section">رصيد النجوم</h3>
     <table><tbody><tr><td style="font-weight:700;font-size:12.5px">★ ${input.stars}</td></tr></tbody></table>
 
-    <h3 class="section">مستوى الطالب في مناهج السنة النبوية</h3>
+    <h3 class="section">مستوى الطالب في المناهج</h3>
     <table>
       <thead><tr><th>المنهج</th><th>المستوى</th></tr></thead>
-      <tbody>${input.sunnahLevels.map((l) => `<tr><td>${escapeHtml(l.label)}</td><td class="note">${escapeHtml(l.status)}</td></tr>`).join("")}</tbody>
+      <tbody><tr><td>القرآن الكريم</td><td class="note">${escapeHtml(input.quranLevel)}</td></tr>${input.sunnahLevels.map((l) => `<tr><td>${escapeHtml(l.label)}</td><td class="note">${escapeHtml(l.status)}</td></tr>`).join("")}</tbody>
     </table>
 
     <h3 class="section">السنة النبوية</h3>

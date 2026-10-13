@@ -59,7 +59,7 @@ export default function SunnahAwqafPanel({ students, exams }: { students: Studen
             const ok = !e.repeat && e.mark != null && e.mark >= SUNNAH_PASS_MARK;
             return row(
               e.id,
-              `${s?.name ?? ""} — ${e.repeat ? "إعادة" : `${e.mark} / 100`}`,
+              `${s ? `${s.name} #${s.no}` : ""} — ${e.repeat ? "إعادة" : `${e.mark} / 100`}`,
               `${sunnahBranchLabel(e.section, e.branch, false)} · ${ok ? "ناجح" : "إعادة"} · ${formatDateAr(e.date)} · أدخله: ${e.examinerName}`,
               <span style={{ display: "flex", gap: 6 }}>
                 {s && (

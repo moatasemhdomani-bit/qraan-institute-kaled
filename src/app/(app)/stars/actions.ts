@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { logAction } from "@/lib/audit";
+import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { STAR_MAX, starKindLabel, type StarKind } from "@/lib/stars";
 
@@ -58,7 +58,7 @@ export async function adminStudentStars(input: { studentId: string; kind: StarKi
     if (e instanceof StarError) return { error: e.message };
     throw e;
   }
-  await logAction(session.userId, `${starKindLabel(input.kind)} ${input.amount} نجمة للطالب ${student.name}`);
+  await logAction(session.userId, `${starKindLabel(input.kind)} ${input.amount} نجمة للطالب ${await studentRef(input.studentId)}`);
   done();
   return { ok: true };
 }
@@ -161,7 +161,7 @@ export async function teacherStudentStars(input: { studentId: string; kind: Star
     if (e instanceof StarError) return { error: e.message };
     throw e;
   }
-  await logAction(session.userId, `${starKindLabel(input.kind)} ${input.amount} نجمة للطالب ${student.name} من رصيد الحلقة`);
+  await logAction(session.userId, `${starKindLabel(input.kind)} ${input.amount} نجمة للطالب ${await studentRef(input.studentId)} من رصيد الحلقة`);
   done();
   return { ok: true };
 }
@@ -196,7 +196,7 @@ export async function activityWithdrawStars(input: { studentId: string; amount: 
     if (e instanceof StarError) return { error: e.message };
     throw e;
   }
-  await logAction(session.userId, `سحب ${input.amount} نجمة من الطالب ${student.name} للنشاط`);
+  await logAction(session.userId, `سحب ${input.amount} نجمة من الطالب ${await studentRef(input.studentId)} للنشاط`);
   done();
   revalidatePath("/activity-stars");
   return { ok: true };
@@ -237,7 +237,7 @@ export async function activityReturnStars(txnId: string): Promise<StarResult> {
     if ((e as { code?: string }).code === "P2002") return { error: "أُعيدت نجوم هذه العملية من قبل." };
     throw e;
   }
-  await logAction(session.userId, `أعاد ${txn.amount} نجمة سُحبت بالغلط من الطالب ${txn.student.name}`);
+  await logAction(session.userId, `أعاد ${txn.amount} نجمة سُحبت بالغلط من الطالب ${await studentRef(txn.studentId as string)}`);
   done();
   revalidatePath("/activity-stars");
   return { ok: true };

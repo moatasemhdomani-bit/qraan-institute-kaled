@@ -77,7 +77,8 @@ export default function SunnahClient({
 
   const student = students.find((s) => s.id === studentId) ?? null;
   const studentExams = useMemo(() => exams.filter((e) => e.studentId === studentId), [exams, studentId]);
-  const nameOf = useMemo(() => Object.fromEntries(students.map((s) => [s.id, s.name])), [students]);
+  // الاسم مع النسبة والرقم في قوائم السبورات
+  const nameOf = useMemo(() => Object.fromEntries(students.map((s) => [s.id, `${s.name} #${s.no}`])), [students]);
 
   const matches = useMemo(() => {
     const q = toWesternDigits(search.trim());

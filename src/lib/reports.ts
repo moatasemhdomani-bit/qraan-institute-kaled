@@ -3,6 +3,7 @@ import { countedNewPages } from "./daily";
 import { passFailLabel } from "./exam";
 import { sunnahBranchLabel } from "./sunnah";
 import { sunnahLevelsFor } from "./sunnahServer";
+import { TRACK_LABELS } from "./track";
 import { awqafPassed } from "./awqaf";
 import { examFamily } from "./track";
 import { parsePastItems, pastJuzTotal } from "./pastRecitation";
@@ -392,6 +393,8 @@ export type StudentPreview = {
   sunnahLevels: { section: string; label: string; status: string }[];
   /** رصيد النجوم */
   stars: number;
+  /** مستواه في منهج القرآن الكريم (قراءة عربية / عمَّ غيباً / قرآن / قرآن غيباً / متخرِّج) */
+  quranLevel: string;
 };
 
 export async function buildStudentPreview(studentId: string, from: string, to: string): Promise<StudentPreview | null> {
@@ -444,6 +447,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
       .map((p) => ({ kind: p.kind, time: p.time, days: p.days, note: p.note, since: p.since })),
     sunnahLevels: (await sunnahLevelsFor([student.id]))[student.id] ?? [],
     stars: student.stars,
+    quranLevel: TRACK_LABELS[student.track],
     sunnah: sunnahExams.map((e) => ({
       date: e.date,
       kind: e.type === "SUNNAH_STAGE" ? "سبر مرحلة" : e.type === "SUNNAH" ? "سبر مستوى (محلي)" : e.type === "SUNNAH_NOMINATION" ? "ترشيح الأوقاف" : "سبر الأوقاف",

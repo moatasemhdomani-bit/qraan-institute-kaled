@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { logAction } from "@/lib/audit";
+import { logAction, studentRef } from "@/lib/audit";
 import { today } from "@/lib/daily";
 import { revalidatePath } from "next/cache";
 
@@ -83,7 +83,7 @@ export async function savePermit(_prev: FormState, formData: FormData): Promise<
   ]);
 
   const label = kinds.map((k) => KIND_LABELS[k]).join(" و");
-  await logAction(session.userId, `${editing ? "عدّل" : "أضاف"} ${label} للطالب «${student.name}»`);
+  await logAction(session.userId, `${editing ? "عدّل" : "أضاف"} ${label} للطالب ${await studentRef(studentId)}`);
 
   revalidatePath("/permits");
   return { ok: true };
@@ -98,7 +98,7 @@ export async function deleteStudentPermits(studentId: string): Promise<DeleteSta
   if (!student || student.permits.length === 0) return { error: "الإذن غير موجود." };
 
   await prisma.permit.deleteMany({ where: { studentId } });
-  await logAction(session.userId, `حذف ${student.permits.map((p) => KIND_LABELS[p.kind]).join(" و")} للطالب «${student.name}»`);
+  await logAction(session.userId, `حذف ${student.permits.map((p) => KIND_LABELS[p.kind]).join(" و")} للطالب ${await studentRef(studentId)}`);
 
   revalidatePath("/permits");
   return { ok: true };

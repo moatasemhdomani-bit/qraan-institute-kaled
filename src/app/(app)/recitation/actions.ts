@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { logAction } from "@/lib/audit";
+import { logAction, studentRef } from "@/lib/audit";
 import { dayLockReason, isValidDate, GRADES, formatDateAr } from "@/lib/daily";
 import { validateEntry, validateSurahEntry, type RecEntry } from "@/lib/recitation";
 import { validatePastItems } from "@/lib/pastRecitation";
@@ -91,7 +91,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
       update: surahData,
       create: { ...surahData, studentId, date },
     });
-    await logAction(session.userId, `${existingSurah ? "عدّل" : "سجّل"} تسميع ${student.name} (حلقة ${halqa.name}) ليوم ${formatDateAr(date)}`);
+    await logAction(session.userId, `${existingSurah ? "عدّل" : "سجّل"} تسميع ${await studentRef(studentId)} (حلقة ${halqa.name}) ليوم ${formatDateAr(date)}`);
     revalidatePath("/recitation");
     revalidatePath("/recitation-monitor");
     return { ok: true };
@@ -160,7 +160,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
     });
     await logAction(
       session.userId,
-      `${prev ? "عدّل" : "سجّل"} ${input.part === "new" ? "التسميع الجديد" : "الماضي"} لـ ${student.name} (حلقة ${halqa.name}) ليوم ${formatDateAr(date)}`
+      `${prev ? "عدّل" : "سجّل"} ${input.part === "new" ? "التسميع الجديد" : "الماضي"} لـ ${await studentRef(studentId)} (حلقة ${halqa.name}) ليوم ${formatDateAr(date)}`
     );
     revalidatePath("/recitation");
     revalidatePath("/recitation-monitor");
@@ -201,7 +201,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
 
   await logAction(
     session.userId,
-    `${existing ? "عدّل" : "سجّل"} تسميع ${student.name} (حلقة ${halqa.name}) ليوم ${formatDateAr(date)}`
+    `${existing ? "عدّل" : "سجّل"} تسميع ${await studentRef(studentId)} (حلقة ${halqa.name}) ليوم ${formatDateAr(date)}`
   );
 
   revalidatePath("/recitation");

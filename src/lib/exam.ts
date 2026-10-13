@@ -16,7 +16,7 @@ export const isSunnahType = (t: string) => t === "SUNNAH" || t === "SUNNAH_NOMIN
 
 export const TYPE_LABELS: Record<ExamTypeId, string> = {
   LOCAL: "سبر محلي",
-  WAQF_NOMINATION: "ترشيح الأوقاف",
+  WAQF_NOMINATION: "سبر ترشيح الأوقاف للقرآن",
   PLACEMENT: "تحديد مستوى",
   ARABIC: "سبر القراءة العربية",
   SUNNAH: "سبر المستوى المحلي (السنة النبوية)",

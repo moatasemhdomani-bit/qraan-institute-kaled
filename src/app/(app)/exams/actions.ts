@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { examinerTrack, examinerLike } from "@/lib/examinerTrack";
-import { logAction } from "@/lib/audit";
+import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { validateExam, passFailLabel, LOCAL_KIND_LABELS, isArabicMarkStage, arabicStageLabel, ARABIC_FINAL_STAGE, isSunnahType, TYPE_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
 import { examFamily } from "@/lib/track";
@@ -53,7 +53,7 @@ export async function addPlacementStudent(name: string): Promise<{ error?: strin
 
 function examLabel(type: ExamTypeId, localKind: LocalKindId | null): string {
   if (type === "LOCAL") return `سبر محلي (${LOCAL_KIND_LABELS[localKind ?? "GHAYBAN"]})`;
-  if (type === "WAQF_NOMINATION") return "سبر ترشيح أوقاف";
+  if (type === "WAQF_NOMINATION") return "سبر ترشيح الأوقاف للقرآن";
   if (type === "ARABIC") return "سبر القراءة العربية";
   if (isSunnahType(type)) return TYPE_LABELS[type];
   return "سبر تحديد مستوى";
@@ -195,7 +195,7 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
 
   const passFail = passFailLabel({ type, localKind, resultMark, nominationPresent, stage, grade, repeat: data.repeat });
   const resultNote = passFail ? ` — النتيجة: ${passFail}` : "";
-  await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)}${type === "ARABIC" && stage ? ` (${arabicStageLabel(stage)})` : ""} للطالب «${student?.name ?? ""}»${resultNote}`);
+  await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)}${type === "ARABIC" && stage ? ` (${arabicStageLabel(stage)})` : ""} للطالب ${await studentRef(finalStudentId as string)}${resultNote}`);
 
   // الترفّع التلقائي عند النجاح في سبر المستوى: يُخرَج الطالب من حلقته ويظهر عند الإدارة «ترفّع» لإعادة فرزه
   if (passFail === "ناجح" && finalStudentId) {
@@ -230,7 +230,7 @@ export async function deleteExam(id: string): Promise<FormState> {
   await prisma.exam.delete({ where: { id } });
   await logAction(
     session.userId,
-    `حذف ${examLabel(exam.type as ExamTypeId, exam.localKind as LocalKindId | null)}${exam.type === "ARABIC" && exam.stage ? ` (${arabicStageLabel(exam.stage)})` : ""}${isSunnahType(exam.type) ? ` (${sunnahBranchLabel(exam.sunnahSection, exam.stage, false)})` : ""} للطالب «${exam.student.name}» بتاريخ ${exam.date}`
+    `حذف ${examLabel(exam.type as ExamTypeId, exam.localKind as LocalKindId | null)}${exam.type === "ARABIC" && exam.stage ? ` (${arabicStageLabel(exam.stage)})` : ""}${isSunnahType(exam.type) ? ` (${sunnahBranchLabel(exam.sunnahSection, exam.stage, false)})` : ""} للطالب ${await studentRef(exam.studentId)} بتاريخ ${exam.date}`
   );
 
   revalidateExamPaths();

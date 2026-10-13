@@ -86,7 +86,7 @@ export default function NominationClient({
           const mine = isDirector || e.examinerId === currentUserId;
           return line(
             e.id,
-            `${s?.name ?? ""} — ${e.repeat ? "إعادة" : `${e.mark} / 100`}`,
+            `${s ? `${s.name} #${s.no}` : ""} — ${e.repeat ? "إعادة" : `${e.mark} / 100`}`,
             `${sunnahBranchLabel(e.section, e.branch, false)} · ${ok ? "ناجح — في قائمة الجاهزين لسبر الأوقاف" : "إعادة"} · ${formatDateAr(e.date)} · ${e.examinerName}`,
             mine ? (
               <span style={{ display: "flex", gap: 6 }}>

@@ -172,7 +172,7 @@ export default function ExamFormDrawer({
       open
       onClose={onClose}
       title={existing ? `تعديل ${titles[type]}` : titles[type]}
-      subtitle={student ? student.name : "طالب جديد — الاسم فقط"}
+      subtitle={student ? `${student.name}${student.no != null ? ` #${student.no}` : ""}` : "طالب جديد — الاسم فقط"}
       footer={
         <>
           <button form="exam-form" type="submit" disabled={pending} style={{ ...primaryButtonStyle, flex: 1, opacity: pending ? 0.7 : 1 }}>

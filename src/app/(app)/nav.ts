@@ -14,7 +14,7 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[]; tr
   { id: "activity-stars", href: "/activity-stars", label: "نجوم النشاط", roles: ["ACTIVITY_OFFICER"] },
   { id: "awqaf-batches", href: "/exams/awqaf-batches", label: "سبر الأوقاف والشهادات", roles: ["DIRECTOR", "ADMIN"] },
   { id: "exams-local", href: "/exams/local", label: "السبر المحلي", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
-  { id: "exams-awqaf", href: "/exams/awqaf", label: "ترشيح الأوقاف", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
+  { id: "exams-awqaf", href: "/exams/awqaf", label: "سبر ترشيح الأوقاف للقرآن", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
   { id: "exams-placement", href: "/exams/placement", label: "تحديد مستوى", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
   { id: "exams-arabic", href: "/exams/arabic", label: "سبر القراءة العربية", roles: ["EXAMINER"], track: "ARABIC" },
   { id: "exams-sunnah", href: "/exams/sunnah", label: "سبر السنة النبوية", roles: ["ADMIN"] },

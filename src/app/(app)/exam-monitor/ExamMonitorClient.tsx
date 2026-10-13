@@ -17,7 +17,7 @@ type RowType = ExamTypeId | "AWQAF_ACTUAL";
 /** أنواع السبر التي يُجريها المدير من «متابعة السبر». */
 const EXAM_SCREENS = [
   { href: "/exams/local", label: "سبر محلي" },
-  { href: "/exams/awqaf", label: "ترشيح الأوقاف" },
+  { href: "/exams/awqaf", label: "سبر ترشيح الأوقاف للقرآن" },
   { href: "/exams/placement", label: "تحديد مستوى" },
   { href: "/exams/arabic", label: "سبر القراءة العربية" },
   { href: "/exams/sunnah", label: "سبر السنة النبوية" },
@@ -37,6 +37,7 @@ const examBtnStyle = {
 type Row = ExistingExam & {
   type: RowType;
   studentName: string;
+  studentNo: number;
   examinerId: string;
   examinerName: string;
   batchId: string | null;
@@ -204,7 +205,9 @@ export default function ExamMonitorClient({
               return (
               <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 5, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 14.5, fontWeight: 700 }}>{r.studentName}</span>
+                  <span style={{ fontSize: 14.5, fontWeight: 700 }}>
+                    {r.studentName} <span style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 500 }}>#{r.studentNo}</span>
+                  </span>
                   <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>
                     {isAwqafActual ? "سبر الأوقاف الفعلي" : TYPE_LABELS[r.type as ExamTypeId]}
                   </span>
@@ -282,7 +285,7 @@ export default function ExamMonitorClient({
       {editing && (
         <ExamFormDrawer
           type={editing.row.type}
-          student={{ id: editing.row.studentId, name: editing.row.studentName, halqaName: editing.halqaName }}
+          student={{ id: editing.row.studentId, no: editing.row.studentNo, name: editing.row.studentName, halqaName: editing.halqaName }}
           existing={editing.row}
           onClose={() => setEditing(null)}
         />

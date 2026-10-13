@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { logAction } from "@/lib/audit";
+import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { dateOnly, formatDateAr } from "@/lib/daily";
 
@@ -33,7 +33,7 @@ export async function saveBehavior(_prev: BehaviorState, formData: FormData): Pr
       data: { studentId, previousValue, newValue, note, actorId: session.userId },
     }),
   ]);
-  await logAction(session.userId, `غيّر سلوك الطالب «${student.name}» من «${previousValue}» إلى «${newValue}»: ${note}`);
+  await logAction(session.userId, `غيّر سلوك الطالب ${await studentRef(studentId)} من «${previousValue}» إلى «${newValue}»: ${note}`);
 
   revalidatePath("/students");
   return {

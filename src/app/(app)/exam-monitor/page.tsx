@@ -24,12 +24,12 @@ export default async function ExamMonitorPage() {
     }),
     prisma.exam.findMany({
       where: { student: { halqaId: { not: null } } },
-      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, halqaId: true } } },
+      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, halqaId: true, studentNo: true } } },
       orderBy: { date: "desc" },
     }),
     prisma.awqafResult.findMany({
       where: { student: { halqaId: { not: null } } },
-      include: { batch: { select: { date: true } }, student: { select: { id: true, name: true, halqaId: true } } },
+      include: { batch: { select: { date: true } }, student: { select: { id: true, name: true, halqaId: true, studentNo: true } } },
       orderBy: { batch: { date: "desc" } },
     }),
   ]);
@@ -41,6 +41,7 @@ export default async function ExamMonitorPage() {
         id: e.id,
         studentId: e.studentId,
         studentName: e.student.name,
+        studentNo: e.student.studentNo,
         type: e.type as (typeof e.type) | "AWQAF_ACTUAL",
         examinerId: e.examinerId,
         examinerName: e.examiner.name,
@@ -70,6 +71,7 @@ export default async function ExamMonitorPage() {
         id: r.id,
         studentId: r.studentId,
         studentName: r.student.name,
+        studentNo: r.student.studentNo,
         type: "AWQAF_ACTUAL" as const,
         examinerId: "",
         examinerName: "جهة الأوقاف",

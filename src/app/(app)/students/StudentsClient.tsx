@@ -95,7 +95,7 @@ export default function StudentsClient({
     const counts = new Map<string, number>();
     for (const s of students) if (s.halqaId) counts.set(s[key], (counts.get(s[key]) ?? 0) + 1);
     return [
-      { value: "", label: "الكل" },
+      { value: "", label: `الكل (${[...counts.values()].reduce((x, y) => x + y, 0)})` },
       ...[...counts].sort((a, b) => a[0].localeCompare(b[0], "ar")).map(([v, n]) => ({ value: v, label: `${v} (${n})` })),
     ];
   };
@@ -468,17 +468,29 @@ function StudentForm({
 
         {initial && initial.guardianUsername && <GuardianBox student={initial} />}
 
+        {/* مستوى الطالب في كل منهج على حدة: القرآن الكريم، ثم مناهج السنة النبوية الثلاثة */}
         {initial && (
-          <div style={{ padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, flex: 1 }}>السنة النبوية</div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, flex: 1 }}>مستوى الطالب في المناهج</div>
               <span style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>★ {initial.stars} نجمة</span>
             </div>
-            {initial.sunnahLevels.map((l) => (
-              <div key={l.section} style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-                <b>{l.label}:</b> <span style={{ color: "var(--ink-2)" }}>{l.status}</span>
+            <div style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--accent-line, var(--line))", background: "var(--card-2-grad)" }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700 }}>القرآن الكريم</div>
+              <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 2 }}>
+                {TRACK_LABELS[initial.track]}
+                {initial.halqaName !== "—" ? ` — ${initial.halqaName}` : initial.track === "GRADUATED" ? "" : " — غير مفروز"}
               </div>
-            ))}
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-3)", fontWeight: 600 }}>مناهج السنة النبوية</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+              {initial.sunnahLevels.map((l) => (
+                <div key={l.section} style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700 }}>{l.label}</div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 2, lineHeight: 1.6 }}>{l.status}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

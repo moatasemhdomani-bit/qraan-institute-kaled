@@ -84,7 +84,7 @@ export default function ExamBrowseClient({
       {readyStudents && readyStudents.length > 0 && (
         <div style={{ ...cardStyle, padding: "13px 16px" }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: "var(--ok)" }}>قائمة جاهز للسبر ({readyStudents.length})</div>
-          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 10 }}>طلاب نجحوا في سبر ترشيح الأوقاف — جاهزون لسبر الأوقاف الفعلي.</div>
+          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 10 }}>طلاب نجحوا في سبر ترشيح الأوقاف للقرآن — جاهزون لسبر الأوقاف الفعلي.</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {readyStudents.map((s) => (
               <button

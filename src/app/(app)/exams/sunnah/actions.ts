@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { logAction } from "@/lib/audit";
+import { logAction, studentRef } from "@/lib/audit";
 import { isValidDate, GRADES } from "@/lib/daily";
 import { passFailLabel, ARABIC_GRADES, ARABIC_FAIL_GRADE, TYPE_LABELS } from "@/lib/exam";
 import { SUNNAH_PASS_MARK, validSunnahStars, sunnahSection, sunnahBranchLabel, sunnahBook, sunnahRecLabel, levelStages, positionFromExams, sunnahMaxNo, levelExamBlock, sunnahMode, SUNNAH_REC_GRADES, stageRange, SUNNAH_NOT_AVAILABLE, type SunnahSectionId } from "@/lib/sunnah";
@@ -118,7 +118,7 @@ export async function saveSunnahExam(input: SunnahExamInput): Promise<SunnahSave
   const result = passFailLabel({ type: input.type, resultMark: mark, repeat });
   await logAction(
     session.userId,
-    `${input.id ? "عدّل" : "سجّل"} ${TYPE_LABELS[input.type]} — ${sunnahBranchLabel(input.section, input.branch, false)} للطالب «${student.name}»${result ? ` — ${result}` : ""}`
+    `${input.id ? "عدّل" : "سجّل"} ${TYPE_LABELS[input.type]} — ${sunnahBranchLabel(input.section, input.branch, false)} للطالب ${await studentRef(input.studentId)}${result ? ` — ${result}` : ""}`
   );
   revalidatePath("/exams/sunnah", "layout");
   revalidatePath("/exams/awqaf-batches");
@@ -192,7 +192,7 @@ export async function saveSunnahRecitation(input: {
   });
   await logAction(
     session.userId,
-    `سجّل تسميع السنة النبوية للطالب «${student.name}»: ${book.label} — ${items.map((it) => `${it.no} (${it.grade})`).join("، ")}`
+    `سجّل تسميع السنة النبوية للطالب ${await studentRef(input.studentId)}: ${book.label} — ${items.map((it) => `${it.no} (${it.grade})`).join("، ")}`
   );
   await sunnahStars(input.studentId, stars, `تسميع السنة النبوية — ${book.label}: ${items.map((it) => it.no).join("، ")}`, session);
   revalidatePath("/exams/sunnah", "layout");
@@ -208,7 +208,7 @@ export async function deleteSunnahRecitation(id: string): Promise<SunnahSaveResu
   if (!rec) return { error: "التسميع غير موجود." };
   if (!isAdmin(session.role) && rec.examinerId !== session.userId) return { error: "يحذف المختبِر ما سجّله هو فقط." };
   await prisma.sunnahRecitation.delete({ where: { id } });
-  await logAction(session.userId, `حذف تسميع السنة النبوية للطالب «${rec.student.name}»: ${sunnahRecLabel(rec.section, rec.book, rec.fromNo, rec.toNo)}`);
+  await logAction(session.userId, `حذف تسميع السنة النبوية للطالب ${await studentRef(rec.studentId)}: ${sunnahRecLabel(rec.section, rec.book, rec.fromNo, rec.toNo)}`);
   revalidatePath("/exams/sunnah", "layout");
   revalidatePath("/exams/awqaf-batches");
   return { ok: true };
@@ -305,7 +305,7 @@ export async function saveSunnahStageExam(input: {
   );
   await logAction(
     session.userId,
-    `${input.id ? "عدّل" : "سجّل"} سبر المرحلة ${input.stage} — ${sunnahBranchLabel(input.section, input.level, false)} للطالب «${student.name}» — ${input.grade}`
+    `${input.id ? "عدّل" : "سجّل"} سبر المرحلة ${input.stage} — ${sunnahBranchLabel(input.section, input.level, false)} للطالب ${await studentRef(input.studentId)} — ${input.grade}`
   );
   revalidatePath("/exams/sunnah", "layout");
   revalidatePath("/exams/awqaf-batches");
@@ -349,7 +349,7 @@ export async function saveSunnahStart(input: { studentId: string; section: Sunna
   });
   await logAction(
     session.userId,
-    `الإعداد الأول للطالب «${student.name}» في ${sec.label}: المستوى ${input.level}${stage ? ` — المرحلة ${stage}` : ""} — من الرقم ${input.startNo}`
+    `الإعداد الأول للطالب ${await studentRef(input.studentId)} في ${sec.label}: المستوى ${input.level}${stage ? ` — المرحلة ${stage}` : ""} — من الرقم ${input.startNo}`
   );
   revalidatePath("/exams/sunnah", "layout");
   return { ok: true };

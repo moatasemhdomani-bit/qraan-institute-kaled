@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { logAction } from "@/lib/audit";
+import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { isValidDate } from "@/lib/daily";
 import { awqafPassed, certStepLocked, type CertStep } from "@/lib/awqaf";
@@ -82,7 +82,7 @@ export async function saveAwqafScore(_prev: FormState, formData: FormData): Prom
 
   const passed = awqafPassed(score, result.nominationPresent);
   const passNote = passed == null ? "" : passed ? " — ناجح" : " — إعادة";
-  await logAction(session.userId, `أدخل علامة سبر الأوقاف للطالب «${result.student.name}»: ${score ?? "—"}${passNote}`);
+  await logAction(session.userId, `أدخل علامة سبر الأوقاف للطالب ${await studentRef(result.studentId)}: ${score ?? "—"}${passNote}`);
 
   // الترفّع بعد النجاح في سبر الأوقاف الفعلي لـ 30 جزءًا (عدد الأجزاء من آخر ترشيح له بالمسار نفسه حتى تاريخ الدفعة):
   // 30 حاضراً ← «قرآن غيباً» ويُخرَج من حلقته لإعادة فرزه، و30 غيباً ← «متخرِّج» تلقائيًا
@@ -146,7 +146,7 @@ export async function setCertStep(_prev: FormState, formData: FormData): Promise
   }
 
   await prisma.awqafResult.update({ where: { id }, data });
-  await logAction(session.userId, `${value ? "أثبت" : "ألغى"} ${STEP_LABELS[step]} لشهادة الطالب «${result.student.name}»`);
+  await logAction(session.userId, `${value ? "أثبت" : "ألغى"} ${STEP_LABELS[step]} لشهادة الطالب ${await studentRef(result.studentId)}`);
 
   revalidateAwqafPaths();
   return { ok: true };
@@ -222,7 +222,7 @@ export async function deleteAwqafResult(id: string): Promise<FormState> {
   if (!result) return { error: "السجل غير موجود." };
 
   await prisma.awqafResult.delete({ where: { id } });
-  await logAction(session.userId, `حذف سبر الأوقاف الفعلي للطالب «${result.student.name}» من دفعة ${result.batch.date}`);
+  await logAction(session.userId, `حذف سبر الأوقاف الفعلي للطالب ${await studentRef(result.studentId)} من دفعة ${result.batch.date}`);
 
   revalidateAwqafPaths();
   revalidatePath(`/exams/awqaf-batches/${result.batchId}`);

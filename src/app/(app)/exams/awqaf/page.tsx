@@ -84,7 +84,7 @@ export default async function AwqafExamPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <PageHeader title="ترشيح الأوقاف" subtitle="حاضرًا أو غيبًا وعدد الأجزاء — نجاحه يتيح سبر الأوقاف الفعلي في المرحلة 4." />
+      <PageHeader title="سبر ترشيح الأوقاف للقرآن" subtitle="حاضرًا أو غيبًا وعدد الأجزاء — نجاحه يتيح سبر الأوقاف الفعلي في المرحلة 4." />
       <ExamBrowseClient
         type="WAQF_NOMINATION"
         readOnly={false}
