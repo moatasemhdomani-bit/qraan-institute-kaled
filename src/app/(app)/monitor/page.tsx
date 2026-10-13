@@ -43,6 +43,8 @@ export default async function MonitorPage({
       id: h.id,
       name: h.name,
       meta: `${h.teacher.name} · ${h.cohort.name} · ${h.students.length} طالبًا`,
+      teacherName: h.teacher.name,
+      cohortName: h.cohort.name,
       uploaded,
       tally,
       rows: h.students.map((st) => ({

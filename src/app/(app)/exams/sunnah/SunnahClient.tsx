@@ -5,7 +5,7 @@ import { cardStyle, chipStyle, inputStyle, primaryButtonStyle, softButtonStyle }
 import { toWesternDigits } from "@/lib/numbers";
 import { today, formatDateAr } from "@/lib/daily";
 import { TYPE_LABELS } from "@/lib/exam";
-import { SUNNAH_SECTIONS, SUNNAH_PASS_MARK, branchOrdinal, sunnahBranchLabel, sunnahProgressWarning, levelExamBlock, SUNNAH_PASS_STARS, SUNNAH_REPEAT_STARS, type SunnahSectionId, type SunnahLevelExamType } from "@/lib/sunnah";
+import { SUNNAH_SECTIONS, SUNNAH_PASS_MARK, branchOrdinal, sunnahBranchLabel, sunnahProgressWarning, levelExamBlock, SUNNAH_PASS_STARS, SUNNAH_REPEAT_STARS, type SunnahSectionId, type SunnahLevelExamType, type SunnahStartPoint } from "@/lib/sunnah";
 import Drawer from "@/components/Drawer";
 import DateField from "@/components/DateField";
 import NumberField from "@/components/NumberField";
@@ -45,6 +45,7 @@ export default function SunnahClient({
   weekDates,
   today: todayStr,
   dayCounts,
+  starts,
   canLocal,
   isDirector,
   canDeleteAny,
@@ -63,6 +64,8 @@ export default function SunnahClient({
   today: string;
   /** عدد ما سمّعه كل طالب في كل يوم من هذا الأسبوع — في المناهج الثلاثة */
   dayCounts: Record<string, Record<string, number>>;
+  /** الإعداد الأول لكل طالب في هذا المنهج */
+  starts: Record<string, SunnahStartPoint>;
   canLocal: boolean;
   isDirector: boolean;
   canDeleteAny: boolean;
@@ -163,11 +166,7 @@ export default function SunnahClient({
               </div>
               <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{student.halqaName ?? "غير مفروز"}</div>
             </div>
-            {canLocal && (
-              <button type="button" onClick={() => setForm({ existing: null })} style={{ ...primaryButtonStyle, padding: "10px 18px" }}>
-                ＋ سبر المستوى
-              </button>
-            )}
+
           </div>
 
           <SunnahRecitationPanel
@@ -176,6 +175,8 @@ export default function SunnahClient({
             section={section}
             recitations={recitations.filter((r) => r.studentId === student.id)}
             dayCounts={dayCounts[student.id] ?? {}}
+            startPoint={starts[student.id] ?? null}
+            onLevelExam={(level) => setForm({ existing: null, preset: { type: "SUNNAH", section, branch: level } })}
             exams={studentExams}
             balance={student.stars}
             weekDates={weekDates}
@@ -184,54 +185,7 @@ export default function SunnahClient({
             canDelete={(r) => canDeleteAny || r.examinerId === currentUserId}
           />
 
-          <div style={{ fontSize: 14.5, fontWeight: 700 }}>سبر الفروع</div>
-          {/* تقدّم الطالب في كل قسم: الفروع الناجحة، والإعادة، وما لم يُسبر بعد */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 10 }}>
-            {SUNNAH_SECTIONS.filter((sec) => sec.id === section).map((sec) => {
-              // تقدّم المستويات: السبر المحلي للمستوى (أو الأوقاف) — لا المراحل ولا الترشيح
-              const mine = studentExams.filter((e) => e.section === sec.id && (e.type === "SUNNAH" || e.type === "SUNNAH_AWQAF"));
-              const passedBranches = new Set(mine.filter(passed).map((e) => e.branch));
-              const top = Math.max(0, ...passedBranches);
-              const next = top < sec.branches.length ? top + 1 : null;
-              return (
-                <div key={sec.id} style={{ padding: 12, borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{sec.label}</div>
-                  <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 8 }}>
-                    {top ? `آخر فرع ناجح: ${branchOrdinal(top)}` : "لم ينجح في أي فرع بعد"}
-                    {next ? ` · التالي: ${branchOrdinal(next)}` : " · أنهى القسم"}
-                  </div>
-                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                    {sec.branches.map((name, i) => {
-                      const b = i + 1;
-                      const ok = passedBranches.has(b);
-                      const tried = mine.some((e) => e.branch === b);
-                      const tone = ok ? "var(--ok)" : tried ? "var(--bad)" : "var(--ink-3)";
-                      return (
-                        <span
-                          key={b}
-                          title={`${branchOrdinal(b)}: ${name}${ok ? " — ناجح" : tried ? " — إعادة" : ""}`}
-                          style={{
-                            minWidth: 30,
-                            textAlign: "center",
-                            padding: "4px 6px",
-                            borderRadius: 8,
-                            fontSize: 12.5,
-                            fontWeight: 700,
-                            color: tone,
-                            border: `1px solid color-mix(in srgb, ${tone} 45%, transparent)`,
-                            background: ok ? "color-mix(in srgb, var(--ok) 12%, transparent)" : "transparent",
-                          }}
-                        >
-                          {b}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>الأخضر: ناجح · الأحمر: إعادة · الرمادي: لم يُسبر بعد.</div>
+          <div style={{ fontSize: 14.5, fontWeight: 700 }}>سبورات الطالب</div>
 
           {studentExams.length === 0 ? (
             <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا سبر في السنة النبوية لهذا الطالب بعد.</div>
@@ -254,6 +208,7 @@ export default function SunnahClient({
           preset={form.preset}
           fixedSection={section}
           types={["SUNNAH"]}
+          startPoint={starts[student.id] ?? null}
           balance={student.stars}
           history={studentExams}
           canLocal={canLocal}
@@ -277,6 +232,7 @@ export function SunnahExamForm({
   preset,
   fixedSection,
   types,
+  startPoint,
   balance,
   history,
   canLocal,
@@ -290,6 +246,8 @@ export function SunnahExamForm({
   fixedSection?: SunnahSectionId;
   /** أنواع السبر المتاحة في هذه الشاشة */
   types?: SunnahLevelExamType[];
+  /** الإعداد الأول للطالب في المنهج — مراحله السابقة تُعدّ منجزة */
+  startPoint?: SunnahStartPoint | null;
   balance: number;
   history: SunnahExamRow[];
   canLocal: boolean;
@@ -334,7 +292,8 @@ export function SunnahExamForm({
           branch,
           history
             .filter((h) => h.id !== existing?.id)
-            .map((h) => ({ type: h.type, section: h.section, branch: h.branch, mark: h.mark, repeat: h.repeat, grade: h.grade, stageNo: h.stageNo }))
+            .map((h) => ({ type: h.type, section: h.section, branch: h.branch, mark: h.mark, repeat: h.repeat, grade: h.grade, stageNo: h.stageNo })),
+          startPoint
         )
       : null;
 

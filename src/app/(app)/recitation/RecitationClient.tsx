@@ -7,8 +7,7 @@ import { pageRange, surahsFor, type TrackId, type RecitationMode } from "@/lib/t
 import { validateEntry, validateSurahEntry, surahsLabel } from "@/lib/recitation";
 import { chipStyle } from "@/lib/ui";
 import NumberField from "@/components/NumberField";
-import Select from "@/components/Select";
-import { PAST_KINDS, JUZ_COUNT, pastItemLabel, pastJuzTotal, formatJuz, type PastKind } from "@/lib/pastRecitation";
+import { PAST_KINDS, JUZ_COUNT, pastItemLabel, pastJuzTotal, formatJuz, validatePastItems, type PastKind } from "@/lib/pastRecitation";
 
 /** بند ماضٍ في النموذج: النوع، ورقم الجزء نصًّا (فارغ = لم يُختر بعد)، وتقديره. */
 type PastRow = { kind: PastKind; juz: string; grade: string };
@@ -38,6 +37,8 @@ type Student = {
   mode: RecitationMode;
   saved: Entry | null;
   lastNewTo: number | null;
+  /** التسميع بالسور: السور التي أنهاها قبل هذا اليوم (تظهر بلون كحلي باهت) */
+  surahsBefore: string[];
   /** «ملاحظة الطالب» الخاصة بالمدرّس — null = لا تظهر (المدير) */
   note: string | null;
 };
@@ -91,8 +92,6 @@ const pageNum = (v: string): number | null => {
 const sameEntry = (a: Entry | undefined, b: Entry) =>
   !!a && (Object.keys(b) as (keyof Entry)[]).every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
 
-const JUZ_OPTIONS = Array.from({ length: JUZ_COUNT }, (_, i) => ({ value: String(i + 1), label: `الجزء ${i + 1}` }));
-const GRADE_OPTIONS = GRADES.map((g) => ({ value: g, label: g }));
 const pastRowsToItems = (rows: PastRow[]) =>
   rows.map((p) => ({ kind: p.kind, juz: p.juz ? parseInt(p.juz, 10) : null, grade: p.grade }));
 
@@ -114,14 +113,29 @@ function entryProblem(s: Student, e: Entry, track: TrackId): string | null {
   );
 }
 
+/** فحص جزء واحد قبل «حفظ جديد» أو «حفظ الماضي» (نفس قواعد الخادم) */
+function partProblem(e: Entry, part: "new" | "past", track: TrackId): string | null {
+  if (part === "new") {
+    if (e.noNew) return null;
+    return validateEntry(
+      { studentId: "", none: false, noNew: false, noPast: true, newFrom: pageNum(e.nf), newTo: pageNum(e.nt), gradeNew: e.gradeNew || null, pastItems: [] },
+      track
+    );
+  }
+  if (e.noPast) return null;
+  return validatePastItems(pastRowsToItems(e.past));
+}
+
 function summaryOf(e: Entry, mode: RecitationMode): string {
   if (e.none) return "لم يسمّع اليوم";
   if (mode === "surah") return `سور: ${surahsLabel(surahList(e), doneList(e))} (${e.gradeNew})`;
-  const newPart = e.noNew ? "لم يسمّع جديدًا" : `تسميع جديد ${e.nf}←${e.nt} (${e.gradeNew})`;
+  const newPart = e.noNew ? "لم يسمّع جديدًا" : !e.nf ? "الجديد لم يُحفظ بعد" : `تسميع جديد ${e.nf}←${e.nt} (${e.gradeNew})`;
   if (mode === "arabic") return `من الصفحة ${e.nf} إلى ${e.nt} (${e.gradeNew})`;
   const pastPart = e.noPast
     ? "لم يقرأ ماضي"
-    : `ماضي: ${e.past.map((p) => `${pastItemLabel({ kind: p.kind, juz: parseInt(p.juz, 10) })} (${p.grade})`).join("، ")}`;
+    : e.past.length === 0
+      ? "الماضي لم يُحفظ بعد"
+      : `ماضي: ${e.past.map((p) => `${pastItemLabel({ kind: p.kind, juz: parseInt(p.juz, 10) })} (${p.grade})`).join("، ")}`;
   return `${newPart} · ${pastPart}`;
 }
 
@@ -149,6 +163,10 @@ export default function RecitationClient({
     Object.fromEntries(students.filter((s) => s.saved).map((s) => [s.id, s.saved as Entry]))
   );
   const [open, setOpen] = useState<string | null>(null);
+  // الماضي: النوع المختار (حزب 1 / حزب 2 / جزء) لكل طالب قبل الضغط على رقم الجزء
+  const [pastKind, setPastKind] = useState<Record<string, PastKind>>({});
+  // نافذة «تسميع الماضي»: الطالب المفتوحة له
+  const [pastOpen, setPastOpen] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [justSaved, setJustSaved] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -183,24 +201,35 @@ export default function RecitationClient({
     setEntries((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
 
   const isSaved = (id: string) => sameEntry(savedEntries[id], entries[id]);
-  const savedCount = students.filter((s) => isSaved(s.id)).length;
+  /** طالب القرآن لا يُحسب محفوظًا حتى يُحفظ الجديد والماضي معًا (أو «لم يسمّع اليوم») */
+  const bothParts = (st: Student) => {
+    const se = savedEntries[st.id];
+    if (st.mode !== "quran" || !se || se.none) return true;
+    return (se.noNew || !!se.nf) && (se.noPast || se.past.length > 0);
+  };
+  const isComplete = (st: Student) => isSaved(st.id) && bothParts(st);
+  const savedCount = students.filter((st) => isComplete(st)).length;
 
   function fail(id: string, message: string) {
     setErrors((prev) => ({ ...prev, [id]: message }));
     setErrorTick((t) => t + 1);
   }
 
-  function save(s: Student, idx: number) {
+  /**
+   * part: لطلاب القرآن «حفظ جديد» يحفظ الجديد وحده و«حفظ الماضي» الماضي وحده — والجزء الآخر يبقى كما حُفظ.
+   * بلا part (القراءة العربية والسور، و«لم يسمّع اليوم»): يُحفظ السطر كاملًا.
+   */
+  function save(s: Student, idx: number, part?: "new" | "past", onDone?: () => void) {
     const e = entries[s.id];
     setJustSaved(null);
-    const problem = entryProblem(s, e, track);
+    const problem = part ? partProblem(e, part, track) : entryProblem(s, e, track);
     if (problem) {
       fail(s.id, problem);
       return;
     }
-    setSavingId(s.id);
+    setSavingId(`${s.id}|${part ?? ""}`);
     startTransition(async () => {
-      const res = await saveStudentRecitation({ halqaId, date, studentId: s.id, ...e, past: pastRowsToItems(e.past) });
+      const res = await saveStudentRecitation({ halqaId, date, studentId: s.id, ...e, past: pastRowsToItems(e.past), part });
       setSavingId(null);
       if (res.error) {
         fail(s.id, res.error);
@@ -211,16 +240,134 @@ export default function RecitationClient({
         delete next[s.id];
         return next;
       });
-      setSavedEntries((prev) => ({ ...prev, [s.id]: e }));
+      setSavedEntries((prev) => {
+        if (!part) return { ...prev, [s.id]: e };
+        // حُفظ جزء واحد: الجزء الآخر يبقى كما كان محفوظًا (أو فارغًا)
+        const base: Entry = prev[s.id] && !prev[s.id].none ? prev[s.id] : { ...e, noNew: false, nf: "", nt: "", gradeNew: "", pageDone: false, noPast: false, past: [] };
+        const merged: Entry =
+          part === "new"
+            ? { ...base, none: false, noNew: e.noNew, nf: e.nf, nt: e.nt, gradeNew: e.gradeNew, pageDone: e.pageDone }
+            : { ...base, none: false, noPast: e.noPast, past: e.past };
+        return { ...prev, [s.id]: merged };
+      });
       setJustSaved(s.id);
+      onDone?.();
       // الانتقال إلى أول طالب بعده لم يُحفظ بعد
-      const nextStudent = students.slice(idx + 1).find((x) => !sameEntry(savedEntries[x.id], entries[x.id]));
-      setOpen(nextStudent?.id ?? null);
+      if (!part) {
+        const nextStudent = students.slice(idx + 1).find((x) => !sameEntry(savedEntries[x.id], entries[x.id]));
+        setOpen(nextStudent?.id ?? null);
+      }
     });
   }
 
+  /** واجهة الماضي: النوع ← رقم الجزء من 1 إلى 30 ← التقدير */
+  const pastEditor = (s: Student, e: Entry) => {
+    const kind = pastKind[s.id] ?? "JUZ";
+    const usedJuz = e.past.filter((x) => x.kind === kind).map((x) => x.juz);
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 10, borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-grad)" }}>
+        <div style={{ fontSize: 13, fontWeight: 700 }}>الماضي — اختاروا النوع ثم رقم الجزء ثم التقدير</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {PAST_KINDS.map((k) => (
+            <button
+              key={k.id}
+              type="button"
+              onClick={() => setPastKind((prev) => ({ ...prev, [s.id]: k.id }))}
+              style={{ ...chipStyle(kind === k.id), flex: 1, minHeight: 46, fontSize: 15, fontWeight: 700 }}
+            >
+              {k.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 6 }}>
+          {Array.from({ length: JUZ_COUNT }, (_, i) => String(i + 1)).map((j) => {
+            const used = usedJuz.includes(j);
+            return (
+              <button
+                key={j}
+                type="button"
+                disabled={used}
+                onClick={() => set(s.id, { past: [...e.past, { kind, juz: j, grade: "" }] })}
+                style={{ ...chipStyle(used), minHeight: 48, fontSize: 18, fontWeight: 700, padding: 0, opacity: used ? 0.55 : 1 }}
+              >
+                {j}
+              </button>
+            );
+          })}
+        </div>
+        {e.past.map((x, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", padding: "8px 10px", borderRadius: 10, border: `1px solid ${x.grade ? "var(--line)" : "var(--accent-line)"}`, background: "var(--card-2-grad)" }}>
+            <span style={{ fontSize: 14, fontWeight: 700, minWidth: 150 }}>{pastItemLabel({ kind: x.kind, juz: parseInt(x.juz, 10) })}</span>
+            {GRADES.map((g) => (
+              <button key={g} type="button" onClick={() => set(s.id, { past: e.past.map((y, k) => (k === i ? { ...y, grade: g } : y)) })} style={{ ...chipStyle(x.grade === g), minHeight: 40 }}>
+                {g}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => set(s.id, { past: e.past.filter((_, k) => k !== i) })}
+              style={{ marginInlineStart: "auto", padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(224,138,138,0.45)", background: "transparent", color: "var(--bad-ink)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}
+            >
+              حذف
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const pastStudentIdx = students.findIndex((x) => x.id === pastOpen);
+  const pastStudent = pastStudentIdx >= 0 ? students[pastStudentIdx] : null;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {pastStudent && (
+        <div
+          onClick={() => setPastOpen(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(6,12,24,0.72)", backdropFilter: "blur(3px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "16px 10px", overflow: "auto" }}
+        >
+          <div
+            onClick={(ev) => ev.stopPropagation()}
+            style={{ width: "min(620px, 100%)", borderRadius: 16, border: "1px solid var(--line)", background: "var(--card-grad), var(--panel-solid)", boxShadow: "var(--glow)", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 17, fontWeight: 700 }}>تسميع الماضي</div>
+                <div style={{ fontSize: 13, color: "var(--ink-2)" }}>{pastStudent.name}</div>
+              </div>
+              {/* أعلى اليسار */}
+              <button
+                type="button"
+                onClick={() => setPastOpen(null)}
+                style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 13, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}
+              >
+                إغلاق النافذة ✕
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => set(pastStudent.id, { noPast: !entries[pastStudent.id].noPast, none: false })}
+              style={{ ...chipStyle(entries[pastStudent.id].noPast), alignSelf: "flex-start", minHeight: 40 }}
+            >
+              لم يقرأ ماضي اليوم
+            </button>
+            {!entries[pastStudent.id].noPast && pastEditor(pastStudent, entries[pastStudent.id])}
+            {errors[pastStudent.id] && (
+              <div role="alert" style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 13, fontWeight: 600 }}>
+                لم يتم الحفظ — {errors[pastStudent.id]}
+              </div>
+            )}
+            <button
+              type="button"
+              disabled={savingId !== null}
+              onClick={() => save(pastStudent, pastStudentIdx, "past", () => setPastOpen(null))}
+              style={{ minHeight: 48, padding: "12px 22px", borderRadius: 11, border: "1px solid var(--btn-border)", background: "var(--btn-grad)", color: "var(--on-accent)", fontSize: 15, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", boxShadow: "var(--btn-shadow)", opacity: savingId === `${pastStudent.id}|past` ? 0.7 : 1 }}
+            >
+              {savingId === `${pastStudent.id}|past` ? "جارٍ الحفظ…" : "حفظ الماضي"}
+            </button>
+          </div>
+        </div>
+      )}
       <div
         style={{
           borderRadius: 14,
@@ -240,14 +387,21 @@ export default function RecitationClient({
           const e = entries[s.id];
           const withPast = s.mode === "quran";
           const isSurah = s.mode === "surah";
-          const saved = isSaved(s.id);
+          const saved = isComplete(s);
           const isOpen = open === s.id;
           const savedEntry = savedEntries[s.id];
+          // طلاب القرآن: الجديد والماضي يُحفظ كلٌّ وحده — الحالة تبيّن أيّهما حُفظ
+          const newSaved = !!savedEntry && !savedEntry.none && (savedEntry.noNew || !!savedEntry.nf);
+          const pastSaved = !!savedEntry && !savedEntry.none && (savedEntry.noPast || savedEntry.past.length > 0);
           const summary = saved
             ? summaryOf(e, s.mode)
-            : savedEntry
-              ? "عُدّل ولم يُحفظ التعديل بعد"
-              : "لم يُحفظ بعد";
+            : isSaved(s.id) && savedEntry
+              ? summaryOf(savedEntry, s.mode)
+            : withPast && savedEntry && !savedEntry.none && newSaved !== pastSaved
+              ? summaryOf(savedEntry, s.mode)
+              : savedEntry
+                ? "عُدّل ولم يُحفظ التعديل بعد"
+                : "لم يُحفظ بعد";
 
           return (
             <div key={s.id}>
@@ -332,16 +486,6 @@ export default function RecitationClient({
                       لم يسمّع جديدًا اليوم
                     </button>
                     )}
-                    {withPast && (
-                    <button
-                      type="button"
-                      disabled={e.none}
-                      onClick={() => set(s.id, { noPast: !e.noPast })}
-                      style={{ ...chipStyle(e.noPast), minHeight: 40, opacity: e.none ? 0.45 : 1 }}
-                    >
-                      لم يقرأ ماضي اليوم
-                    </button>
-                    )}
                   </div>
 
                   {!e.none && isSurah && (
@@ -349,6 +493,9 @@ export default function RecitationClient({
                       <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 7 }}>
                         {s.mode === "surah" && track === "ARABIC" ? "بينة للناس — السور المسمَّعة" : "السور المسمَّعة"} (سورة أو أكثر)
                       </div>
+                      {s.surahsBefore.length > 0 && (
+                        <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 7 }}>الباهت ✓: سُمِّعت من قبل — يمكن اختيارها لإعادة تسميعها.</div>
+                      )}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {surahsFor(track).map((name) => {
                           const on = surahList(e).includes(name);
@@ -364,8 +511,14 @@ export default function RecitationClient({
                                   surahsDone: doneList(e).filter((x) => next.includes(x)).join("|"),
                                 });
                               }}
-                              style={chipStyle(on)}
+                              title={!on && s.surahsBefore.includes(name) ? "سُمِّعت من قبل — يمكن إعادة تسميعها" : undefined}
+                              style={
+                                !on && s.surahsBefore.includes(name)
+                                  ? { ...chipStyle(false), background: "color-mix(in srgb, #0f2a4d 18%, transparent)", borderColor: "color-mix(in srgb, #0f2a4d 35%, transparent)", color: "var(--ink-2)" }
+                                  : chipStyle(on)
+                              }
                             >
+                              {!on && s.surahsBefore.includes(name) ? "✓ " : ""}
                               {name}
                             </button>
                           );
@@ -460,55 +613,23 @@ export default function RecitationClient({
                         </div>
                       )}
 
-                      {withPast && !e.noPast && (
-                        <div>
-                          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 7 }}>
-                            الماضي — اختاروا الجزء وتقديره تحت كل نوع (يمكن أكثر من نوع، وتكرار النوع لأجزاء مختلفة)
-                          </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-                            {PAST_KINDS.map((k) => {
-                              const usedJuz = e.past.filter((p) => p.kind === k.id).map((p) => p.juz);
-                              return (
-                                <div key={k.id} style={{ display: "flex", flexDirection: "column", gap: 7, padding: 8, borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-grad)", minWidth: 0 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 700, textAlign: "center" }}>{k.label}</div>
-                                  {e.past.map((p, i) =>
-                                    p.kind !== k.id ? null : (
-                                      <div key={i} style={{ display: "flex", flexDirection: "column", gap: 5, paddingTop: 6, borderTop: "1px solid var(--line-2)" }}>
-                                        {/* لا يتكرّر البند نفسه: الأجزاء المختارة لهذا النوع تُحذف من قوائمه الأخرى */}
-                                        <Select
-                                          value={p.juz}
-                                          placeholder="الجزء"
-                                          options={JUZ_OPTIONS.filter((o) => o.value === p.juz || !usedJuz.includes(o.value))}
-                                          onChange={(v) => set(s.id, { past: e.past.map((x, j) => (j === i ? { ...x, juz: v } : x)) })}
-                                        />
-                                        <Select
-                                          value={p.grade}
-                                          placeholder="التقدير"
-                                          options={GRADE_OPTIONS}
-                                          onChange={(v) => set(s.id, { past: e.past.map((x, j) => (j === i ? { ...x, grade: v } : x)) })}
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => set(s.id, { past: e.past.filter((_, j) => j !== i) })}
-                                          style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid rgba(224,138,138,0.45)", background: "transparent", color: "var(--bad-ink)", fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" }}
-                                        >
-                                          حذف
-                                        </button>
-                                      </div>
-                                    )
-                                  )}
-                                  <button
-                                    type="button"
-                                    disabled={usedJuz.length >= JUZ_COUNT}
-                                    onClick={() => set(s.id, { past: [...e.past, { kind: k.id, juz: "", grade: "" }] })}
-                                    style={{ marginTop: "auto", padding: "7px 6px", borderRadius: 9, border: "1px dashed var(--accent-line)", background: "var(--chip)", color: "var(--ink)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}
-                                  >
-                                    + {k.label}
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
+                      {/* الماضي في نافذة مستقلة: «تسميع الماضي» */}
+                      {withPast && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
+                          <button
+                            type="button"
+                            onClick={() => setPastOpen(s.id)}
+                            style={{ minHeight: 44, padding: "10px 20px", borderRadius: 10, border: "1px solid var(--btn-border)", background: "var(--btn-grad)", color: "var(--on-accent)", fontSize: 14, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}
+                          >
+                            تسميع الماضي
+                          </button>
+                          <span style={{ fontSize: 13, color: "var(--ink-2)", flex: 1, minWidth: 160 }}>
+                            {e.noPast
+                              ? "لم يقرأ ماضي اليوم"
+                              : e.past.length
+                                ? `الماضي: ${e.past.map((x) => `${pastItemLabel({ kind: x.kind, juz: parseInt(x.juz, 10) })}${x.grade ? ` (${x.grade})` : ""}`).join("، ")}`
+                                : "لم يُختر الماضي بعد"}
+                          </span>
                         </div>
                       )}
                     </>
@@ -544,28 +665,37 @@ export default function RecitationClient({
                         </span>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      disabled={savingId !== null}
-                      onClick={() => save(s, idx)}
-                      style={{
-                        marginInlineStart: "auto",
-                        minHeight: 44,
-                        padding: "10px 22px",
-                        borderRadius: 10,
-                        border: "1px solid var(--btn-border)",
-                        background: "var(--btn-grad)",
-                        color: "var(--on-accent)",
-                        fontSize: 14,
-                        fontWeight: 700,
-                        fontFamily: "inherit",
-                        cursor: "pointer",
-                        boxShadow: "var(--btn-shadow)",
-                        opacity: savingId === s.id ? 0.7 : 1,
-                      }}
-                    >
-                      {savingId === s.id ? "جارٍ الحفظ…" : "حفظ"}
-                    </button>
+                    {/* طلاب القرآن: «حفظ جديد» و«حفظ الماضي» كلٌّ وحده — و«لم يسمّع اليوم» والقراءة العربية والسور بزر واحد */}
+                    <div style={{ marginInlineStart: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {(withPast && !e.none ? (["new"] as const) : ([undefined] as const)).map((part) => {
+                        const key = `${s.id}|${part ?? ""}`;
+                        const label = part === "new" ? "حفظ جديد" : part === "past" ? "حفظ الماضي" : "حفظ";
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            disabled={savingId !== null}
+                            onClick={() => save(s, idx, part)}
+                            style={{
+                              minHeight: 44,
+                              padding: "10px 20px",
+                              borderRadius: 10,
+                              border: "1px solid var(--btn-border)",
+                              background: "var(--btn-grad)",
+                              color: "var(--on-accent)",
+                              fontSize: 14,
+                              fontWeight: 700,
+                              fontFamily: "inherit",
+                              cursor: "pointer",
+                              boxShadow: "var(--btn-shadow)",
+                              opacity: savingId === key ? 0.7 : 1,
+                            }}
+                          >
+                            {savingId === key ? "جارٍ الحفظ…" : label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
@@ -590,7 +720,7 @@ export default function RecitationClient({
         >
           {savedCount === students.length
             ? "تسميع هذا اليوم محفوظ لكل الطلاب — ظهر لأولياء الأمور."
-            : `حُفظ تسميع ${savedCount} من ${students.length} طالبًا — افتح بطاقة كل طالب واضغط «حفظ».`}
+            : `حُفظ تسميع ${savedCount} من ${students.length} طالبًا — افتح بطاقة كل طالب واحفظ تسميعه.`}
         </div>
       )}
     </div>

@@ -102,14 +102,16 @@ export default async function ParentPage({
           ? `السور: ${surahsLabel(todayRec.surahs, todayRec.surahsDone)} — ${todayRec.gradeNew}`
           : todayRec.noNew
             ? "لم يسمّع جديدًا"
-            : `تسميع جديد: من ${todayRec.newFrom} إلى ${todayRec.newTo} (${pageSpan(todayRec.newFrom, todayRec.newTo)} صفحة) — ${todayRec.gradeNew}${todayRec.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`
+            : todayRec.newFrom == null
+              ? "الجديد لم يُسجَّل بعد"
+              : `تسميع جديد: من ${todayRec.newFrom} إلى ${todayRec.newTo} (${pageSpan(todayRec.newFrom, todayRec.newTo)} صفحة) — ${todayRec.gradeNew}${todayRec.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`
       );
       // الماضي لمستويَي القرآن حاضراً وغيباً وحدهما
       if (hasPastRecitation(child.track) && todayRec.surahs.length === 0)
         recLines.push(
           todayRec.noPast
             ? "لم يقرأ ماضيًا"
-            : `الماضي: ${pastSummary(parsePastItems(todayRec.pastItems)) || "—"}`
+            : `الماضي: ${pastSummary(parsePastItems(todayRec.pastItems)) || "لم يُسجَّل بعد"}`
         );
     }
   } else {
@@ -145,12 +147,14 @@ export default async function ParentPage({
               ? `سور: ${surahsLabel(r.surahs, r.surahsDone)} — ${r.gradeNew ?? ""}`
               : r.noNew
                 ? "لم يسمّع جديدًا"
-                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`,
+                : r.newFrom == null
+                  ? "الجديد لم يُسجَّل بعد"
+                  : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`,
           pastLine: !hasPastRecitation(child.track) || r.surahs.length > 0
             ? ""
             : r.noPast
             ? "لم يقرأ ماضيًا"
-            : `ماضي: ${pastSummary(parsePastItems(r.pastItems)) || "—"}`,
+            : `ماضي: ${pastSummary(parsePastItems(r.pastItems)) || "لم يُسجَّل بعد"}`,
         }))}
         examRows={[
           ...exams.map((e) => ({

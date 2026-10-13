@@ -49,6 +49,12 @@ export default async function RecitationPage({
   // طلاب القراءة العربية الناجحون في المرحلة 6 يسمّعون «بينة للناس» بالسور
   const stage6 = halqa?.track === "ARABIC" ? await passedArabicStage6(studentIds) : new Set<string>();
   const maxNewToMap = Object.fromEntries(maxNewToRows.map((r) => [r.studentId, r._max.newTo]));
+  // التسميع بالسور: السور التي أنهاها الطالب قبل هذا اليوم — تظهر بلون باهت ويجوز إعادة تسميعها
+  const surahRows = halqa && (halqa.track === "AMMA" || stage6.size > 0)
+    ? await prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { lt: date }, none: false }, select: { studentId: true, surahsDone: true } })
+    : [];
+  const surahsBefore: Record<string, string[]> = {};
+  for (const r of surahRows) surahsBefore[r.studentId] = [...new Set([...(surahsBefore[r.studentId] ?? []), ...r.surahsDone])];
   const lastPages: Record<string, { newTo: number | null }> = {};
   for (const st of students) {
     lastPages[st.id] = { newTo: maxNewToMap[st.id] ?? null };
@@ -103,6 +109,7 @@ export default async function RecitationPage({
                 }
               : null,
             lastNewTo: lastPages[s.id]?.newTo ?? null,
+            surahsBefore: surahsBefore[s.id] ?? [],
             // «ملاحظة الطالب» للمدرّس وحده — لا تُرسَل للمدير
             note: isDirector ? null : (s.teacherNote ?? ""),
           }))}

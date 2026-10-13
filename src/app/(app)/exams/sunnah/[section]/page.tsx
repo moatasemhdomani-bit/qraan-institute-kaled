@@ -17,7 +17,7 @@ export default async function SunnahSectionPage({ params }: { params: Promise<{ 
   const sec = sunnahSectionFromSlug((await params).section);
   if (!sec) notFound();
 
-  const [students, exams, recs, weekDates] = await Promise.all([
+  const [students, exams, recs, weekDates, startRows] = await Promise.all([
     loadSunnahStudents(),
     // سبر الأوقاف يُدار من شاشة سبر الأوقاف عند الإدارة — هنا للاطلاع ضمن سجلّ الطالب
     loadSunnahExamRows(sec.id),
@@ -27,6 +27,7 @@ export default async function SunnahSectionPage({ params }: { params: Promise<{ 
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
     workDatesThisWeek(),
+    prisma.sunnahStart.findMany({ where: { section: sec.id } }),
   ]);
   // تنبيها «5 أحاديث اليوم» و«سمّع يوميًا هذا الأسبوع» يعدّان التسميع في المناهج الثلاثة
   const dates = [...new Set([...weekDates, today()])];
@@ -53,6 +54,7 @@ export default async function SunnahSectionPage({ params }: { params: Promise<{ 
         weekDates={weekDates}
         today={today()}
         dayCounts={dayCounts}
+        starts={Object.fromEntries(startRows.map((s) => [s.studentId, { level: s.level, stage: s.stage, startNo: s.startNo }]))}
         exams={exams}
         recitations={recs.map((r) => ({
           id: r.id,

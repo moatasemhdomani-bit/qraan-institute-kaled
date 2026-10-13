@@ -45,6 +45,8 @@ export default async function RecitationMonitorPage({
       id: h.id,
       name: h.name,
       meta: `${h.teacher.name} · ${h.cohort.name} · ${h.students.length} طالبًا`,
+      teacherName: h.teacher.name,
+      cohortName: h.cohort.name,
       uploaded,
       totalPages,
       totalPastJuz,
@@ -63,14 +65,16 @@ export default async function RecitationMonitorPage({
               ? `سور: ${surahsLabel(r.surahs, r.surahsDone)} — ${r.gradeNew ?? ""}`
               : r.noNew
                 ? "لم يسمّع جديدًا"
-                : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`,
+                : r.newFrom == null
+                  ? "الجديد لم يُسجَّل بعد"
+                  : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`,
             // الماضي لمستويَي القرآن حاضراً وغيباً وحدهما
             ...(!hasPastRecitation(h.track)
               ? []
               : [
                   r.noPast
                     ? "لم يقرأ ماضيًا"
-                    : `ماضي: ${pastSummary(parsePastItems(r.pastItems)) || "—"}`,
+                    : `ماضي: ${pastSummary(parsePastItems(r.pastItems)) || "لم يُسجَّل بعد"}`,
                 ]),
           ],
         };

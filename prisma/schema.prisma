@@ -83,6 +83,7 @@ model User {
   reportsIssued    IssuedReport[]  @relation("ReportIssuer")
   starTxnsMade     StarTxn[]       @relation("StarTxnBy")
   sunnahRecitationsTaken SunnahRecitation[] @relation("SunnahRecitationBy")
+  sunnahStartsSet   SunnahStart[]   @relation("SunnahStartBy")
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
@@ -199,6 +200,7 @@ model Student {
   stars       Int         @default(0)
   starTxns    StarTxn[]
   sunnahRecitations SunnahRecitation[]
+  sunnahStarts      SunnahStart[]
   awqafResults AwqafResult[]
   behaviorLog StudentBehaviorLog[]
   teacherNotes TeacherMonthlyNote[]
@@ -582,4 +584,22 @@ model SunnahRecitation {
   examiner   User          @relation("SunnahRecitationBy", fields: [examinerId], references: [id])
 
   @@index([studentId, section])
+}
+
+/// الإعداد الأول لطالب في منهج من السنة النبوية: من أين يبدأ (المستوى والمرحلة ورقم الحديث) — ما قبله يُعدّ منجزًا
+model SunnahStart {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  studentId String
+  student   Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  section   SunnahSection
+  level     Int
+  /// المرحلة ضمن المستوى — null للمستوى بلا مراحل مُدخلة
+  stage     Int?
+  /// أول رقم يُسمّعه في كتاب المستوى
+  startNo   Int
+  setById   String
+  setBy     User          @relation("SunnahStartBy", fields: [setById], references: [id])
+
+  @@unique([studentId, section])
 }

@@ -5,7 +5,7 @@ import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { isValidDate, GRADES } from "@/lib/daily";
 import { passFailLabel, ARABIC_GRADES, ARABIC_FAIL_GRADE, TYPE_LABELS } from "@/lib/exam";
-import { SUNNAH_PASS_MARK, validSunnahStars, sunnahSection, sunnahBranchLabel, sunnahBook, sunnahRecLabel, levelStages, positionFromExams, sunnahMaxNo, levelExamBlock, type SunnahSectionId } from "@/lib/sunnah";
+import { SUNNAH_PASS_MARK, validSunnahStars, sunnahSection, sunnahBranchLabel, sunnahBook, sunnahRecLabel, levelStages, positionFromExams, sunnahMaxNo, levelExamBlock, sunnahMode, SUNNAH_REC_GRADES, levelStartNo, SUNNAH_NOT_AVAILABLE, type SunnahSectionId } from "@/lib/sunnah";
 import { revalidatePath } from "next/cache";
 import { applyStars } from "@/lib/starsServer";
 
@@ -90,7 +90,8 @@ export async function saveSunnahExam(input: SunnahExamInput): Promise<SunnahSave
     input.type,
     input.section,
     input.branch,
-    prior.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage }))
+    prior.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage })),
+    await loadStart(input.studentId, input.section)
   );
   if (blocked) return { error: blocked };
 
@@ -137,7 +138,6 @@ export async function saveSunnahRecitation(input: {
   book: string;
   items: { no: number; grade: string }[];
   date: string;
-  notes: string;
   /** نجوم مختبر الحديث للجلسة (−2 … 10) */
   stars?: number;
 }): Promise<SunnahSaveResult> {
@@ -153,7 +153,7 @@ export async function saveSunnahRecitation(input: {
     if (!Number.isInteger(it.no) || it.no < 1) return { error: `رقم ${book.unit} غير صحيح.` };
     if (seen.has(it.no)) return { error: `الرقم ${it.no} مكرَّر في الجلسة.` };
     seen.add(it.no);
-    if (!GRADES.includes(it.grade as never)) return { error: `اختاروا تقدير الرقم ${it.no}.` };
+    if (!(SUNNAH_REC_GRADES as readonly string[]).includes(it.grade)) return { error: `اختاروا للرقم ${it.no}: ناجح أو إعادة.` };
   }
   if (!isValidDate(input.date)) return { error: "التاريخ غير صحيح." };
   const stars = input.stars ?? 0;
@@ -164,6 +164,7 @@ export async function saveSunnahRecitation(input: {
 
   // التدرّج: لا يُسمَّع بعد آخر رقم في المرحلة الحالية حتى ينجح في سبرها (ولا المستوى التالي قبل سبر المستوى)
   const pos = await loadPosition(input.studentId, input.section);
+  if (!pos.finished && !pos.stages) return { error: SUNNAH_NOT_AVAILABLE };
   const max = sunnahMaxNo(pos);
   if (pos.stages && max != null) {
     if (input.book !== pos.book) return { error: `الطالب الآن في «${sunnahBook(input.section, pos.book)?.label ?? ""}» — المستوى ${pos.level}.` };
@@ -186,7 +187,6 @@ export async function saveSunnahRecitation(input: {
       toNo: it.no,
       grade: it.grade,
       date: input.date,
-      notes: input.notes.trim() || null,
       examinerId: session.userId,
     })),
   });
@@ -215,14 +215,21 @@ export async function deleteSunnahRecitation(id: string): Promise<SunnahSaveResu
 }
 
 /** موقع الطالب الآن في المنهج — من سبوره المحفوظة */
+async function loadStart(studentId: string, section: SunnahSectionId) {
+  const st = await prisma.sunnahStart.findUnique({ where: { studentId_section: { studentId, section } } });
+  return st ? { level: st.level, stage: st.stage, startNo: st.startNo } : null;
+}
+
 async function loadPosition(studentId: string, section: SunnahSectionId) {
+  const start = await loadStart(studentId, section);
   const exams = await prisma.exam.findMany({
     where: { studentId, sunnahSection: section, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE"] } },
     select: { type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true },
   });
   return positionFromExams(
     section,
-    exams.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage }))
+    exams.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage })),
+    start
   );
 }
 
@@ -249,7 +256,24 @@ export async function saveSunnahStageExam(input: {
   const stages = levelStages(input.section, input.level);
   if (!stages) return { error: "لا مراحل مُدخلة لهذا المستوى." };
   if (!Number.isInteger(input.stage) || input.stage < 1 || input.stage > stages.length) return { error: "اختاروا المرحلة." };
-  if (!ARABIC_GRADES.includes(input.grade)) return { error: "اختاروا التقدير." };
+  if (!(SUNNAH_REC_GRADES as readonly string[]).includes(input.grade)) return { error: "اختاروا النتيجة: ناجح أو إعادة." };
+  // لا يُفتح سبر المرحلة حتى يصل الطالب إليه: سمّع كل أرقامها بغير «إعادة»
+  if (!input.id) {
+    const [pos, start, history] = await Promise.all([
+      loadPosition(input.studentId, input.section),
+      loadStart(input.studentId, input.section),
+      prisma.sunnahRecitation.findMany({ where: { studentId: input.studentId, section: input.section } }),
+    ]);
+    const mode = sunnahMode(
+      pos,
+      history.map((h) => ({ ...h, createdAt: h.createdAt.toISOString() })),
+      start,
+      true
+    );
+    if (pos.level !== input.level || pos.stage !== input.stage || mode !== "stageExam") {
+      return { error: "لم يصل الطالب بعد إلى سبر هذه المرحلة — يُسمّع أرقامها كلها أولًا." };
+    }
+  }
   if (!isValidDate(input.date)) return { error: "التاريخ غير صحيح." };
   const student = await prisma.student.findUnique({ where: { id: input.studentId }, select: { name: true } });
   if (!student) return { error: "الطالب غير موجود." };
@@ -287,5 +311,47 @@ export async function saveSunnahStageExam(input: {
   revalidatePath("/exams/awqaf-batches");
   revalidatePath("/exam-monitor");
   revalidatePath("/parent");
+  return { ok: true };
+}
+
+/**
+ * الإعداد الأول لطالب في منهج (لم يسمّع فيه بعد): يختار المختبِر الكتاب والمستوى والمرحلة ورقم الحديث الذي يبدأ منه.
+ * ما قبل ذلك يُعدّ منجزًا. يُعدَّل ما دام الطالب لم يسمّع ولم يُسبر في هذا المنهج.
+ */
+export async function saveSunnahStart(input: { studentId: string; section: SunnahSectionId; level: number; stage: number | null; startNo: number }): Promise<SunnahSaveResult> {
+  const session = await getSession();
+  if (!session || (session.role !== "SUNNAH_EXAMINER" && session.role !== "DIRECTOR")) return { error: "الإعداد الأول من صلاحية مختبر الحديث." };
+  const sec = sunnahSection(input.section);
+  if (!sec) return { error: "المنهج غير معروف." };
+  if (!Number.isInteger(input.level) || input.level < 1 || input.level > sec.branches.length) return { error: "اختاروا المستوى." };
+  const stages = levelStages(input.section, input.level);
+  if (!stages) return { error: SUNNAH_NOT_AVAILABLE };
+  if (!input.stage || input.stage < 1 || input.stage > stages.length) return { error: "اختاروا المرحلة." };
+  const stage = stages ? input.stage : null;
+  if (!Number.isInteger(input.startNo) || input.startNo < 1) return { error: "اكتبوا رقم الحديث." };
+  if (stages && stage) {
+    const from = stage > 1 ? stages[stage - 2] + 1 : levelStartNo(input.section, input.level);
+    const to = stages[stage - 1];
+    if (input.startNo < from || input.startNo > to) return { error: `رقم الحديث في هذه المرحلة من ${from} إلى ${to}.` };
+  }
+  const student = await prisma.student.findUnique({ where: { id: input.studentId }, select: { name: true } });
+  if (!student) return { error: "الطالب غير موجود." };
+  const [recs, exams] = await Promise.all([
+    prisma.sunnahRecitation.count({ where: { studentId: input.studentId, section: input.section } }),
+    prisma.exam.count({ where: { studentId: input.studentId, sunnahSection: input.section } }),
+  ]);
+  if (recs || exams) return { error: "سمّع الطالب أو سُبر في هذا المنهج — لا يُعدَّل إعداده الأول." };
+
+  const data = { level: input.level, stage, startNo: input.startNo, setById: session.userId };
+  await prisma.sunnahStart.upsert({
+    where: { studentId_section: { studentId: input.studentId, section: input.section } },
+    update: data,
+    create: { ...data, studentId: input.studentId, section: input.section },
+  });
+  await logAction(
+    session.userId,
+    `الإعداد الأول للطالب «${student.name}» في ${sec.label}: المستوى ${input.level}${stage ? ` — المرحلة ${stage}` : ""} — من الرقم ${input.startNo}`
+  );
+  revalidatePath("/exams/sunnah", "layout");
   return { ok: true };
 }

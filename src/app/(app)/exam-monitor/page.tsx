@@ -101,6 +101,8 @@ export default async function ExamMonitorPage() {
       id: h.id,
       name: h.name,
       meta: `${h.teacher.name} · ${h.cohort.name} · ${h.students.length} طالبًا`,
+      teacherName: h.teacher.name,
+      cohortName: h.cohort.name,
       rows,
       neverLabel: neverCount > 0 ? `${neverCount} طالبًا لم يُسبَر بعد` : "",
     };

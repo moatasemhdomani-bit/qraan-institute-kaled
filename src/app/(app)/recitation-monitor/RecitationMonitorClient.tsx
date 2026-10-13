@@ -4,7 +4,8 @@ import { formatJuz } from "@/lib/pastRecitation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { chipStyle } from "@/lib/ui";
+import Select from "@/components/Select";
+import { useCohortTeacherFilter } from "@/components/useCohortTeacherFilter";
 import DateField from "@/components/DateField";
 
 type Row = {
@@ -19,6 +20,8 @@ type Block = {
   id: string;
   name: string;
   meta: string;
+  teacherName: string;
+  cohortName: string;
   uploaded: boolean;
   totalPages: number;
   /** مجموع الماضي بالأجزاء */
@@ -27,10 +30,10 @@ type Block = {
 };
 
 const FILTERS = [
-  { id: "all", label: "الكل" },
-  { id: "done", label: "سمّع" },
-  { id: "blank", label: "لم يسمّع" },
-  { id: "none", label: "لم يُسجَّل" },
+  { value: "all", label: "كل الطلاب" },
+  { value: "done", label: "سمّع" },
+  { value: "blank", label: "لم يسمّع" },
+  { value: "none", label: "لم يُسجَّل" },
 ];
 
 export default function RecitationMonitorClient({
@@ -48,6 +51,8 @@ export default function RecitationMonitorClient({
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState("all");
+  // فلترة الحلقات بالفوج والمدرّس
+  const { shown: shownBlocks, selects } = useCohortTeacherFilter(blocks);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -101,12 +106,9 @@ export default function RecitationMonitorClient({
           background: "var(--card-2-grad)",
         }}
       >
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {FILTERS.map((f) => (
-            <button key={f.id} onClick={() => setFilter(f.id)} style={chipStyle(filter === f.id)}>
-              {f.label}
-            </button>
-          ))}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, flex: "1 1 460px" }}>
+          <Select value={filter} onChange={setFilter} options={FILTERS} />
+          {selects}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginInlineStart: "auto" }}>
           <span style={{ fontSize: 12, color: "var(--ink-3)" }}>التاريخ</span>
@@ -120,7 +122,11 @@ export default function RecitationMonitorClient({
         </div>
       )}
 
-      {blocks.map((b) => {
+      {blocks.length > 0 && shownBlocks.length === 0 && (
+        <div style={{ padding: "32px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا حلقات مطابقة للفلترة.</div>
+      )}
+
+      {shownBlocks.map((b) => {
         const rows = filter === "all" ? b.rows : b.rows.filter((r) => r.state === filter);
         return (
           <div

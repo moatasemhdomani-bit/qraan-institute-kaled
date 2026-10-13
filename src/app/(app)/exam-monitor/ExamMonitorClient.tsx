@@ -8,6 +8,8 @@ import { resultLabel, passFailLabel, examKindLabel, isSunnahType, TYPE_LABELS, t
 import { formatDateAr } from "@/lib/daily";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
+import Select from "@/components/Select";
+import { useCohortTeacherFilter } from "@/components/useCohortTeacherFilter";
 import DeleteExamButton from "../exams/DeleteExamButton";
 
 type RowType = ExamTypeId | "AWQAF_ACTUAL";
@@ -45,6 +47,8 @@ type Block = {
   id: string;
   name: string;
   meta: string;
+  teacherName: string;
+  cohortName: string;
   rows: Row[];
   neverLabel: string;
 };
@@ -80,8 +84,9 @@ export default function ExamMonitorClient({
     return Array.from(names);
   }, [blocks]);
 
+  const { shown: cohortTeacherBlocks, selects } = useCohortTeacherFilter(blocks);
   const q = search.trim();
-  const filteredBlocks = blocks
+  const filteredBlocks = cohortTeacherBlocks
     .map((b) => ({
       ...b,
       rows: b.rows.filter(
@@ -142,22 +147,17 @@ export default function ExamMonitorClient({
           placeholder="بحث عن طالب باسمه"
           style={inputStyle()}
         />
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {(["all", ...typeFilters] as const).map((t) => (
-            <button key={t} onClick={() => setTypeFilter(t)} style={chipStyle(typeFilter === t)}>
-              {t === "all" ? "كل الأنواع" : t === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[t]}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button onClick={() => setExaminerFilter("all")} style={chipStyle(examinerFilter === "all")}>
-            كل المختبِرين
-          </button>
-          {examinerNames.map((n) => (
-            <button key={n} onClick={() => setExaminerFilter(n)} style={chipStyle(examinerFilter === n)}>
-              {n}
-            </button>
-          ))}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+          <Select
+            value={typeFilter}
+            onChange={(v) => setTypeFilter(v as typeof typeFilter)}
+            options={(["all", ...typeFilters] as const).map((t) => ({
+              value: t,
+              label: t === "all" ? "كل الأنواع" : t === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[t],
+            }))}
+          />
+          <Select value={examinerFilter} onChange={setExaminerFilter} options={[{ value: "all", label: "كل المختبِرين" }, ...examinerNames.map((n) => ({ value: n, label: n }))]} />
+          {selects}
         </div>
       </div>
 

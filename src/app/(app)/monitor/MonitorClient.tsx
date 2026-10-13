@@ -4,13 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ATT_STATES } from "@/lib/daily";
-import { chipStyle } from "@/lib/ui";
+import Select from "@/components/Select";
+import { useCohortTeacherFilter } from "@/components/useCohortTeacherFilter";
 import DateField from "@/components/DateField";
 
 type Block = {
   id: string;
   name: string;
   meta: string;
+  teacherName: string;
+  cohortName: string;
   uploaded: boolean;
   tally: { id: string; label: string; color: string; count: number }[];
   rows: { id: string; name: string; status: string; label: string }[];
@@ -32,7 +35,8 @@ export default function MonitorClient({
   const router = useRouter();
   const [filter, setFilter] = useState<string>("all");
 
-  const filters = [{ id: "all", label: "الكل" }, ...ATT_STATES.map((s) => ({ id: s.id, label: s.label }))];
+  const filters = [{ value: "all", label: "كل الطلاب" }, ...ATT_STATES.map((s) => ({ value: s.id, label: s.label }))];
+  const { shown, selects } = useCohortTeacherFilter(blocks);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -86,12 +90,9 @@ export default function MonitorClient({
           background: "var(--card-2-grad)",
         }}
       >
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {filters.map((f) => (
-            <button key={f.id} onClick={() => setFilter(f.id)} style={chipStyle(filter === f.id)}>
-              {f.label}
-            </button>
-          ))}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, flex: "1 1 460px" }}>
+          <Select value={filter} onChange={setFilter} options={filters} />
+          {selects}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginInlineStart: "auto" }}>
           <span style={{ fontSize: 12, color: "var(--ink-3)" }}>التاريخ</span>
@@ -105,7 +106,11 @@ export default function MonitorClient({
         </div>
       )}
 
-      {blocks.map((b) => {
+      {blocks.length > 0 && shown.length === 0 && (
+        <div style={{ padding: "32px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا حلقات مطابقة للفلترة.</div>
+      )}
+
+      {shown.map((b) => {
         const rows = filter === "all" ? b.rows : b.rows.filter((r) => r.status === filter);
         return (
           <div
