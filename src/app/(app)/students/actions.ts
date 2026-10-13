@@ -1,5 +1,6 @@
 "use server";
 
+import { zeroStudentStars } from "@/lib/starsServer";
 import type { FeeStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -115,6 +116,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
       await logAction(session.userId, `عدّل بيانات الطالب «${name}»`);
     }
     if (before && before.active !== active) {
+      // المنقطع يصبح رصيد نجومه صفرًا
+      if (!active) await zeroStudentStars(id, session.userId, session.role);
       await logAction(session.userId, active ? `أعاد الطالب «${name}» إلى «نشط»` : `غيّر حالة الطالب «${name}» إلى «منقطع» وأخرجه من حلقته`);
     }
   } else {

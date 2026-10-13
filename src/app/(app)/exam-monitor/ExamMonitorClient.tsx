@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cardStyle, chipStyle, inputStyle } from "@/lib/ui";
-import { resultLabel, passFailLabel, examKindLabel, TYPE_LABELS, type ExamTypeId } from "@/lib/exam";
+import { resultLabel, passFailLabel, examKindLabel, isSunnahType, TYPE_LABELS, type ExamTypeId } from "@/lib/exam";
 import { formatDateAr } from "@/lib/daily";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
@@ -17,6 +17,7 @@ const EXAM_SCREENS = [
   { href: "/exams/awqaf", label: "ترشيح الأوقاف" },
   { href: "/exams/placement", label: "تحديد مستوى" },
   { href: "/exams/arabic", label: "سبر القراءة العربية" },
+  { href: "/exams/sunnah", label: "سبر السنة النبوية" },
 ];
 
 const examBtnStyle = {
@@ -218,7 +219,15 @@ export default function ExamMonitorClient({
                   {isAwqafActual && passFail === "ناجح" && (
                     <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>{certCycleLabel(r)}</span>
                   )}
-                  {!isAwqafActual && canEdit && (isDirector || r.examinerId === currentUserId) && (
+                  {isSunnahType(r.type) && canEdit && (
+                    <Link
+                      href="/exams/sunnah"
+                      style={{ marginInlineStart: "auto", padding: "6px 13px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, textDecoration: "none" }}
+                    >
+                      فتح شاشة السنة النبوية
+                    </Link>
+                  )}
+                  {!isAwqafActual && !isSunnahType(r.type) && canEdit && (isDirector || r.examinerId === currentUserId) && (
                     <button
                       onClick={() => setEditing({ row: r as Row & { type: ExamTypeId }, halqaName: b.name })}
                       style={{ marginInlineStart: "auto", padding: "6px 13px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}

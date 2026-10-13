@@ -39,6 +39,8 @@ export default async function DashboardPage() {
   if (session.role === "TEACHER") redirect("/attendance");
   if (session.role === "GUARDIAN") redirect("/parent");
   if (session.role === "EXAM_SUPERVISOR") redirect("/exams/local");
+  if (session.role === "ACTIVITY_OFFICER") redirect("/activity-stars");
+  if (session.role === "SUNNAH_EXAMINER") redirect("/exams/sunnah");
   if (session.role === "EXAMINER") redirect((await examinerTrack(session)) === "ARABIC" ? "/exams/arabic" : "/exams/local");
 
   if (!staffMode) {

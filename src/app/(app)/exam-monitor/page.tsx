@@ -56,6 +56,8 @@ export default async function ExamMonitorPage() {
         nominationParts: e.nominationParts,
         stage: e.stage,
         grade: e.grade,
+        sunnahSection: e.sunnahSection as string | null,
+        sunnahStage: e.sunnahStage,
         notes: e.notes,
         certArrived: false,
         certArchived: false,
@@ -91,7 +93,8 @@ export default async function ExamMonitorPage() {
 
     const rows = [...examRows, ...awqafRows].sort((a, b) => b.date.localeCompare(a.date));
 
-    const sobredIds = new Set(examRows.map((r) => r.studentId));
+    // «لم يُسبَر بعد» عن سبر المستوى (القرآن / القراءة العربية) — لا السنة النبوية
+    const sobredIds = new Set(examRows.filter((r) => !r.type.startsWith("SUNNAH")).map((r) => r.studentId));
     const neverCount = h.students.filter((s) => !sobredIds.has(s.id)).length;
 
     return {
@@ -105,11 +108,15 @@ export default async function ExamMonitorPage() {
 
   // المدرّس يرى في الفلترة أنواع السبر التي يُختبر بها طلابه فقط: القراءة العربية لمدرّسها، وأنواع القرآن لمدرّس القرآن
   const me = session.role === "TEACHER" || session.role === "EXAM_SUPERVISOR" ? { track: session.track } : null;
-  const typeFilters: ("LOCAL" | "WAQF_NOMINATION" | "AWQAF_ACTUAL" | "ARABIC")[] = !me
-    ? ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL", "ARABIC"]
+  // السنة النبوية لكل طلاب المعهد — تظهر لكل مدرّس
+  const sunnah = ["SUNNAH_STAGE", "SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF"] as const;
+  const typeFilters: ("LOCAL" | "WAQF_NOMINATION" | "AWQAF_ACTUAL" | "ARABIC" | "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE")[] = !me
+    ? ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL", "ARABIC", ...sunnah]
     : me.track === "ARABIC"
-      ? ["ARABIC"]
-      : ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL"];
+      ? ["ARABIC", ...sunnah]
+      : session.role === "EXAM_SUPERVISOR"
+        ? ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL"]
+        : ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL", ...sunnah];
 
   return (
     <>

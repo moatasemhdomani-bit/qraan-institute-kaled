@@ -77,6 +77,24 @@ export default function StudentReportPreview({ preview }: { preview: StudentPrev
       </div>
 
       <div style={{ marginTop: 14 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>السنة النبوية</div>
+        {preview.sunnah.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>لا سبر في السنة النبوية خلال الفترة</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {preview.sunnah.map((s, i) => (
+              <div key={i} style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)", fontSize: 12.5, lineHeight: 1.7 }}>
+                <b style={{ color: s.passed ? "var(--ok)" : "var(--bad)" }}>{s.result}</b> — {s.branch}
+                <div style={{ color: "var(--ink-2)" }}>
+                  {s.kind} · {formatDateAr(s.date)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 14 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>إذن الطالب</div>
         {preview.permits.length === 0 ? (
           <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>لا يوجد إذن</div>

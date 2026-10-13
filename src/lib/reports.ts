@@ -1,6 +1,7 @@
 import { prisma, rawPrisma } from "./db";
 import { countedNewPages } from "./daily";
 import { passFailLabel } from "./exam";
+import { sunnahBranchLabel } from "./sunnah";
 import { awqafPassed } from "./awqaf";
 import { examFamily } from "./track";
 import { parsePastItems, pastJuzTotal } from "./pastRecitation";
@@ -384,6 +385,8 @@ export type StudentPreview = {
   arabic: boolean;
   /** أذونات الطالب الدائمة (دخول ثم خروج) — فارغة إن لم يكن لديه إذن */
   permits: { kind: "ENTRY" | "EXIT"; time: string; days: string[]; note: string | null; since: string }[];
+  /** سبر السنة النبوية في الفترة (محلي ومن الأوقاف) */
+  sunnah: { date: string; kind: string; branch: string; result: string; passed: boolean }[];
 };
 
 export async function buildStudentPreview(studentId: string, from: string, to: string): Promise<StudentPreview | null> {
@@ -394,13 +397,14 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
   if (!student) return null;
 
   const arabic = examFamily(student.track) === "ARABIC";
-  const [attendance, recitations, localExams, nomExams, awqafResults] = await Promise.all([
+  const [attendance, recitations, localExams, nomExams, awqafResults, sunnahExams] = await Promise.all([
     prisma.attendance.findMany({ where: { studentId, date: { gte: from, lte: to } } }),
     prisma.recitation.findMany({ where: { studentId, date: { gte: from, lte: to } } }),
     // طالب القراءة العربية: اختباراته اختبارات المراحل (ARABIC) بدل السبر المحلي
     prisma.exam.findMany({ where: { studentId, type: arabic ? "ARABIC" : "LOCAL", date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
     prisma.awqafResult.findMany({ where: { studentId, batch: { date: { gte: from, lte: to } } } }),
+    prisma.exam.findMany({ where: { studentId, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE"] }, date: { gte: from, lte: to } }, orderBy: { date: "asc" } }),
   ]);
 
   const pages = pagesSummary(recitations);
@@ -433,6 +437,13 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     permits: [...student.permits]
       .sort((a, b) => (a.kind === "ENTRY" ? 0 : 1) - (b.kind === "ENTRY" ? 0 : 1))
       .map((p) => ({ kind: p.kind, time: p.time, days: p.days, note: p.note, since: p.since })),
+    sunnah: sunnahExams.map((e) => ({
+      date: e.date,
+      kind: e.type === "SUNNAH_STAGE" ? "سبر مرحلة" : e.type === "SUNNAH" ? "سبر مستوى (محلي)" : e.type === "SUNNAH_NOMINATION" ? "ترشيح الأوقاف" : "سبر الأوقاف",
+      branch: sunnahBranchLabel(e.sunnahSection, e.stage) + (e.type === "SUNNAH_STAGE" ? ` — المرحلة ${e.sunnahStage}` : ""),
+      result: e.type === "SUNNAH_STAGE" ? (e.grade ?? "—") : e.repeat ? "إعادة" : `${e.resultMark ?? "—"} / 100`,
+      passed: passFailLabel({ type: e.type as "SUNNAH", resultMark: e.resultMark, repeat: e.repeat, grade: e.grade }) === "ناجح",
+    })),
   };
 }
 

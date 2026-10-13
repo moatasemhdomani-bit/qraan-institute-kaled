@@ -5,9 +5,10 @@ import { getSession } from "@/lib/session";
 import { examinerTrack, examinerLike } from "@/lib/examinerTrack";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { validateExam, passFailLabel, LOCAL_KIND_LABELS, isArabicMarkStage, arabicStageLabel, ARABIC_FINAL_STAGE, type ExamTypeId, type LocalKindId } from "@/lib/exam";
+import { validateExam, passFailLabel, LOCAL_KIND_LABELS, isArabicMarkStage, arabicStageLabel, ARABIC_FINAL_STAGE, isSunnahType, TYPE_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
 import { examFamily } from "@/lib/track";
 import { promoteStudent } from "@/lib/promotion";
+import { sunnahBranchLabel } from "@/lib/sunnah";
 
 export type FormState = { error?: string; ok?: boolean; examId?: string };
 
@@ -21,6 +22,7 @@ function revalidateExamPaths() {
   revalidatePath("/exams/awqaf");
   revalidatePath("/exams/placement");
   revalidatePath("/exams/arabic");
+  revalidatePath("/exams/sunnah");
   revalidatePath("/exams/local-view");
   revalidatePath("/exam-monitor");
   revalidatePath("/students");
@@ -52,6 +54,7 @@ function examLabel(type: ExamTypeId, localKind: LocalKindId | null): string {
   if (type === "LOCAL") return `سبر محلي (${LOCAL_KIND_LABELS[localKind ?? "GHAYBAN"]})`;
   if (type === "WAQF_NOMINATION") return "سبر ترشيح أوقاف";
   if (type === "ARABIC") return "سبر القراءة العربية";
+  if (isSunnahType(type)) return TYPE_LABELS[type];
   return "سبر تحديد مستوى";
 }
 
@@ -66,6 +69,8 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   const studentId = String(formData.get("studentId") || "") || null;
   const date = String(formData.get("date") || "");
   const notes = String(formData.get("notes") || "").trim() || null;
+  // السنة النبوية تُحفظ من شاشتها (saveSunnahExam)
+  if (isSunnahType(type)) return { error: "سبر السنة النبوية يُسجَّل من شاشته." };
 
   if (id) {
     const existing = await prisma.exam.findUnique({ where: { id } });
@@ -218,13 +223,13 @@ export async function deleteExam(id: string): Promise<FormState> {
   if (!exam) return { error: "السبر غير موجود." };
 
   const isAdmin = session.role === "DIRECTOR" || session.role === "ADMIN";
-  const isOwnExam = examinerLike(session.role) && exam.examinerId === session.userId;
+  const isOwnExam = (examinerLike(session.role) || session.role === "SUNNAH_EXAMINER") && exam.examinerId === session.userId;
   if (!isAdmin && !isOwnExam) return { error: "يحذف المختبِر السبر الذي أجراه هو فقط." };
 
   await prisma.exam.delete({ where: { id } });
   await logAction(
     session.userId,
-    `حذف ${examLabel(exam.type as ExamTypeId, exam.localKind as LocalKindId | null)}${exam.type === "ARABIC" && exam.stage ? ` (${arabicStageLabel(exam.stage)})` : ""} للطالب «${exam.student.name}» بتاريخ ${exam.date}`
+    `حذف ${examLabel(exam.type as ExamTypeId, exam.localKind as LocalKindId | null)}${exam.type === "ARABIC" && exam.stage ? ` (${arabicStageLabel(exam.stage)})` : ""}${isSunnahType(exam.type) ? ` (${sunnahBranchLabel(exam.sunnahSection, exam.stage, false)})` : ""} للطالب «${exam.student.name}» بتاريخ ${exam.date}`
   );
 
   revalidateExamPaths();

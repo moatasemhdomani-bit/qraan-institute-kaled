@@ -67,9 +67,11 @@ export const ROLE_LABELS: Record<string, string> = {
   EXAMINER: "مختبِر",
   GUARDIAN: "ولي أمر",
   EXAM_SUPERVISOR: "مشرف مختبرين القرآن",
+  SUNNAH_EXAMINER: "مختبر حديث",
+  ACTIVITY_OFFICER: "مسؤول النشاط",
 };
 
-export const ROLES_ORDERED = ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER", "EXAM_SUPERVISOR", "GUARDIAN"] as const;
+export const ROLES_ORDERED = ["DIRECTOR", "ADMIN", "TEACHER", "EXAMINER", "EXAM_SUPERVISOR", "SUNNAH_EXAMINER", "ACTIVITY_OFFICER", "GUARDIAN"] as const;
 export type RoleId = (typeof ROLES_ORDERED)[number];
 
 export const ALL_WEEKDAYS = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];

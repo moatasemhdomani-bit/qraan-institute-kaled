@@ -15,6 +15,8 @@ const STAFF_KINDS: { id: string; role: RoleId; track: TrackId }[] = [
   { id: "EXAMINER", role: "EXAMINER", track: "QURAN" },
   { id: "EXAMINER_AR", role: "EXAMINER", track: "ARABIC" },
   { id: "EXAM_SUPERVISOR", role: "EXAM_SUPERVISOR", track: "QURAN" },
+  { id: "SUNNAH_EXAMINER", role: "SUNNAH_EXAMINER", track: "QURAN" },
+  { id: "ACTIVITY_OFFICER", role: "ACTIVITY_OFFICER", track: "QURAN" },
 ];
 
 /** دور الموظف في فوج: kind من STAFF_KINDS. */

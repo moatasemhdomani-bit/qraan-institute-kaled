@@ -11,7 +11,7 @@ export function cleanNationalId(raw: string): string {
 }
 
 /** أنواع الموظفين (الدور مع النوع) كما تُختار لكل فوج — والمعرّف «kind» المحفوظ في النموذج. */
-export const STAFF_KIND_ROLES: Record<string, { role: "DIRECTOR" | "ADMIN" | "TEACHER" | "EXAMINER" | "EXAM_SUPERVISOR"; track: "ARABIC" | "AMMA" | "QURAN" }> = {
+export const STAFF_KIND_ROLES: Record<string, { role: "DIRECTOR" | "ADMIN" | "TEACHER" | "EXAMINER" | "EXAM_SUPERVISOR" | "SUNNAH_EXAMINER" | "ACTIVITY_OFFICER"; track: "ARABIC" | "AMMA" | "QURAN" }> = {
   DIRECTOR: { role: "DIRECTOR", track: "QURAN" },
   ADMIN: { role: "ADMIN", track: "QURAN" },
   TEACHER_AR: { role: "TEACHER", track: "ARABIC" },
@@ -20,6 +20,8 @@ export const STAFF_KIND_ROLES: Record<string, { role: "DIRECTOR" | "ADMIN" | "TE
   EXAMINER: { role: "EXAMINER", track: "QURAN" },
   EXAMINER_AR: { role: "EXAMINER", track: "ARABIC" },
   EXAM_SUPERVISOR: { role: "EXAM_SUPERVISOR", track: "QURAN" },
+  SUNNAH_EXAMINER: { role: "SUNNAH_EXAMINER", track: "QURAN" },
+  ACTIVITY_OFFICER: { role: "ACTIVITY_OFFICER", track: "QURAN" },
 };
 
 /** معرّف النوع من الدور والنوع المحفوظين. */

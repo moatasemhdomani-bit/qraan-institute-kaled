@@ -128,5 +128,7 @@ export function staffRoleLabel(role: string, track: TrackId | null | undefined, 
   if (role === "TEACHER") return track === "ARABIC" ? "مدرس قراءة عربية" : track === "AMMA" ? "مدرس عمَّ غيباً" : "مدرس قرآن";
   if (role === "EXAMINER") return track === "ARABIC" ? "مختبِر قراءة عربية" : "مختبِر قرآن";
   if (role === "EXAM_SUPERVISOR") return "مشرف مختبرين القرآن";
+  if (role === "ACTIVITY_OFFICER") return "مسؤول النشاط";
+  if (role === "SUNNAH_EXAMINER") return "مختبر حديث";
   return roleLabels[role] ?? role;
 }

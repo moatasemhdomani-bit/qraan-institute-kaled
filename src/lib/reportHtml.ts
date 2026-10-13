@@ -314,6 +314,8 @@ export function studentReportHtml(input: {
   /** طالب القراءة العربية: بلا ماضٍ ولا سبر أوقاف، و«الاختبارات» بدل «اختبار محلي» */
   arabic: boolean;
   permits: { kind: "ENTRY" | "EXIT"; time: string; days: string[]; note: string | null; since: string }[];
+  /** سبر السنة النبوية في الفترة (محلي ومن الأوقاف) */
+  sunnah: { date: string; kind: string; branch: string; result: string; passed: boolean }[];
 }): string {
   const body = `
     <h2 class="block">${escapeHtml(input.studentName)} <span>#${escapeHtml(input.studentNo)} — ${escapeHtml(input.halqaName)} · ${escapeHtml(input.cohortName)}</span></h2>
@@ -359,6 +361,25 @@ ${
         <td><span class="pass">${input.nomPass}</span> / <span class="fail">${input.nomFail}</span></td>
         <td><span class="pass">${input.realPass}</span> / <span class="fail">${input.realFail}</span></td>
       </tr></tbody>
+    </table>`
+    }
+
+    <h3 class="section">السنة النبوية</h3>
+    ${
+      input.sunnah.length === 0
+        ? `<table><tbody><tr><td>لا سبر في السنة النبوية خلال الفترة</td></tr></tbody></table>`
+        : `<table>
+      <thead><tr><th>التاريخ</th><th>السبر</th><th>القسم والفرع</th><th>النتيجة</th></tr></thead>
+      <tbody>${input.sunnah
+        .map(
+          (s) => `<tr>
+        <td>${formatDateAr(s.date)}</td>
+        <td>${s.kind}</td>
+        <td class="note">${escapeHtml(s.branch)}</td>
+        <td><span class="${s.passed ? "pass" : "fail"}">${escapeHtml(s.result)}</span></td>
+      </tr>`
+        )
+        .join("")}</tbody>
     </table>`
     }
 

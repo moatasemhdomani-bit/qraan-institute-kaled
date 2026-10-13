@@ -1,5 +1,6 @@
 "use server";
 
+import { zeroStudentStars } from "@/lib/starsServer";
 import { prisma, rawPrisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
@@ -231,6 +232,8 @@ export async function commitImport(
     if (p.status === "update" && p.existingId) {
       const track = p.patch.halqaId ? halqaTrack.get(p.patch.halqaId) : undefined;
       await prisma.student.update({ where: { id: p.existingId }, data: { ...p.patch, ...(track ? { track } : {}) } });
+      // المنقطع يصبح رصيد نجومه صفرًا
+      if (p.patch.active === false) await zeroStudentStars(p.existingId, session.userId, session.role);
       updated++;
     } else if (p.status === "new") {
       const last = await prisma.student.findFirst({ orderBy: { studentNo: "desc" }, select: { studentNo: true } });

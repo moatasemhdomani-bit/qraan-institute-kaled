@@ -32,6 +32,8 @@ enum Role {
   EXAMINER
   GUARDIAN
   EXAM_SUPERVISOR // مشرف مختبرين القرآن: شاشات مختبِر القرآن + متابعة الحضور والتسميع والسبر للاطلاع فقط
+  SUNNAH_EXAMINER // مختبر حديث: سبر السنة النبوية لكل طلاب المعهد
+  ACTIVITY_OFFICER // مسؤول النشاط: يسحب النجوم من الطلاب مقابل دخول النشاط، ويعيد ما سحبه بالغلط
 }
 
 model User {
@@ -79,6 +81,8 @@ model User {
   awqafBatchesMade AwqafBatch[]    @relation("AwqafBatchCreator")
   behaviorChangesMade StudentBehaviorLog[] @relation("BehaviorActor")
   reportsIssued    IssuedReport[]  @relation("ReportIssuer")
+  starTxnsMade     StarTxn[]       @relation("StarTxnBy")
+  sunnahRecitationsTaken SunnahRecitation[] @relation("SunnahRecitationBy")
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
@@ -138,6 +142,9 @@ model Halqa {
   students    Student[]
   attendance  Attendance[]
   recitations Recitation[]
+  /// رصيد نجوم الحلقة: تشحنه الإدارة، ويصرفه المدرّس على طلاب الحلقة وحدهم
+  stars       Int          @default(0)
+  starTxns    StarTxn[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -188,6 +195,10 @@ model Student {
   recitations Recitation[]
   exams       Exam[]
   permits     Permit[]
+  /// رصيد النجوم (مكافآت المعهد)
+  stars       Int         @default(0)
+  starTxns    StarTxn[]
+  sunnahRecitations SunnahRecitation[]
   awqafResults AwqafResult[]
   behaviorLog StudentBehaviorLog[]
   teacherNotes TeacherMonthlyNote[]
@@ -279,6 +290,17 @@ enum ExamType {
   WAQF_NOMINATION // سبر ترشيح الأوقاف
   PLACEMENT // تحديد مستوى
   ARABIC // سبر مختصر القراءة العربية — بالمرحلة
+  SUNNAH // سبر السنة النبوية المحلي (داخل المعهد) — بالقسم والفرع
+  SUNNAH_NOMINATION // سبر ترشيح الأوقاف في السنة النبوية (داخل المعهد) — الناجح يُرفع إلى قائمة الجاهزين لسبر الأوقاف
+  SUNNAH_AWQAF // سبر السنة النبوية الخارجي من جهة الأوقاف
+  SUNNAH_STAGE // سبر مرحلة في السنة النبوية (داخل المعهد) — بتقدير
+}
+
+// أقسام السنة النبوية الثلاثة — منفصلة، يسير الطالب في كل منها فرعًا بعد فرع
+enum SunnahSection {
+  HADITH // الحديث الشريف
+  SHAMAIL // الشمائل المحمدية
+  SIRA // السيرة النبوية
 }
 
 // فروع السبر المحلي الثلاثة
@@ -337,6 +359,11 @@ model Exam {
   // ARABIC فقط: المرحلة 1–6؛ المراحل 1–5 بتقدير (ممتاز/جيد جدًا/جيد/إعادة)، والمرحلة 6 بعلامة من 100 (resultMark)
   stage Int?
   grade String?
+
+  // SUNNAH وSUNNAH_AWQAF: القسم، والفرع في stage (1…)، والعلامة في resultMark (النجاح 80) أو repeat
+  sunnahSection SunnahSection?
+  // SUNNAH_STAGE: رقم المرحلة ضمن المستوى (stage = المستوى/الفرع)، والتقدير في grade
+  sunnahStage   Int?
 
   notes String?
 
@@ -502,4 +529,57 @@ model IssuedReport {
   createdAt DateTime @default(now())
 
   @@index([kind])
+}
+
+enum StarTxnKind {
+  CHARGE // شحن
+  WITHDRAW // سحب
+}
+
+/// أرشيف عمليات النجوم: على رصيد طالب (studentId) أو على رصيد حلقة (studentId = null).
+model StarTxn {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now())
+  kind      StarTxnKind
+  amount    Int
+  studentId String?
+  student   Student?    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  /// حلقة الطالب وقت العملية، أو الحلقة التي شُحن/سُحب رصيدها
+  halqaId   String?
+  halqa     Halqa?      @relation(fields: [halqaId], references: [id], onDelete: SetNull)
+  /// عملية المدرّس على طالب: تُصرف من رصيد الحلقة (الشحن) أو تعود إليه (السحب)
+  fromPool  Boolean     @default(false)
+  byId      String
+  by        User        @relation("StarTxnBy", fields: [byId], references: [id])
+  byRole    Role
+  reason    String?
+  /// إعادة نجوم سُحبت بالغلط: تشير إلى عملية السحب الأصلية (تُعاد مرة واحدة فقط)
+  reversesId String?    @unique
+  reverses   StarTxn?   @relation("StarReversal", fields: [reversesId], references: [id], onDelete: SetNull)
+  reversedBy StarTxn?   @relation("StarReversal")
+
+  @@index([createdAt])
+  @@index([studentId])
+  @@index([halqaId])
+}
+
+/// تسميع السنة النبوية بالأرقام: من رقم إلى رقم في كتاب من كتب المنهج (الحديث / الشمائل / السيرة)، بتقدير
+model SunnahRecitation {
+  id         String        @id @default(cuid())
+  createdAt  DateTime      @default(now())
+  date       String // YYYY-MM-DD
+  studentId  String
+  student    Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  section    SunnahSection
+  /// معرّف الكتاب من lib/sunnah.ts (SUNNAH_BOOKS) — الترقيم يبدأ من 1 في كل كتاب
+  book       String
+  fromNo     Int
+  toNo       Int
+  /// ممتاز | جيد جدًا | جيد | ضعيف | إعادة — «إعادة» لا يُحسب ويبقى هو التالي
+  grade      String
+  notes      String?
+  examinerId String
+  examiner   User          @relation("SunnahRecitationBy", fields: [examinerId], references: [id])
+
+  @@index([studentId, section])
 }

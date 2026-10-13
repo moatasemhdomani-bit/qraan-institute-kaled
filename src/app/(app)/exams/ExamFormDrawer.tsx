@@ -45,6 +45,9 @@ export type ExistingExam = {
   grade?: string | null;
   startPage?: number | null;
   repeat?: boolean;
+  /** السنة النبوية: القسم (والفرع في stage) */
+  sunnahSection?: string | null;
+  sunnahStage?: number | null;
   notes: string | null;
 };
 
