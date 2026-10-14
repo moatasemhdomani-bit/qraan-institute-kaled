@@ -1,5 +1,6 @@
 "use client";
 
+import { PdfButtons } from "../IssuedNotice";
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { cardStyle, chipStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
@@ -21,11 +22,14 @@ export default function OrphansReportClient({
   initialName,
   initialStatus,
   frozen,
+  reviewId,
 }: {
   orphans: { name: string; active: boolean }[];
   initialName: string;
   initialStatus: OrphanStatus;
   frozen: { names: string[]; date: string } | null;
+  /** «مراجعة التقرير»: فتح PDF وتنزيله بدل إصداره من جديد */
+  reviewId?: string;
 }) {
   const [name, setName] = useState(initialName);
   const [status, setStatus] = useState<OrphanStatus>(initialStatus);
@@ -73,7 +77,7 @@ export default function OrphansReportClient({
                 }}
                 style={chipStyle(status === opt.id)}
               >
-                {opt.label} ({counts[opt.id]})
+                {opt.label}
               </button>
             ))}
           </div>
@@ -82,9 +86,9 @@ export default function OrphansReportClient({
           <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>اسم التقرير في السجل</label>
           <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle()} placeholder="مثلاً: الأيتام — أيلول" />
         </div>
-        <button type="submit" disabled={issuing} style={{ ...primaryButtonStyle, opacity: issuing ? 0.7 : 1 }}>
+        <>{reviewId ? <PdfButtons reportId={reviewId} name={initialName} /> : (<button type="submit" disabled={issuing} style={{ ...primaryButtonStyle, opacity: issuing ? 0.7 : 1 }}>
           {issuing ? "جارٍ الإصدار…" : "إصدار التقرير"}
-        </button>
+        </button>)}</>
       </form>
 
       {state.error && (

@@ -3,7 +3,7 @@ import { countedNewPages } from "./daily";
 import { passFailLabel } from "./exam";
 import { sunnahBranchLabel } from "./sunnah";
 import { sunnahLevelsFor } from "./sunnahServer";
-import { TRACK_LABELS } from "./track";
+import { LEVEL_LABELS } from "./track";
 import { awqafPassed } from "./awqaf";
 import { examFamily } from "./track";
 import { parsePastItems, pastJuzTotal } from "./pastRecitation";
@@ -158,7 +158,7 @@ export async function buildHalaqatBlocks(from: string, to: string, halqaScope: s
     prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "LOCAL", date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
-    prisma.awqafResult.findMany({ where: { studentId: { in: studentIds }, batch: { date: { gte: from, lte: to } } } }),
+    prisma.awqafResult.findMany({ where: { studentId: { in: studentIds }, sunnahSection: null, batch: { date: { gte: from, lte: to } } } }),
     prisma.teacherMonthlyNote.findMany({ where: { studentId: { in: studentIds }, month: { in: months } } }),
   ]);
 
@@ -231,7 +231,7 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
     prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "LOCAL", date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
-    prisma.awqafResult.findMany({ where: { studentId: { in: studentIds }, batch: { date: { gte: from, lte: to } } } }),
+    prisma.awqafResult.findMany({ where: { studentId: { in: studentIds }, sunnahSection: null, batch: { date: { gte: from, lte: to } } } }),
   ]);
 
   return teachers
@@ -411,7 +411,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     // طالب القراءة العربية: اختباراته اختبارات المراحل (ARABIC) بدل السبر المحلي
     prisma.exam.findMany({ where: { studentId, type: arabic ? "ARABIC" : "LOCAL", date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
-    prisma.awqafResult.findMany({ where: { studentId, batch: { date: { gte: from, lte: to } } } }),
+    prisma.awqafResult.findMany({ where: { studentId, sunnahSection: null, batch: { date: { gte: from, lte: to } } } }),
     prisma.exam.findMany({ where: { studentId, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE"] }, date: { gte: from, lte: to } }, orderBy: { date: "asc" } }),
   ]);
 
@@ -447,7 +447,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
       .map((p) => ({ kind: p.kind, time: p.time, days: p.days, note: p.note, since: p.since })),
     sunnahLevels: (await sunnahLevelsFor([student.id]))[student.id] ?? [],
     stars: student.stars,
-    quranLevel: TRACK_LABELS[student.track],
+    quranLevel: LEVEL_LABELS[student.track],
     sunnah: sunnahExams.map((e) => ({
       date: e.date,
       kind: e.type === "SUNNAH_STAGE" ? "سبر مرحلة" : e.type === "SUNNAH" ? "سبر مستوى (محلي)" : e.type === "SUNNAH_NOMINATION" ? "ترشيح الأوقاف" : "سبر الأوقاف",
@@ -459,6 +459,8 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
 }
 
 export type ReviewInputs = {
+  /** معرّف التقرير الصادر — في وضع «مراجعة التقرير» يُفتح PDF ويُنزَّل بدل إصداره من جديد */
+  id: string;
   name: string;
   from: string;
   to: string;
@@ -485,6 +487,7 @@ export async function loadReviewInputs(
     p = {};
   }
   return {
+    id: r.id,
     name: r.name,
     from: r.fromDate,
     to: r.toDate,
@@ -512,6 +515,7 @@ function fullStudentName(s: { name: string; fatherName: string | null; familyNam
 /** دفعات سبر الأوقاف التي سُجّلت فيها علامة واحدة على الأقل — مرشّحة لتقرير العلامات. */
 export async function listMarkedAwqafBatches(): Promise<{ id: string; date: string; marked: number; total: number }[]> {
   const batches = await prisma.awqafBatch.findMany({
+    where: { kind: "QURAN" },
     include: { results: { select: { score: true } } },
     orderBy: { date: "desc" },
   });

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import { formatTime12, formatDateAr } from "@/lib/daily";
 import PermitForm, { type ExistingPermit } from "./PermitForm";
+import type { CohortTimes } from "@/lib/cohortTime";
 import { deleteStudentPermits } from "./actions";
 
 const KIND_LABELS: Record<string, string> = { ENTRY: "إذن دخول", EXIT: "إذن خروج" };
@@ -26,6 +27,7 @@ type Halqa = {
   name: string;
   teacherName: string;
   cohortName: string;
+  cohortTimes: CohortTimes;
   students: { id: string; no: number; name: string }[];
   permits: Permit[];
 };
@@ -42,12 +44,7 @@ export default function PermitsClient({
   readOnly?: boolean;
 }) {
   const [kindFilter, setKindFilter] = useState<"all" | "ENTRY" | "EXIT">("all");
-  // عدد الطلاب الذين ينطبق عليهم كل خيار
-  const kindCount = (k: "all" | "ENTRY" | "EXIT") => {
-    const ids = new Set<string>();
-    for (const h of halaqat) for (const p of h.permits) if (k === "all" || p.kind === k) ids.add(p.studentId);
-    return ids.size;
-  };
+
   // initialStudentId: فُتح النموذج من نتيجة البحث «لا يوجد إذن» على طالب بعينه
   const [formOpen, setFormOpen] = useState<{ existing: ExistingPermit | null; initialStudentId?: string } | null>(null);
   const [notice, setNotice] = useState("");
@@ -124,13 +121,14 @@ export default function PermitsClient({
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {(["all", "ENTRY", "EXIT"] as const).map((k) => (
             <button key={k} onClick={() => setKindFilter(k)} style={chipStyle(kindFilter === k)}>
-              {k === "all" ? "النوعان" : KIND_LABELS[k]} ({kindCount(k)})
+              {k === "all" ? "النوعان" : KIND_LABELS[k]}
             </button>
           ))}
         </div>
         <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{scopeNote}</div>
       </div>
 
+      {totalPermits > 0 && <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>عدد النتائج: {blocks.reduce((n, b) => n + b.rows.length, 0)} طالبًا</div>}
       {totalPermits === 0 ? (
         <div style={{ padding: "44px 22px", borderRadius: 16, border: "1px dashed var(--line)", background: "var(--card-grad)", textAlign: "center" }}>
           <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>لا أذونات قائمة</div>

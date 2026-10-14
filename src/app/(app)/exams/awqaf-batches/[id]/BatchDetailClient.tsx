@@ -12,6 +12,7 @@ type Result = {
   student: { id: string; no: number; name: string };
   score: number | null;
   nominationPresent: boolean;
+  sunnahLabel: string | null;
   certArrived: boolean;
   certArchived: boolean;
   certFileUrl: string | null;
@@ -106,7 +107,7 @@ function ResultRow({ result }: { result: Result }) {
         <span style={{ fontSize: 15, fontWeight: 700 }}>{result.student.name}</span>
         <span style={{ fontSize: 11, color: "var(--ink-3)" }}>#{result.student.no}</span>
         <span style={{ fontSize: 10.5, color: "var(--ink-3)", border: "1px solid var(--line)", borderRadius: 999, padding: "1px 8px" }}>
-          {result.nominationPresent ? "حاضرًا — حدّ 90" : "غيبًا — حدّ 80"}
+          {result.sunnahLabel ? `${result.sunnahLabel} — حدّ 80` : result.nominationPresent ? "حاضرًا — حدّ 90" : "غيبًا — حدّ 80"}
         </span>
         {passed != null && (
           <span

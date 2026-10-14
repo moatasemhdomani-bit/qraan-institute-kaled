@@ -1,130 +1,162 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { inputStyle, cardStyle } from "@/lib/ui";
+import { cardStyle } from "@/lib/ui";
+import Select from "@/components/Select";
+import DateField from "@/components/DateField";
 
-type Row = { id: string; who: string; actorRole: string; what: string; when: string };
-type NameRow = { id: string; name: string };
+type Row = { id: string; who: string; what: string; when: string; /** YYYY-MM-DD بتوقيت دمشق */ day: string };
+type StudentRow = { id: string; name: string; no: number };
 
-export default function AuditClient({ rows, students, examiners }: { rows: Row[]; students: NameRow[]; examiners: NameRow[] }) {
-  const [qAdmin, setQAdmin] = useState("");
-  const [qStudent, setQStudent] = useState("");
-  const [qExaminer, setQExaminer] = useState("");
+/** أنواع العمليات — تُستنتج من نص الإجراء، بالترتيب (أول نوع ينطبق) */
+const OPS: { id: string; label: string; test: (t: string) => boolean }[] = [
+  { id: "report", label: "تقرير", test: (t) => t.includes("تقرير") },
+  { id: "stars", label: "نجوم", test: (t) => /نجم|نجوم/.test(t) },
+  { id: "exam", label: "سبر", test: (t) => /سبر|ترشيح|شهادة|شهادات|دفعة/.test(t) },
+  { id: "recitation", label: "تسميع", test: (t) => /تسميع|الماضي|الإعداد الأول/.test(t) },
+  { id: "attendance", label: "حضور", test: (t) => t.includes("حضور") },
+  { id: "status", label: "تعديل حالة", test: (t) => /حالة|منقطع|«نشط»|علّق|تعليق|ترفّع|فرز|نقل|سلوك|أيام الدوام|توقيت|نوع الحلقة/.test(t) },
+  { id: "create", label: "إنشاء", test: (t) => /^(أضاف|أنشأ|سجّل|استيراد|ولّد|أسند)/.test(t) },
+];
+const opOf = (t: string) => OPS.find((o) => o.test(t))?.id ?? "other";
 
-  const matchedStudents = useMemo(
-    () => (qStudent.trim() ? students.filter((s) => s.name.includes(qStudent.trim())) : []),
-    [students, qStudent]
-  );
-  const matchedExaminers = useMemo(
-    () => (qExaminer.trim() ? examiners.filter((e) => e.name.includes(qExaminer.trim())) : []),
-    [examiners, qExaminer]
-  );
+export default function AuditClient({ rows, students, limit }: { rows: Row[]; students: StudentRow[]; limit: number }) {
+  const [who, setWho] = useState("all");
+  const [student, setStudent] = useState("all");
+  const [op, setOp] = useState("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      if (qAdmin.trim() && !((r.actorRole === "DIRECTOR" || r.actorRole === "ADMIN") && r.who.includes(qAdmin.trim()))) return false;
-      if (qStudent.trim() && !matchedStudents.some((s) => r.what.includes(s.name))) return false;
-      if (qExaminer.trim() && !(r.actorRole === "EXAMINER" && matchedExaminers.some((e) => e.name === r.who))) return false;
-      return true;
-    });
-  }, [rows, qAdmin, qStudent, qExaminer, matchedStudents, matchedExaminers]);
+  // الطالب يُعرف في السجل برقمه (#1002) أو باسمه في الأسطر القديمة
+  const studentById = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
+  const mentions = (r: Row, s: StudentRow) => r.what.includes(`#${s.no}`) || r.what.includes(`«${s.name}»`);
 
-  const anySearch = qAdmin.trim() || qStudent.trim() || qExaminer.trim();
+  const byWho = (r: Row) => who === "all" || r.who === who;
+  const byStudent = (r: Row) => {
+    if (student === "all") return true;
+    const s = studentById.get(student);
+    return !!s && mentions(r, s);
+  };
+  const byOp = (r: Row) => op === "all" || opOf(r.what) === op;
+  const byDate = (r: Row) => (!from || r.day >= from) && (!to || r.day <= to);
+
+  const filtered = useMemo(() => rows.filter((r) => byWho(r) && byStudent(r) && byOp(r) && byDate(r)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, who, student, op, from, to]);
+
+  // خيارات كل قائمة بعدد ما ينطبق عليه (ضمن بقية الفلاتر)
+  const whoOptions = useMemo(() => {
+    const base = rows.filter((r) => byStudent(r) && byOp(r) && byDate(r));
+    const counts = new Map<string, number>();
+    for (const r of base) counts.set(r.who, (counts.get(r.who) ?? 0) + 1);
+    return [
+      { value: "all", label: "كل الموظفين" },
+      ...[...counts].sort((a, b) => a[0].localeCompare(b[0], "ar")).map(([n]) => ({ value: n, label: n })),
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, student, op, from, to]);
+
+  const studentOptions = useMemo(() => {
+    const base = rows.filter((r) => byWho(r) && byOp(r) && byDate(r));
+    const opts = students
+      .map((s) => ({ s, c: base.filter((r) => mentions(r, s)).length }))
+      .filter((x) => x.c > 0)
+      .map((x) => ({ value: x.s.id, label: `${x.s.name} #${x.s.no}` }));
+    return [{ value: "all", label: "كل الطلاب" }, ...opts];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, students, who, op, from, to]);
+
+  const opOptions = useMemo(() => {
+    const base = rows.filter((r) => byWho(r) && byStudent(r) && byDate(r));
+    return [
+      { value: "all", label: "كل العمليات" },
+      ...OPS.map((o) => ({ value: o.id, label: o.label })),
+      { value: "other", label: "أخرى" },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, who, student, from, to]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ ...cardStyle, display: "flex", gap: 10, flexWrap: "wrap", padding: "14px 16px" }}>
-        <input value={qAdmin} onChange={(e) => setQAdmin(e.target.value)} placeholder="بحث باسم إداري" style={{ ...inputStyle(), flex: 1, minWidth: 150 }} />
-        <input value={qStudent} onChange={(e) => setQStudent(e.target.value)} placeholder="بحث باسم طالب" style={{ ...inputStyle(), flex: 1, minWidth: 150 }} />
-        <input value={qExaminer} onChange={(e) => setQExaminer(e.target.value)} placeholder="بحث باسم مختبِر" style={{ ...inputStyle(), flex: 1, minWidth: 150 }} />
+      <div style={{ ...cardStyle, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
+          <Select value={who} onChange={setWho} options={whoOptions} />
+          <Select value={student} onChange={setStudent} options={studentOptions} />
+          <Select value={op} onChange={setOp} options={opOptions} />
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <DateField label="من تاريخ" value={from} onChange={setFrom} width={160} />
+          <DateField label="إلى تاريخ" value={to} onChange={setTo} width={160} />
+          {(who !== "all" || student !== "all" || op !== "all" || from || to) && (
+            <button
+              type="button"
+              onClick={() => {
+                setWho("all");
+                setStudent("all");
+                setOp("all");
+                setFrom("");
+                setTo("");
+              }}
+              style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+            >
+              مسح الفلاتر
+            </button>
+          )}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>
+          عدد النتائج: {filtered.length}
+          {rows.length >= limit && <span style={{ color: "var(--ink-3)", fontWeight: 400 }}> — من آخر {limit} عملية</span>}
+        </div>
       </div>
-
-      {qStudent.trim() && (
-        <div style={{ ...cardStyle, padding: "12px 16px", fontSize: 13 }}>
-          {matchedStudents.length === 0 ? (
-            <span style={{ color: "var(--ink-2)" }}>لا طالب باسم يطابق «{qStudent.trim()}».</span>
-          ) : (
-            <>
-              <span style={{ color: "var(--ink-2)" }}>طلاب مطابقون: </span>
-              {matchedStudents.map((s) => (
-                <span key={s.id} style={{ display: "inline-block", margin: "2px 6px 2px 0", padding: "3px 10px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--chip)" }}>
-                  {s.name}
-                </span>
-              ))}
-            </>
-          )}
-        </div>
-      )}
-
-      {qExaminer.trim() && (
-        <div style={{ ...cardStyle, padding: "12px 16px", fontSize: 13 }}>
-          {matchedExaminers.length === 0 ? (
-            <span style={{ color: "var(--ink-2)" }}>لا مختبِر باسم يطابق «{qExaminer.trim()}».</span>
-          ) : (
-            <>
-              <span style={{ color: "var(--ink-2)" }}>مختبِرون مطابقون: </span>
-              {matchedExaminers.map((e) => (
-                <span key={e.id} style={{ display: "inline-block", margin: "2px 6px 2px 0", padding: "3px 10px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--chip)" }}>
-                  {e.name}
-                </span>
-              ))}
-            </>
-          )}
-        </div>
-      )}
 
       <div style={{ ...cardStyle, overflow: "auto" }}>
         {filtered.length === 0 ? (
           <div style={{ padding: "56px 24px", textAlign: "center" }}>
             <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 6 }}>{rows.length === 0 ? "السجل فارغ" : "لا نتائج مطابقة"}</div>
             <div style={{ color: "var(--ink-2)", fontSize: 13, maxWidth: 420, margin: "0 auto" }}>
-              {rows.length === 0
-                ? "يبدأ السجل فارغًا في اليوم الأول ويتراكم مع أول تعديل يجريه أي إداري: إضافة عامل، تعديل حلقة، تسجيل طالب."
-                : anySearch
-                  ? "لا تعديلات مطابقة لهذا البحث."
-                  : "جرّبوا مصطلح بحث مختلفًا."}
+              {rows.length === 0 ? "يبدأ السجل فارغًا ويتراكم مع أول عملية." : "لا عمليات مطابقة لهذه الفلاتر."}
             </div>
           </div>
         ) : (
           <>
-          <div className="list-table-wrap">
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 2fr 1fr",
-                gap: 12,
-                padding: "11px 16px",
-                background: "var(--head-grad)",
-                fontSize: 12,
-                color: "var(--ink-2)",
-                fontWeight: 600,
-                minWidth: 560,
-              }}
-            >
-              <div>الفاعل</div>
-              <div>الإجراء</div>
-              <div>الوقت</div>
-            </div>
-            {filtered.map((a) => (
-              <div key={a.id} style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr", gap: 12, padding: "13px 16px", borderTop: "1px solid var(--line-2)", fontSize: 14, alignItems: "center", minWidth: 560 }}>
-                <div>{a.who}</div>
-                <div style={{ color: "var(--ink-2)", fontSize: 13 }}>{a.what}</div>
-                <div style={{ color: "var(--ink-3)", fontSize: 13 }}>{a.when}</div>
+            <div className="list-table-wrap">
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 2fr 1fr",
+                  gap: 12,
+                  padding: "11px 16px",
+                  background: "var(--head-grad)",
+                  fontSize: 12,
+                  color: "var(--ink-2)",
+                  fontWeight: 600,
+                  minWidth: 560,
+                }}
+              >
+                <div>الفاعل</div>
+                <div>الإجراء</div>
+                <div>الوقت</div>
               </div>
-            ))}
-          </div>
-
-          <div className="list-cards">
-            {filtered.map((a) => (
-              <div key={a.id} style={{ padding: "13px 14px", borderTop: "1px solid var(--line-2)", display: "flex", flexDirection: "column", gap: 5 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>{a.who}</span>
-                  <span style={{ marginInlineStart: "auto", fontSize: 12, color: "var(--ink-3)" }}>{a.when}</span>
+              {filtered.map((a) => (
+                <div key={a.id} style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr", gap: 12, padding: "13px 16px", borderTop: "1px solid var(--line-2)", fontSize: 14, alignItems: "center", minWidth: 560 }}>
+                  <div>{a.who}</div>
+                  <div style={{ color: "var(--ink-2)", fontSize: 13 }}>{a.what}</div>
+                  <div style={{ color: "var(--ink-3)", fontSize: 13 }}>{a.when}</div>
                 </div>
-                <div style={{ fontSize: 13, color: "var(--ink-2)" }}>{a.what}</div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            <div className="list-cards">
+              {filtered.map((a) => (
+                <div key={a.id} style={{ padding: "13px 14px", borderTop: "1px solid var(--line-2)", display: "flex", flexDirection: "column", gap: 5 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{a.who}</span>
+                    <span style={{ marginInlineStart: "auto", fontSize: 12, color: "var(--ink-3)" }}>{a.when}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--ink-2)" }}>{a.what}</div>
+                </div>
+              ))}
+            </div>
           </>
         )}
       </div>

@@ -3,6 +3,7 @@
 import { useActionState, useTransition } from "react";
 import { toggleWorkingDay, addHoliday, deleteHoliday, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle, cardStyle, ALL_WEEKDAYS } from "@/lib/ui";
+import { formatDateAr } from "@/lib/daily";
 import DateField from "@/components/DateField";
 
 const initialState: FormState = {};
@@ -12,7 +13,7 @@ export default function ScheduleClient({
   holidays,
 }: {
   activeDays: string[];
-  holidays: { id: string; name: string; date: string }[];
+  holidays: { id: string; name: string; date: string; endDate: string | null }[];
 }) {
   const [, startTransition] = useTransition();
   const [state, formAction, pending] = useActionState(addHoliday, initialState);
@@ -36,9 +37,10 @@ export default function ScheduleClient({
 
       <div style={{ ...cardStyle, padding: 18 }}>
         <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>قائمة العطل</div>
-        <form action={formAction} style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        <form action={formAction} style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
           <input name="name" placeholder="اسم العطلة" style={{ ...inputStyle(), flex: 1, minWidth: 130 }} />
-          <DateField name="date" width={155} />
+          <DateField name="date" label="بداية العطلة" width={155} />
+          <DateField name="endDate" label="نهاية العطلة" width={155} />
           <button type="submit" disabled={pending} style={{ ...primaryButtonStyle, padding: "9px 14px", fontSize: 13, opacity: pending ? 0.7 : 1 }}>
             إضافة
           </button>
@@ -67,7 +69,9 @@ export default function ScheduleClient({
             {holidays.map((h) => (
               <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line-2)", background: "var(--card-2-grad)", fontSize: 14 }}>
                 <span>{h.name}</span>
-                <span style={{ marginInlineStart: "auto", color: "var(--ink-3)", fontSize: 13 }}>{h.date}</span>
+                <span style={{ marginInlineStart: "auto", color: "var(--ink-3)", fontSize: 13 }}>
+                  {h.endDate ? `من ${formatDateAr(h.date)} إلى ${formatDateAr(h.endDate)}` : /^\d{4}-\d{2}-\d{2}$/.test(h.date) ? formatDateAr(h.date) : h.date}
+                </span>
                 <button
                   onClick={() => startTransition(() => deleteHoliday(h.id))}
                   style={{ background: "transparent", border: 0, color: "var(--ink-3)", cursor: "pointer", fontSize: 16, lineHeight: 1 }}

@@ -53,9 +53,9 @@ export default function RecitationMonitorClient({
   const [filter, setFilter] = useState("all");
   // فلترة الحلقات بالفوج والمدرّس
   const match = (x: Row) => filter === "all" || x.state === filter;
-  const { shown: shownBlocks, selects } = useCohortTeacherFilter(blocks, (b) => b.rows.filter(match).length);
+  const { shown: shownBlocks, selects } = useCohortTeacherFilter(blocks);
   const shownRows = shownBlocks.flatMap((b) => b.rows);
-  const filterOptions = FILTERS.map((f) => ({ ...f, label: `${f.label} (${f.value === "all" ? shownRows.length : shownRows.filter((x) => x.state === f.value).length})` }));
+  const filterOptions = FILTERS;
   const resultCount = shownRows.filter(match).length;
 
   return (

@@ -36,13 +36,9 @@ export default function MonitorClient({
   const [filter, setFilter] = useState<string>("all");
 
   const match = (r: Block["rows"][number]) => filter === "all" || r.status === filter;
-  const { shown, selects } = useCohortTeacherFilter(blocks, (b) => b.rows.filter(match).length);
-  // عدد ما ينطبق عليه كل خيار (ضمن الفوج والمدرّس المختارين)
+  const { shown, selects } = useCohortTeacherFilter(blocks);
   const shownRows = shown.flatMap((b) => b.rows);
-  const filters = [
-    { value: "all", label: `كل الطلاب (${shownRows.length})` },
-    ...ATT_STATES.map((s) => ({ value: s.id, label: `${s.label} (${shownRows.filter((r) => r.status === s.id).length})` })),
-  ];
+  const filters = [{ value: "all", label: "كل الطلاب" }, ...ATT_STATES.map((s) => ({ value: s.id, label: s.label }))];
   const resultCount = shownRows.filter(match).length;
 
   return (

@@ -6,8 +6,8 @@ import { formatDateAr } from "@/lib/daily";
 import { passFailLabel } from "@/lib/exam";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import AwqafBatchesClient from "./AwqafBatchesClient";
-import SunnahAwqafPanel from "../sunnah/SunnahAwqafPanel";
-import { loadSunnahExamRows, loadSunnahStudents } from "../sunnah/data";
+import { sunnahAwqafCandidates } from "@/lib/sunnahServer";
+import { sunnahBranchLabel } from "@/lib/sunnah";
 
 export default async function AwqafBatchesPage() {
   const session = await getSession();
@@ -26,6 +26,7 @@ export default async function AwqafBatchesPage() {
     }),
     prisma.student.findMany({ orderBy: { studentNo: "asc" }, select: { id: true, name: true, studentNo: true } }),
     prisma.awqafResult.findMany({
+      where: { sunnahSection: null },
       include: { student: { select: { id: true, name: true, studentNo: true } }, batch: { select: { date: true } } },
       orderBy: { createdAt: "desc" },
     }),
@@ -76,6 +77,7 @@ export default async function AwqafBatchesPage() {
     const allScored = scoredCount === rows.length;
     return {
       id: b.id,
+      kind: b.kind,
       date: formatDateAr(b.date),
       studentCount: rows.length,
       scoredCount,
@@ -105,11 +107,21 @@ export default async function AwqafBatchesPage() {
         title="سبر الأوقاف والشهادات"
         subtitle="الاختبار تُجريه جهة الأوقاف خارج النظام — هنا تُدار الدفعات ودورة الشهادة. حدّ النجاح: 90 حاضرًا (تلاوة) و80 غيبًا (حفظ)."
       />
-      <AwqafBatchesClient candidates={candidates} batches={batches} searchStudents={searchStudents} />
-      {/* السنة النبوية: سبر ترشيح الأوقاف يُدار من هنا — الجاهزون وإدخال نتيجة سبر الأوقاف */}
-      <div style={{ marginTop: 18 }}>
-        <SunnahAwqafPanel students={await loadSunnahStudents()} exams={await loadSunnahExamRows(undefined, ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF"])} />
-      </div>
+      <AwqafBatchesClient
+        candidates={candidates}
+        sunnahCandidates={(await sunnahAwqafCandidates()).map((c) => ({
+          key: `${c.studentId}|${c.section}|${c.level}`,
+          studentId: c.studentId,
+          section: c.section,
+          level: c.level,
+          no: c.no,
+          name: c.name,
+          label: sunnahBranchLabel(c.section, c.level),
+          note: `ترشيح ${c.mark ?? "—"} / 100 · ${formatDateAr(c.nominationDate)}`,
+        }))}
+        batches={batches}
+        searchStudents={searchStudents}
+      />
     </>
   );
 }

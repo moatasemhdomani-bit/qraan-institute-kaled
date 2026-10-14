@@ -34,14 +34,20 @@ export default function TimeField({
   value,
   defaultValue,
   onChange,
+  defaultPm = false,
 }: {
   name?: string;
   label?: string;
   value?: string;
   defaultValue?: string;
   onChange?: (v: string) => void;
+  /** الحقل الفارغ يبدأ مسائيًا (مثل إذن طالب في فوج مسائي) */
+  defaultPm?: boolean;
 }) {
-  const [parts, setParts] = useState(() => split(value ?? defaultValue));
+  const [parts, setParts] = useState(() => {
+    const p = split(value ?? defaultValue);
+    return p.h ? p : { ...p, pm: defaultPm };
+  });
   const update = (next: Partial<typeof parts>) => {
     const p = { ...parts, ...next };
     setParts(p);

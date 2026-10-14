@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { logAction, studentRef } from "@/lib/audit";
 import { today } from "@/lib/daily";
 import { revalidatePath } from "next/cache";
+import { cohortWindows, withinCohort, cohortWindowsLabel } from "@/lib/cohortTime";
 
 export type FormState = { error?: string; ok?: boolean };
 export type DeleteState = { error?: string; ok?: boolean };
@@ -61,9 +62,17 @@ export async function savePermit(_prev: FormState, formData: FormData): Promise<
     return { error: "وقت الخروج يجب أن يكون بعد وقت الدخول." };
   }
 
-  const student = await prisma.student.findUnique({ where: { id: studentId }, include: { permits: true } });
+  const student = await prisma.student.findUnique({ where: { id: studentId }, include: { permits: true, halqa: { include: { cohort: true } } } });
   if (!student) return { error: "الطالب غير موجود." };
   const current = student.permits;
+
+  // وقت الإذن ضمن دوام فوج الطالب
+  const windows = cohortWindows(student.halqa?.cohort);
+  for (const k of kinds) {
+    if (!withinCohort(times[k], windows)) {
+      return { error: `وقت ${KIND_LABELS[k]} خارج دوام فوج الطالب (${student.halqa?.cohort.name ?? ""}): ${cohortWindowsLabel(windows)}.` };
+    }
+  }
 
   if (!editing) {
     const dup = current.find((p) => kinds.includes(p.kind));

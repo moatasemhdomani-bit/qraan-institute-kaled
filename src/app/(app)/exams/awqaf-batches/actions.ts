@@ -9,6 +9,8 @@ import { awqafPassed, certStepLocked, type CertStep } from "@/lib/awqaf";
 import crypto from "crypto";
 import { uploadFile, mimeFromExt } from "@/lib/storage";
 import { promoteStudent } from "@/lib/promotion";
+import { sunnahAwqafCandidates } from "@/lib/sunnahServer";
+import { SUNNAH_PASS_MARK, type SunnahSectionId } from "@/lib/sunnah";
 
 export type FormState = { error?: string; ok?: boolean; batchId?: string };
 
@@ -28,6 +30,33 @@ export async function createAwqafBatch(_prev: FormState, formData: FormData): Pr
 
   const date = String(formData.get("date") || "");
   if (!isValidDate(date)) return { error: "اختاروا تاريخ الدفعة." };
+
+  // دفعة السنّة النبوية: الناجحون في سبر ترشيح الأوقاف للسنّة — طالب ومنهج ومستوى
+  if (String(formData.get("kind") || "") === "SUNNAH") {
+    let picked: { studentId: string; section: string; level: number }[] = [];
+    try {
+      picked = JSON.parse(String(formData.get("sunnahJson") || "[]"));
+    } catch {
+      picked = [];
+    }
+    if (picked.length === 0) return { error: "اختاروا طالبًا واحدًا على الأقل." };
+    const ready = await sunnahAwqafCandidates();
+    const ok = picked.filter((x) => ready.some((r) => r.studentId === x.studentId && r.section === x.section && r.level === x.level));
+    if (ok.length !== picked.length) return { error: "بعض الطلاب المختارين ليسوا من الناجحين في سبر ترشيح الأوقاف للسنّة — أعيدوا فتح الشاشة." };
+    const batch = await prisma.awqafBatch.create({
+      data: {
+        date,
+        kind: "SUNNAH",
+        createdById: session.userId,
+        results: {
+          create: ok.map((x) => ({ studentId: x.studentId, nominationPresent: false, sunnahSection: x.section as SunnahSectionId, sunnahLevel: x.level })),
+        },
+      },
+    });
+    await logAction(session.userId, `فتح دفعة سبر أوقاف السنّة النبوية بتاريخ ${date} — ${ok.length} طالبًا`);
+    revalidateAwqafPaths();
+    return { ok: true, batchId: batch.id };
+  }
 
   let studentIds: string[] = [];
   try {
@@ -52,6 +81,7 @@ export async function createAwqafBatch(_prev: FormState, formData: FormData): Pr
   const batch = await prisma.awqafBatch.create({
     data: {
       date,
+      kind: "QURAN",
       createdById: session.userId,
       results: {
         create: studentIds.map((studentId) => ({ studentId, nominationPresent: presentByStudent.get(studentId) ?? false })),
@@ -80,13 +110,40 @@ export async function saveAwqafScore(_prev: FormState, formData: FormData): Prom
 
   await prisma.awqafResult.update({ where: { id }, data: { score } });
 
+  // دفعة السنّة: العلامة تُسجَّل سبرَ أوقاف للطالب في منهجه ومستواه (SUNNAH_AWQAF) — منها تقدّمه وتقاريره
+  if (result.sunnahSection && result.sunnahLevel) {
+    if (score == null) {
+      if (result.sunnahExamId) await prisma.exam.delete({ where: { id: result.sunnahExamId } }).catch(() => {});
+      await prisma.awqafResult.update({ where: { id }, data: { sunnahExamId: null } });
+    } else {
+      const data = {
+        type: "SUNNAH_AWQAF" as const,
+        date: result.batch.date,
+        studentId: result.studentId,
+        sunnahSection: result.sunnahSection,
+        stage: result.sunnahLevel,
+        resultMark: score >= SUNNAH_PASS_MARK ? score : null,
+        repeat: score < SUNNAH_PASS_MARK,
+        notes: score < SUNNAH_PASS_MARK ? `علامة الأوقاف ${score} / 100` : null,
+      };
+      const existing = result.sunnahExamId ? await prisma.exam.findUnique({ where: { id: result.sunnahExamId } }) : null;
+      if (existing) await prisma.exam.update({ where: { id: existing.id }, data });
+      else {
+        const ex = await prisma.exam.create({ data: { ...data, examinerId: session.userId } });
+        await prisma.awqafResult.update({ where: { id }, data: { sunnahExamId: ex.id } });
+      }
+    }
+    revalidatePath("/exams/sunnah", "layout");
+    revalidatePath("/exam-monitor");
+  }
+
   const passed = awqafPassed(score, result.nominationPresent);
   const passNote = passed == null ? "" : passed ? " — ناجح" : " — إعادة";
   await logAction(session.userId, `أدخل علامة سبر الأوقاف للطالب ${await studentRef(result.studentId)}: ${score ?? "—"}${passNote}`);
 
   // الترفّع بعد النجاح في سبر الأوقاف الفعلي لـ 30 جزءًا (عدد الأجزاء من آخر ترشيح له بالمسار نفسه حتى تاريخ الدفعة):
   // 30 حاضراً ← «قرآن غيباً» ويُخرَج من حلقته لإعادة فرزه، و30 غيباً ← «متخرِّج» تلقائيًا
-  if (passed) {
+  if (passed && !result.sunnahSection) {
     const nomination = await prisma.exam.findFirst({
       where: { type: "WAQF_NOMINATION", studentId: result.studentId, nominationPresent: result.nominationPresent, date: { lte: result.batch.date } },
       orderBy: { date: "desc" },
@@ -222,6 +279,7 @@ export async function deleteAwqafResult(id: string): Promise<FormState> {
   if (!result) return { error: "السجل غير موجود." };
 
   await prisma.awqafResult.delete({ where: { id } });
+  if (result.sunnahExamId) await prisma.exam.delete({ where: { id: result.sunnahExamId } }).catch(() => {});
   await logAction(session.userId, `حذف سبر الأوقاف الفعلي للطالب ${await studentRef(result.studentId)} من دفعة ${result.batch.date}`);
 
   revalidateAwqafPaths();

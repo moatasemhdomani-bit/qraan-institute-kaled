@@ -7,6 +7,8 @@ import { formatDateAr } from "@/lib/daily";
 import Link from "next/link";
 import ReportsHubClient from "./ReportsHubClient";
 
+const DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Damascus", year: "numeric", month: "2-digit", day: "2-digit" });
+
 const CARDS = [
   { href: "/reports/halaqat", title: "تقرير تسميع حلقات القرآن", note: "بلوك لكل حلقة باسمها واسم أستاذها، ثم صف لكل طالب بأرقام الفترة كاملة." },
   { href: "/reports/teachers", title: "التقرير الشهري لمدرسي القرآن", note: "صف واحد لكل مدرّس بأرقام الفترة المختارة — النطاق حرّ لا شهر مقفل." },
@@ -43,7 +45,9 @@ export default async function ReportsHubPage() {
     kindLabel: KIND_LABELS[r.kind] ?? r.kind,
     name: r.name,
     range: `${formatDateAr(r.fromDate)} — ${formatDateAr(r.toDate)}`,
-    at: formatDateAr(r.createdAt.toISOString().slice(0, 10)),
+    at: formatDateAr(DAY.format(r.createdAt)),
+    // يوم الإصدار بتوقيت دمشق — لفلترة «من تاريخ / إلى تاريخ»
+    day: DAY.format(r.createdAt),
     by: r.issuedBy.name,
   }));
 

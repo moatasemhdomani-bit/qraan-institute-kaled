@@ -17,7 +17,7 @@ export default async function PermitsPage() {
       where: staffWide ? {} : { teacherId: session.userId, ...cohortScope(session) },
       include: {
         teacher: { select: { name: true } },
-        cohort: { select: { name: true } },
+        cohort: { select: { name: true, isRotating: true, time1Start: true, time1End: true, time2Start: true, time2End: true } },
         students: { orderBy: { studentNo: "asc" } },
       },
       orderBy: { name: "asc" },
@@ -58,6 +58,14 @@ export default async function PermitsPage() {
     name: h.name,
     teacherName: h.teacher.name,
     cohortName: h.cohort.name,
+    // دوام الفوج — وقت الإذن محصور فيه
+    cohortTimes: {
+      isRotating: h.cohort.isRotating,
+      time1Start: h.cohort.time1Start,
+      time1End: h.cohort.time1End,
+      time2Start: h.cohort.time2Start,
+      time2End: h.cohort.time2End,
+    },
     students: h.students.map((s) => ({ id: s.id, no: s.studentNo, name: s.name })),
     permits: h.students.flatMap((s) => permitsByStudent[s.id] ?? []),
   }));

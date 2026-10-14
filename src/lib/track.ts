@@ -17,6 +17,15 @@ export function halqaTrackFor(level: TrackId): TrackId {
   return level === "QURAN_GHAIB" ? "QURAN" : level;
 }
 
+/** مستوى الطالب في منهج القرآن: «قرآن حاضراً» — ونوع الحلقة يبقى «قرآن» (TRACK_LABELS) */
+export const LEVEL_LABELS: Record<TrackId, string> = {
+  ARABIC: "قراءة عربية",
+  AMMA: "عمَّ غيباً",
+  QURAN: "قرآن حاضراً",
+  QURAN_GHAIB: "قرآن غيباً",
+  GRADUATED: "متخرِّج",
+};
+
 export const TRACK_LABELS: Record<TrackId, string> = {
   ARABIC: "قراءة عربية",
   AMMA: "عمَّ غيباً",

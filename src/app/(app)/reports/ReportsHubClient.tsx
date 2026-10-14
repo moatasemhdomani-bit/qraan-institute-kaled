@@ -3,7 +3,9 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { cardStyle, chipStyle, inputStyle } from "@/lib/ui";
+import { cardStyle, inputStyle } from "@/lib/ui";
+import Select from "@/components/Select";
+import DateField from "@/components/DateField";
 import { deleteIssuedReport, renameIssuedReport, type FormState } from "./actions";
 
 type IssuedRow = {
@@ -13,6 +15,8 @@ type IssuedRow = {
   name: string;
   range: string;
   at: string;
+  /** YYYY-MM-DD */
+  day: string;
   by: string;
 };
 
@@ -28,7 +32,7 @@ const REVIEW_PATHS: Record<string, string> = {
 };
 
 const FILTERS = [
-  { id: "all", label: "كل الأنواع" },
+  { id: "all", label: "كل أنواع التقارير" },
   { id: "HALAQAT", label: "تسميع حلقات القرآن" },
   { id: "TEACHERS", label: "الشهري لمدرسي القرآن" },
   { id: "HALAQAT_AR", label: "تسميع حلقات القراءة العربية" },
@@ -116,22 +120,54 @@ function RenameControl({ id, name }: { id: string; name: string }) {
 
 export default function ReportsHubClient({ issued, isDirector }: { issued: IssuedRow[]; isDirector: boolean }) {
   const [filter, setFilter] = useState("all");
+  const [by, setBy] = useState("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
-  const filtered = useMemo(() => issued.filter((r) => filter === "all" || r.kind === filter), [issued, filter]);
+  const staffOptions = useMemo(
+    () => [{ value: "all", label: "كل الموظفين" }, ...[...new Set(issued.map((r) => r.by))].sort((a, b) => a.localeCompare(b, "ar")).map((n) => ({ value: n, label: n }))],
+    [issued]
+  );
+  const filtered = useMemo(
+    () =>
+      issued.filter(
+        (r) => (filter === "all" || r.kind === filter) && (by === "all" || r.by === by) && (!from || r.day >= from) && (!to || r.day <= to)
+      ),
+    [issued, filter, by, from, to]
+  );
+  const anyFilter = filter !== "all" || by !== "all" || from || to;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ fontSize: 15, fontWeight: 600 }}>سجل التقارير الصادرة</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {FILTERS.map((f) => (
-          <button key={f.id} onClick={() => setFilter(f.id)} style={chipStyle(filter === f.id)}>
-            {f.label} ({f.id === "all" ? issued.length : issued.filter((r) => r.kind === f.id).length})
-          </button>
-        ))}
+      <div style={{ ...cardStyle, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 8 }}>
+          <Select value={filter} onChange={setFilter} options={FILTERS.map((f) => ({ value: f.id, label: f.label }))} />
+          <Select value={by} onChange={setBy} options={staffOptions} />
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <DateField label="من تاريخ" value={from} onChange={setFrom} width={160} />
+          <DateField label="إلى تاريخ" value={to} onChange={setTo} width={160} />
+          {anyFilter && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilter("all");
+                setBy("all");
+                setFrom("");
+                setTo("");
+              }}
+              style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+            >
+              مسح الفلاتر
+            </button>
+          )}
+        </div>
       </div>
 
+      <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>عدد النتائج: {filtered.length}</div>
       {filtered.length === 0 ? (
-        <div style={{ padding: "40px 24px", textAlign: "center", color: "var(--ink-2)", ...cardStyle }}>لا تقارير صادرة بهذا النوع بعد.</div>
+        <div style={{ padding: "40px 24px", textAlign: "center", color: "var(--ink-2)", ...cardStyle }}>لا تقارير صادرة مطابقة للفلاتر.</div>
       ) : (
         filtered.map((r) => (
           <div key={r.id} style={{ ...cardStyle, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>

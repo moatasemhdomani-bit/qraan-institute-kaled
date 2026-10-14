@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { SUNNAH_SECTIONS, positionFromExams, sunnahPositionLabel, type SunnahSectionId } from "./sunnah";
+import { SUNNAH_SECTIONS, positionFromExams, sunnahPositionLabel, sunnahReadyForAwqaf, type SunnahSectionId } from "./sunnah";
 
 /** مستوى الطالب في كل منهج من مناهج السنة النبوية الثلاثة: «المستوى 1 (…) — المرحلة 2 من 4 …» أو «لم يبدأ بعد». */
 export type SunnahLevelLine = { section: SunnahSectionId; label: string; status: string };
@@ -30,4 +30,36 @@ export async function sunnahLevelsFor(studentIds: string[]): Promise<Record<stri
     });
   }
   return out;
+}
+
+/**
+ * المرشَّحون لدفعة سبر أوقاف السنّة: الناجحون في سبر ترشيح الأوقاف لمستوى (آخر ترشيح ناجح)، ولم تُدخل لهم نتيجة
+ * أوقاف لمستواه بعده، ولم يُضافوا بعده إلى دفعة سنّة لم تُدخل علامتها بعد.
+ */
+export async function sunnahAwqafCandidates(): Promise<
+  { studentId: string; name: string; no: number; section: SunnahSectionId; level: number; nominationDate: string; mark: number | null }[]
+> {
+  const [exams, pending] = await Promise.all([
+    prisma.exam.findMany({
+      where: { type: { in: ["SUNNAH_NOMINATION", "SUNNAH_AWQAF"] } },
+      select: { id: true, studentId: true, type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, date: true, student: { select: { name: true, studentNo: true, active: true } } },
+      orderBy: { date: "desc" },
+    }),
+    prisma.awqafResult.findMany({
+      where: { sunnahSection: { not: null }, score: null },
+      select: { studentId: true, sunnahSection: true, sunnahLevel: true, batch: { select: { date: true } } },
+    }),
+  ]);
+  const ready = sunnahReadyForAwqaf(
+    exams.map((e) => ({ id: e.id, studentId: e.studentId, type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, date: e.date }))
+  );
+  const byId = new Map(exams.map((e) => [e.id, e]));
+  return ready
+    .filter((n) => byId.get(n.id)?.student.active)
+    .filter((n) => !pending.some((p) => p.studentId === n.studentId && p.sunnahSection === n.section && p.sunnahLevel === n.branch && p.batch.date >= n.date))
+    .map((n) => {
+      const e = byId.get(n.id)!;
+      return { studentId: n.studentId, name: e.student.name, no: e.student.studentNo, section: n.section as SunnahSectionId, level: n.branch as number, nominationDate: n.date, mark: n.mark };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, "ar"));
 }

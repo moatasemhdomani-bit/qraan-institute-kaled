@@ -116,7 +116,7 @@ export default function ExamBrowseClient({
                 }}
                 style={chipStyle(c === openCohort)}
               >
-                {c} ({halaqat.filter((h) => h.cohortName === c).length})
+                {c}
               </button>
             ))}
           </div>
@@ -124,7 +124,7 @@ export default function ExamBrowseClient({
             <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>الحلقة:</span>
             {cohortHalaqat.map((h) => (
               <button key={h.id} onClick={() => setOpenHalqa(h.id)} style={chipStyle(h.id === openHalqa)}>
-                {h.name} ({h.students.length}) <span style={{ fontSize: 11, opacity: 0.75 }}>— {h.teacherName}</span>
+                {h.name} <span style={{ fontSize: 11, opacity: 0.75 }}>— {h.teacherName}</span>
               </button>
             ))}
           </div>

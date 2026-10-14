@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { isValidDate, formatDateAr } from "@/lib/daily";
 
 export type FormState = { error?: string; ok?: boolean };
 
@@ -36,10 +37,15 @@ export async function addHoliday(_prev: FormState, formData: FormData): Promise<
   }
   const name = String(formData.get("name") || "").trim();
   const date = String(formData.get("date") || "").trim();
+  const endRaw = String(formData.get("endDate") || "").trim();
   if (!name) return { error: "اكتبوا اسم العطلة أولًا." };
+  if (!isValidDate(date)) return { error: "اختاروا تاريخ بداية العطلة." };
+  if (endRaw && !isValidDate(endRaw)) return { error: "تاريخ نهاية العطلة غير صحيح." };
+  if (endRaw && endRaw < date) return { error: "نهاية العطلة قبل بدايتها." };
+  const endDate = endRaw && endRaw !== date ? endRaw : null;
 
-  await prisma.holiday.create({ data: { name, date: date || "—" } });
-  await logAction(session.userId, `أضاف عطلة «${name}» بتاريخ ${date || "—"}`);
+  await prisma.holiday.create({ data: { name, date, endDate } });
+  await logAction(session.userId, `أضاف عطلة «${name}» ${endDate ? `من ${formatDateAr(date)} إلى ${formatDateAr(endDate)}` : `بتاريخ ${formatDateAr(date)}`}`);
   revalidatePath("/schedule");
   return { ok: true };
 }

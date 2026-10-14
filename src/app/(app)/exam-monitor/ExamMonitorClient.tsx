@@ -90,11 +90,7 @@ export default function ExamMonitorClient({
   const byType = (x: Row) => typeFilter === "all" || x.type === typeFilter;
   const byExaminer = (x: Row) => examinerFilter === "all" || x.examinerName === examinerFilter;
   const bySearch = (x: Row) => !q || x.studentName.includes(q);
-  const { shown: cohortTeacherBlocks, selects } = useCohortTeacherFilter(blocks, (b) => b.rows.filter((x) => byType(x) && byExaminer(x) && bySearch(x)).length);
-  // عدد السبورات لكل خيار (ضمن بقية الفلاتر)
-  const ctRows = cohortTeacherBlocks.flatMap((b) => b.rows).filter(bySearch);
-  const typeCount = (t: string) => ctRows.filter((x) => byExaminer(x) && (t === "all" || x.type === t)).length;
-  const examinerCount = (n: string) => ctRows.filter((x) => byType(x) && (n === "all" || x.examinerName === n)).length;
+  const { shown: cohortTeacherBlocks, selects } = useCohortTeacherFilter(blocks);
   const filteredBlocks = cohortTeacherBlocks
     .map((b) => ({
       ...b,
@@ -162,10 +158,10 @@ export default function ExamMonitorClient({
             onChange={(v) => setTypeFilter(v as typeof typeFilter)}
             options={(["all", ...typeFilters] as const).map((t) => ({
               value: t,
-              label: `${t === "all" ? "كل الأنواع" : t === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[t]} (${typeCount(t)})`,
+              label: t === "all" ? "كل الأنواع" : t === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[t],
             }))}
           />
-          <Select value={examinerFilter} onChange={setExaminerFilter} options={[{ value: "all", label: `كل المختبِرين (${examinerCount("all")})` }, ...examinerNames.map((n) => ({ value: n, label: `${n} (${examinerCount(n)})` }))]} />
+          <Select value={examinerFilter} onChange={setExaminerFilter} options={[{ value: "all", label: "كل المختبِرين" }, ...examinerNames.map((n) => ({ value: n, label: n }))]} />
           {selects}
         </div>
       </div>

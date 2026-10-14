@@ -84,7 +84,7 @@ export default async function ParentPage({
       orderBy: { date: "desc" },
     }),
     prisma.awqafResult.findMany({
-      where: { studentId: child.id },
+      where: { studentId: child.id, sunnahSection: null },
       include: { batch: { select: { date: true } } },
       orderBy: { createdAt: "desc" },
     }),

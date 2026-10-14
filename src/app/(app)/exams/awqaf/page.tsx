@@ -27,7 +27,7 @@ export default async function AwqafExamPage({ searchParams }: { searchParams: Pr
       include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, studentNo: true } } },
       orderBy: { date: "desc" },
     }),
-    prisma.awqafResult.findMany({ include: { batch: { select: { date: true } } }, orderBy: { createdAt: "desc" } }),
+    prisma.awqafResult.findMany({ where: { sunnahSection: null }, include: { batch: { select: { date: true } } }, orderBy: { createdAt: "desc" } }),
   ]);
 
   const awqafByStudent: Record<string, { batchDate: string; score: number | null; passed: boolean | null; certLabel: string }[]> = {};

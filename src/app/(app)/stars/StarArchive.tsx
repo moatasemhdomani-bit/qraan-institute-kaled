@@ -40,10 +40,11 @@ export default function StarArchive({
         <div style={{ fontSize: 15, fontWeight: 700, flex: 1 }}>{title}</div>
         {(["ALL", "CHARGE", "WITHDRAW"] as const).map((k) => (
           <button key={k} type="button" onClick={() => setFilter(k)} style={chipStyle(filter === k)}>
-            {k === "ALL" ? "الكل" : starKindLabel(k)} ({k === "ALL" ? rows.length : rows.filter((r) => r.kind === k).length})
+            {k === "ALL" ? "الكل" : starKindLabel(k)}
           </button>
         ))}
       </div>
+      <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>عدد النتائج: {shown.length}</div>
       {rows.length >= limit && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>آخر {limit} عملية.</div>}
       {shown.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا توجد عمليات بعد.</div>}
       {shown.map((r) => {

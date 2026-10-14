@@ -1,6 +1,6 @@
 import { prisma } from "./db";
 import { logAction } from "./audit";
-import { nextLevel, TRACK_LABELS, type TrackId } from "./track";
+import { nextLevel, TRACK_LABELS, LEVEL_LABELS, type TrackId } from "./track";
 
 /**
  * ترفيع الطالب إلى المستوى التالي بعد نجاحه في سبر مستواه — فقط إن كان ما يزال على المستوى `from`.
@@ -16,6 +16,6 @@ export async function promoteStudent(studentId: string, from: TrackId, actorId: 
     where: { id: studentId },
     data: { track: to, halqaId: null, promotedAt: to === "GRADUATED" ? null : new Date() },
   });
-  await logAction(actorId, `ترفّع الطالب «${student.name}» من «${TRACK_LABELS[from]}» إلى «${TRACK_LABELS[to]}» — ${reason}`);
+  await logAction(actorId, `ترفّع الطالب «${student.name}» من «${LEVEL_LABELS[from]}» إلى «${LEVEL_LABELS[to]}» — ${reason}`);
   return true;
 }

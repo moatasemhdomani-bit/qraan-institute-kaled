@@ -5,6 +5,7 @@ import { savePermit, deleteStudentPermits, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import TimeField from "@/components/TimeField";
+import { cohortWindows, withinCohort, cohortDefaultPm, cohortWindowsLabel, type CohortTimes } from "@/lib/cohortTime";
 
 const initialState: FormState = {};
 
@@ -13,7 +14,7 @@ const KINDS = [
   { id: "EXIT", label: "إذن خروج" },
 ] as const;
 
-type Halqa = { id: string; name: string; students: { id: string; no: number; name: string }[] };
+type Halqa = { id: string; name: string; cohortName: string; cohortTimes: CohortTimes; students: { id: string; no: number; name: string }[] };
 
 /** أذونات طالب واحد معًا — دخول و/أو خروج، والأيام والسبب مشتركة بينهما. */
 export type ExistingPermit = {
@@ -59,6 +60,15 @@ export default function PermitForm({
   const [exitOn, setExitOn] = useState(!!existing?.exitTime);
   const [entryTime, setEntryTime] = useState(existing?.entryTime ?? "");
   const [exitTime, setExitTime] = useState(existing?.exitTime ?? "");
+  // دوام فوج الطالب: وقت الإذن محصور فيه، وصباحي/مسائي تلقائيًا منه
+  const studentHalqa = halaqat.find((h) => h.students.some((s) => s.id === studentId));
+  const windows = cohortWindows(studentHalqa?.cohortTimes);
+  const defaultPm = cohortDefaultPm(windows);
+  const outside = (t: string) => !!t && !withinCohort(t, windows);
+  const timeError =
+    (entryOn && outside(entryTime)) || (exitOn && outside(exitTime))
+      ? `وقت الإذن خارج دوام فوج الطالب (${studentHalqa?.cohortName ?? ""}): ${cohortWindowsLabel(windows)}.`
+      : "";
   const [note, setNote] = useState(existing?.note ?? "");
 
   const wasNew = !existing;
@@ -104,7 +114,7 @@ export default function PermitForm({
       subtitle={existing ? `${existing.studentName} — الإذن قائم منذ ${existing.since}` : "اختاروا الطالب ثم النوع والوقت — يمكن اختيار الدخول والخروج معًا"}
       footer={
         <>
-          <button form="permit-form" type="submit" disabled={pending} style={{ ...primaryButtonStyle, flex: 1, opacity: pending ? 0.7 : 1 }}>
+          <button form="permit-form" type="submit" disabled={pending || !!timeError} style={{ ...primaryButtonStyle, flex: 1, opacity: pending ? 0.7 : 1 }}>
             {pending ? "جارٍ الحفظ…" : "حفظ الإذن"}
           </button>
           {existing && (
@@ -206,8 +216,16 @@ export default function PermitForm({
           )}
         </div>
 
-        {entryOn && <TimeField label="الوقت الذي يدخل فيه الطالب" value={entryTime} onChange={setEntryTime} />}
-        {exitOn && <TimeField label="الوقت الذي يخرج فيه الطالب" value={exitTime} onChange={setExitTime} />}
+        {entryOn && <TimeField key={`in-${studentId}`} label="الوقت الذي يدخل فيه الطالب" value={entryTime} onChange={setEntryTime} defaultPm={defaultPm} />}
+        {exitOn && <TimeField key={`out-${studentId}`} label="الوقت الذي يخرج فيه الطالب" value={exitTime} onChange={setExitTime} defaultPm={defaultPm} />}
+        {(entryOn || exitOn) && windows.length > 0 && (
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: -8 }}>
+            دوام فوج الطالب ({studentHalqa?.cohortName}): {cohortWindowsLabel(windows)} — وقت الإذن ضمنه فقط.
+          </div>
+        )}
+        {timeError && (
+          <div style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 13, fontWeight: 600 }}>{timeError}</div>
+        )}
 
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>أيام الإذن</div>

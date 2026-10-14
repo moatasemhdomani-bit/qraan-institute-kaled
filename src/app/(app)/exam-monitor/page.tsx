@@ -28,7 +28,7 @@ export default async function ExamMonitorPage() {
       orderBy: { date: "desc" },
     }),
     prisma.awqafResult.findMany({
-      where: { student: { halqaId: { not: null } } },
+      where: { student: { halqaId: { not: null } }, sunnahSection: null },
       include: { batch: { select: { date: true } }, student: { select: { id: true, name: true, halqaId: true, studentNo: true } } },
       orderBy: { batch: { date: "desc" } },
     }),

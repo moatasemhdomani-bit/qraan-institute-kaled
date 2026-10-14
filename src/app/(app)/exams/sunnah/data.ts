@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/db";
-import { today, weekdayName } from "@/lib/daily";
+import { today, weekdayName, inHoliday } from "@/lib/daily";
 import { ALL_WEEKDAYS } from "@/lib/ui";
 import type { SunnahSectionId } from "@/lib/sunnah";
 import type { SunnahExamRow } from "./SunnahClient";
 
 /** أيام الدوام في هذا الأسبوع (من السبت)، بلا العطل الرسمية — لتنبيه «سمّع يوميًا هذا الأسبوع» */
 export async function workDatesThisWeek(): Promise<string[]> {
-  const [working, holidays] = await Promise.all([prisma.workingDays.findUnique({ where: { id: 1 } }), prisma.holiday.findMany({ select: { date: true } })]);
+  const [working, holidays] = await Promise.all([prisma.workingDays.findUnique({ where: { id: 1 } }), prisma.holiday.findMany({ select: { date: true, endDate: true } })]);
   let days: string[] = [];
   try {
     days = JSON.parse(working?.days || "[]");
@@ -19,7 +19,7 @@ export async function workDatesThisWeek(): Promise<string[]> {
   const out: string[] = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(base.getTime() + (i - idx) * 86400000).toISOString().slice(0, 10);
-    if ((days.length === 0 || days.includes(weekdayName(d))) && !holidays.some((h) => h.date === d)) out.push(d);
+    if ((days.length === 0 || days.includes(weekdayName(d))) && !holidays.some((h) => inHoliday(d, h))) out.push(d);
   }
   return out;
 }

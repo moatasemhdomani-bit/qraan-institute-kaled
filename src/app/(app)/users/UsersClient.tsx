@@ -96,7 +96,6 @@ export default function UsersClient({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<StaffRow | null>(null);
 
-  const bySearch = (u: StaffRow) => !search.trim() || u.fullName.includes(search.trim());
   const filtered = useMemo(
     () =>
       staff
@@ -132,16 +131,17 @@ export default function UsersClient({
           />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button style={chipStyle(roleFilter === "ALL")} onClick={() => setRoleFilter("ALL")}>
-              الكل ({staff.filter(bySearch).length})
+              الكل
             </button>
             {STAFF_KINDS.map((k) => (
               <button key={k.id} style={chipStyle(roleFilter === k.id)} onClick={() => setRoleFilter(k.id)}>
-                {kindLabel(k)} ({staff.filter((u) => bySearch(u) && u.assignments.some((a) => a.kind === k.id)).length})
+                {kindLabel(k)}
               </button>
             ))}
           </div>
         </div>
 
+        <div style={{ padding: "8px 16px", fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>عدد النتائج: {filtered.length}</div>
         {filtered.length === 0 ? (
           <div style={{ padding: "56px 24px", textAlign: "center" }}>
             <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 6 }}>لا يوجد عاملون بعد</div>

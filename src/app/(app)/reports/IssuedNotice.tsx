@@ -19,8 +19,8 @@ const btn: React.CSSProperties = {
   cursor: "pointer",
 };
 
-/** رسالة «تم الإصدار» مع زرّي فتح PDF وتنزيله (تنزيل يفتح نافذة اختيار مكان الحفظ حين يدعمها المتصفح). */
-export default function IssuedNotice({ reportId, name, duplicate }: { reportId: string; name: string; duplicate?: boolean }) {
+/** زرّا «فتح PDF» و«تنزيل PDF» لتقرير صادر (التنزيل يفتح نافذة اختيار مكان الحفظ حين يدعمها المتصفح). */
+export function PdfButtons({ reportId, name }: { reportId: string; name: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const pdfUrl = `/reports/${reportId}/pdf`;
@@ -61,6 +61,21 @@ export default function IssuedNotice({ reportId, name, duplicate }: { reportId: 
   }
 
   return (
+    <span style={{ display: "inline-flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <a href={pdfUrl} target="_blank" rel="noreferrer" style={btn}>
+        فتح PDF
+      </a>
+      <button type="button" onClick={download} disabled={busy} style={{ ...btn, opacity: busy ? 0.7 : 1 }}>
+        {busy ? "جارٍ التنزيل…" : "تنزيل PDF"}
+      </button>
+      {err && <span style={{ width: "100%", fontSize: 12, color: "var(--bad)" }}>{err}</span>}
+    </span>
+  );
+}
+
+/** رسالة «تم الإصدار» مع زرّي فتح PDF وتنزيله. */
+export default function IssuedNotice({ reportId, name, duplicate }: { reportId: string; name: string; duplicate?: boolean }) {
+  return (
     <div
       style={{
         padding: "12px 14px",
@@ -77,13 +92,7 @@ export default function IssuedNotice({ reportId, name, duplicate }: { reportId: 
       <span style={{ flex: "1 1 220px" }}>
         {duplicate ? "يوجد تقرير سابق بنفس المعطيات في السجل — لم يُكرَّر." : "تم إصدار التقرير وحُفظ في السجل."}
       </span>
-      <a href={pdfUrl} target="_blank" rel="noreferrer" style={btn}>
-        فتح PDF
-      </a>
-      <button type="button" onClick={download} disabled={busy} style={{ ...btn, opacity: busy ? 0.7 : 1 }}>
-        {busy ? "جارٍ التنزيل…" : "تنزيل PDF"}
-      </button>
-      {err && <span style={{ width: "100%", fontSize: 12, color: "var(--bad)" }}>{err}</span>}
+      <PdfButtons reportId={reportId} name={name} />
     </div>
   );
 }

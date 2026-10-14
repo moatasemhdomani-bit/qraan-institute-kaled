@@ -99,7 +99,7 @@ export async function dayLockReason(date: string): Promise<string | null> {
     prisma.workingDays.findUnique({ where: { id: 1 } }),
   ]);
 
-  const hit = holidays.find((h) => h.date === date);
+  const hit = holidays.find((h) => inHoliday(date, h));
   if (hit) return `اليوم عطلة رسمية — ${hit.name}`;
 
   let days: string[] = [];
@@ -161,4 +161,9 @@ export function pageSpan(from: number | null, to: number | null): number {
   if (from == null || to == null) return 0;
   if (from < MIN_PAGE || to > MAX_PAGE || to < from) return 0;
   return to - from + 1;
+}
+
+/** اليوم داخل العطلة: من بدايتها إلى نهايتها (أو يومها وحده) */
+export function inHoliday(date: string, h: { date: string; endDate?: string | null }): boolean {
+  return date >= h.date && date <= (h.endDate || h.date);
 }

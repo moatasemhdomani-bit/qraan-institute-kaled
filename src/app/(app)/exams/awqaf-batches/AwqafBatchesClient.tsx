@@ -10,8 +10,12 @@ import { createAwqafBatch, type FormState } from "./actions";
 import { today, formatDateAr } from "@/lib/daily";
 
 type Candidate = { id: string; no: number; name: string; nominationDate: string; nominationPresent: boolean; priorFailNote: string | null };
+type SunnahCandidate = { key: string; studentId: string; section: string; level: number; no: number; name: string; label: string; note: string };
+type BatchKind = "QURAN" | "SUNNAH";
+const KIND_LABEL: Record<string, string> = { QURAN: "القرآن الكريم", SUNNAH: "السنّة النبوية" };
 type Batch = {
   id: string;
+  kind: string;
   date: string;
   studentCount: number;
   scoredCount: number;
@@ -37,15 +41,18 @@ function batchBadge(b: Batch) {
 
 export default function AwqafBatchesClient({
   candidates,
+  sunnahCandidates,
   batches,
   searchStudents,
 }: {
   candidates: Candidate[];
+  sunnahCandidates: SunnahCandidate[];
   batches: Batch[];
   searchStudents: SearchStudent[];
 }) {
   const router = useRouter();
-  const [newBatchOpen, setNewBatchOpen] = useState(false);
+  // «دفعة جديدة»: يُختار النوع أولًا — القرآن الكريم أو السنّة النبوية
+  const [newBatchOpen, setNewBatchOpen] = useState<null | "choose" | BatchKind>(null);
   const [search, setSearch] = useState("");
   const [fileStudent, setFileStudent] = useState<SearchStudent | null>(null);
 
@@ -61,9 +68,24 @@ export default function AwqafBatchesClient({
         <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>
           حدّ النجاح: <b style={{ color: "var(--ink)" }}>90</b> حاضرًا (تلاوة) و<b style={{ color: "var(--ink)" }}>80</b> غيبًا (حفظ) — بحسب مسار ترشيح كل طالب.
         </div>
-        <button onClick={() => setNewBatchOpen(true)} style={{ ...primaryButtonStyle, alignSelf: "flex-start" }}>
-          دفعة جديدة
-        </button>
+        {newBatchOpen === "choose" ? (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "var(--ink-2)" }}>دفعة جديدة لـ:</span>
+            <button type="button" onClick={() => setNewBatchOpen("QURAN")} style={{ ...primaryButtonStyle, padding: "10px 18px" }}>
+              القرآن الكريم
+            </button>
+            <button type="button" onClick={() => setNewBatchOpen("SUNNAH")} style={{ ...primaryButtonStyle, padding: "10px 18px" }}>
+              السنّة النبوية
+            </button>
+            <button type="button" onClick={() => setNewBatchOpen(null)} style={{ ...softButtonStyle, background: "transparent" }}>
+              إلغاء
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setNewBatchOpen("choose")} style={{ ...primaryButtonStyle, alignSelf: "flex-start" }}>
+            دفعة جديدة
+          </button>
+        )}
       </div>
 
       <div style={{ ...cardStyle, padding: "12px 14px" }}>
@@ -101,6 +123,7 @@ export default function AwqafBatchesClient({
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 15.5, fontWeight: 700 }}>دفعة {formatDateAr(b.date)}</span>
+                <span style={{ padding: "2px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>{KIND_LABEL[b.kind] ?? b.kind}</span>
                 <span
                   style={{
                     marginInlineStart: "auto",
@@ -128,10 +151,15 @@ export default function AwqafBatchesClient({
         })
       )}
 
-      {newBatchOpen && (
+      {(newBatchOpen === "QURAN" || newBatchOpen === "SUNNAH") && (
         <NewBatchDrawer
-          candidates={candidates}
-          onClose={() => setNewBatchOpen(false)}
+          kind={newBatchOpen}
+          items={
+            newBatchOpen === "QURAN"
+              ? candidates.map((x) => ({ key: x.id, no: x.no, name: x.name, tag: x.nominationPresent ? "حاضرًا" : "غيبًا", note: x.priorFailNote }))
+              : sunnahCandidates.map((x) => ({ key: x.key, no: x.no, name: x.name, tag: x.label, note: x.note }))
+          }
+          onClose={() => setNewBatchOpen(null)}
           onCreated={(id) => router.push(`/exams/awqaf-batches/${id}`)}
         />
       )}
@@ -175,12 +203,16 @@ export default function AwqafBatchesClient({
   );
 }
 
+type Item = { key: string; no: number; name: string; tag: string; note: string | null };
+
 function NewBatchDrawer({
-  candidates,
+  kind,
+  items: candidates,
   onClose,
   onCreated,
 }: {
-  candidates: Candidate[];
+  kind: BatchKind;
+  items: Item[];
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
@@ -202,9 +234,23 @@ function NewBatchDrawer({
   }
 
   return (
-    <Drawer open onClose={onClose} title="دفعة سبر أوقاف جديدة" subtitle={`${candidates.length} طالبًا مؤهَّلًا`}>
+    <Drawer open onClose={onClose} title={`دفعة سبر أوقاف جديدة — ${KIND_LABEL[kind]}`} subtitle={`${candidates.length} طالبًا ناجحًا في سبر ترشيح الأوقاف`}>
       <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <input type="hidden" name="studentIdsJson" value={JSON.stringify(Array.from(selected))} />
+        <input type="hidden" name="kind" value={kind} />
+        {kind === "QURAN" ? (
+          <input type="hidden" name="studentIdsJson" value={JSON.stringify(Array.from(selected))} />
+        ) : (
+          <input
+            type="hidden"
+            name="sunnahJson"
+            value={JSON.stringify(
+              Array.from(selected).map((k) => {
+                const [studentId, section, level] = k.split("|");
+                return { studentId, section, level: Number(level) };
+              })
+            )}
+          />
+        )}
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>تاريخ الدفعة</div>
           <DateField name="date" value={date} onChange={setDate} width={170} />
@@ -214,7 +260,7 @@ function NewBatchDrawer({
           <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{selected.size} مختار من {candidates.length}</div>
           <button
             type="button"
-            onClick={() => setSelected(new Set(candidates.map((c) => c.id)))}
+            onClick={() => setSelected(new Set(candidates.map((c) => c.key)))}
             style={{ ...softButtonStyle, marginInlineStart: "auto" }}
           >
             إضافة الكل
@@ -228,17 +274,19 @@ function NewBatchDrawer({
 
         {candidates.length === 0 ? (
           <div style={{ padding: "24px 16px", borderRadius: 12, border: "1px dashed var(--line)", background: "var(--card-2-grad)", textAlign: "center", fontSize: 13, color: "var(--ink-2)" }}>
-            لا يوجد طالب مؤهَّل الآن — كل من نجح في ترشيح الأوقاف إمّا خاض سبر الأوقاف الفعلي بعدها ولم يُرشَّح مجددًا.
+            {kind === "QURAN"
+              ? "لا يوجد طالب مؤهَّل الآن — كل من نجح في ترشيح الأوقاف إمّا خاض سبر الأوقاف الفعلي بعدها ولم يُرشَّح مجددًا."
+              : "لا يوجد طالب ناجح في سبر ترشيح الأوقاف للسنّة النبوية بانتظار دفعة."}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {candidates.map((c) => {
-              const on = selected.has(c.id);
+              const on = selected.has(c.key);
               return (
                 <button
-                  key={c.id}
+                  key={c.key}
                   type="button"
-                  onClick={() => toggle(c.id)}
+                  onClick={() => toggle(c.key)}
                   style={{
                     textAlign: "start",
                     display: "flex",
@@ -256,11 +304,11 @@ function NewBatchDrawer({
                     <span style={{ fontSize: 13.5, fontWeight: 600 }}>{c.name}</span>
                     <span style={{ fontSize: 11, color: "var(--ink-3)" }}>#{c.no}</span>
                     <span style={{ fontSize: 10.5, color: "var(--ink-3)", border: "1px solid var(--line)", borderRadius: 999, padding: "1px 8px" }}>
-                      {c.nominationPresent ? "حاضرًا" : "غيبًا"}
+                      {c.tag}
                     </span>
                     <span style={{ marginInlineStart: "auto", fontSize: 11, color: "var(--ink-3)" }}>{on ? "✓ مختار" : ""}</span>
                   </div>
-                  {c.priorFailNote && <div style={{ fontSize: 11.5, color: "var(--bad-ink)" }}>{c.priorFailNote}</div>}
+                  {c.note && <div style={{ fontSize: 11.5, color: kind === "QURAN" ? "var(--bad-ink)" : "var(--ink-3)" }}>{c.note}</div>}
                 </button>
               );
             })}

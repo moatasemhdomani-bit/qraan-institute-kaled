@@ -9,7 +9,7 @@ import { copyToClipboard } from "@/lib/clipboard";
 import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import PhoneField from "@/components/PhoneField";
-import { STUDENT_LEVELS, TRACK_LABELS, halqaTrackFor, type TrackId } from "@/lib/track";
+import { STUDENT_LEVELS, TRACK_LABELS, LEVEL_LABELS, halqaTrackFor, type TrackId } from "@/lib/track";
 import PhotoField from "@/components/PhotoField";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
@@ -95,8 +95,8 @@ export default function StudentsClient({
     const counts = new Map<string, number>();
     for (const s of students) if (s.halqaId) counts.set(s[key], (counts.get(s[key]) ?? 0) + 1);
     return [
-      { value: "", label: `الكل (${[...counts.values()].reduce((x, y) => x + y, 0)})` },
-      ...[...counts].sort((a, b) => a[0].localeCompare(b[0], "ar")).map(([v, n]) => ({ value: v, label: `${v} (${n})` })),
+      { value: "", label: "الكل" },
+      ...[...counts].sort((a, b) => a[0].localeCompare(b[0], "ar")).map(([v]) => ({ value: v, label: v })),
     ];
   };
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -160,10 +160,10 @@ export default function StudentsClient({
           />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             <button onClick={() => setOnlyOrphans((v) => !v)} style={chipStyle(onlyOrphans)}>
-              أيتام ({counts.orphans})
+              أيتام
             </button>
             <button onClick={() => setOnlyUnsorted((v) => !v)} style={chipStyle(onlyUnsorted)}>
-              غير مفروزين ({counts.unsorted})
+              غير مفروزين
             </button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
@@ -173,9 +173,9 @@ export default function StudentsClient({
                 value={statusFilter}
                 onChange={(v) => setStatusFilter(v as "all" | "active" | "inactive")}
                 options={[
-                  { value: "all", label: `الكل (${counts.all})` },
-                  { value: "active", label: `نشط (${counts.active})` },
-                  { value: "inactive", label: `منقطع (${counts.inactive})` },
+                  { value: "all", label: "الكل" },
+                  { value: "active", label: "نشط" },
+                  { value: "inactive", label: "منقطع" },
                 ]}
               />
             </div>
@@ -185,8 +185,8 @@ export default function StudentsClient({
                 value={trackFilter}
                 onChange={(v) => setTrackFilter(v as "all" | TrackId)}
                 options={[
-                  { value: "all", label: `الكل (${counts.all})` },
-                  ...STUDENT_LEVELS.map((t) => ({ value: t, label: `${TRACK_LABELS[t]} (${levelCount(t)})` })),
+                  { value: "all", label: "الكل" },
+                  ...STUDENT_LEVELS.map((t) => ({ value: t, label: LEVEL_LABELS[t] })),
                 ]}
               />
             </div>
@@ -203,11 +203,9 @@ export default function StudentsClient({
               <Select value={halqaFilter} onChange={setHalqaFilter} options={optionsOf("halqaName")} placeholder="الكل" />
             </div>
           </div>
-          {anyFilter && (
-            <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>
-              عدد النتائج: <b style={{ color: "var(--ink)" }}>{filtered.length}</b> طالبًا
-            </div>
-          )}
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>
+            عدد النتائج: <b style={{ color: "var(--ink)" }}>{filtered.length}</b> طالبًا
+          </div>
           {onlyUnsorted && (
             <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
               «جديد»: طالب لم يُفرز على حلقة وفوج بعد (منهم من أضافه المختبِر عبر تحديد المستوى). «ترفّع»: نجح في سبر
@@ -478,7 +476,7 @@ function StudentForm({
             <div style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--accent-line, var(--line))", background: "var(--card-2-grad)" }}>
               <div style={{ fontSize: 13.5, fontWeight: 700 }}>القرآن الكريم</div>
               <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 2 }}>
-                {TRACK_LABELS[initial.track]}
+                {LEVEL_LABELS[initial.track]}
                 {initial.halqaName !== "—" ? ` — ${initial.halqaName}` : initial.track === "GRADUATED" ? "" : " — غير مفروز"}
               </div>
             </div>
@@ -530,7 +528,7 @@ function StudentForm({
                   }}
                   style={chipStyle(track === t)}
                 >
-                  {TRACK_LABELS[t]}
+                  {LEVEL_LABELS[t]}
                 </button>
               ))}
             </div>

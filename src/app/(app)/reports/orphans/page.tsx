@@ -19,6 +19,7 @@ export default async function OrphansReportPage({ searchParams }: { searchParams
         key={review ?? "new"}
         orphans={orphans}
         initialName={initial?.name ?? ""}
+        reviewId={initial?.id}
         initialStatus={initial?.status ?? "active"}
         // «مراجعة التقرير» من السجل: تُعرض قائمة يوم إصداره كما حُفظت
         frozen={initial?.names ? { names: initial.names, date: initial.from } : null}

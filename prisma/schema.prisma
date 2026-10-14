@@ -216,9 +216,12 @@ model WorkingDays {
 }
 
 model Holiday {
-  id   String @id @default(cuid())
-  name String
-  date String
+  id      String  @id @default(cuid())
+  name    String
+  /// بداية العطلة (YYYY-MM-DD)
+  date    String
+  /// نهاية العطلة — null = يوم واحد. كل الأيام من البداية إلى النهاية عطلة
+  endDate String?
 }
 
 model AuditLog {
@@ -403,6 +406,9 @@ model AwqafBatch {
   // أرشفة الشهادات بملف واحد لكل الدفعة (بديل عن ملف لكل طالب، أو إضافة إليه)
   certFileUrl String?
 
+  /// QURAN = القرآن الكريم، SUNNAH = السنّة النبوية (الناجحون في سبر ترشيح الأوقاف للسنة)
+  kind String @default("QURAN")
+
   results AwqafResult[]
 }
 
@@ -425,10 +431,15 @@ model AwqafResult {
   certFileUrl   String?
   certDelivered Boolean @default(false)
 
+  // دفعة السنّة النبوية: المنهج والمستوى، وسجلّ سبر الأوقاف المقابل (SUNNAH_AWQAF) الذي تُنشئه العلامة
+  sunnahSection SunnahSection?
+  sunnahLevel   Int?
+  sunnahExamId  String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([batchId, studentId])
+  @@unique([batchId, studentId, sunnahSection])
   @@index([studentId])
 }
 

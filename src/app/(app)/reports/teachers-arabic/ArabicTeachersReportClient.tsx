@@ -1,5 +1,6 @@
 "use client";
 
+import { PdfButtons } from "../IssuedNotice";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
@@ -62,9 +63,9 @@ export default function ArabicTeachersReportClient({ initial }: { initial: Revie
             {pending ? "جارٍ التحميل…" : "معاينة"}
           </button>
           {rows && rows.length > 0 && (
-            <button type="submit" form="report-issue-form" disabled={issuing || pending} style={{ ...primaryButtonStyle, opacity: issuing || pending ? 0.7 : 1, width: "100%" }}>
+            <>{initial?.id ? <PdfButtons reportId={initial?.id} name={initial?.name ?? ""} /> : (<button type="submit" form="report-issue-form" disabled={issuing || pending} style={{ ...primaryButtonStyle, opacity: issuing || pending ? 0.7 : 1, width: "100%" }}>
               {issuing ? "جارٍ الإصدار…" : "إصدار التقرير"}
-            </button>
+            </button>)}</>
           )}
         </div>
       </div>

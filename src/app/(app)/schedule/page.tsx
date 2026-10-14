@@ -21,7 +21,7 @@ export default async function SchedulePage() {
       <PageHeader title="الدوام والعطل" subtitle="أيام الأسبوع الرسمية وقائمة العطل." />
       <ScheduleClient
         activeDays={days}
-        holidays={holidays.map((h) => ({ id: h.id, name: h.name, date: h.date }))}
+        holidays={holidays.map((h) => ({ id: h.id, name: h.name, date: h.date, endDate: h.endDate }))}
       />
     </>
   );
