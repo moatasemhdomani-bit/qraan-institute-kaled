@@ -45,3 +45,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# صور مولَّدة للمشاركة (ليست جزءًا من الموقع)
+/*.png

@@ -87,8 +87,8 @@ export const SUNNAH_BOOKS: Record<SunnahSectionId, { id: string; label: string; 
     { id: "MUKHTARAT", label: "المختارات", unit: "الحديث", branches: [1], perStage: true },
     { id: "ARBAEEN", label: "الأربعين النووية", unit: "الحديث", branches: [2] },
     { id: "RIYAD_SELECTED", label: "مختارات من رياض الصالحين", unit: "الحديث", branches: [3], perStage: true },
-    { id: "UMDA", label: "عمدة الأحكام", unit: "الحديث", branches: [4, 5] },
-    { id: "RIYAD", label: "رياض الصالحين", unit: "الحديث", branches: [6, 7, 8, 9, 10, 11] },
+    { id: "UMDA", label: "عمدة الأحكام", unit: "الحديث", branches: [4, 5], perStage: true },
+    { id: "RIYAD", label: "رياض الصالحين", unit: "الحديث", branches: [6, 7, 8, 9, 10, 11] }, // ترقيم متصل في الكتاب كله: 1 … 1896
   ],
   SHAMAIL: [
     { id: "NOOR", label: "نور العيون في تلخيص سيرة الأمين المأمون", unit: "رقم", branches: [1] },
@@ -107,7 +107,9 @@ export const sunnahBook = (section: string, book: string) => SUNNAH_BOOKS[sectio
 export function sunnahBookLabel(section: string, book: string): string {
   const b = sunnahBook(section, book);
   const st = book.split(":")[1];
-  return b ? (st ? `${b.label} — ${stageName(section as SunnahSectionId, b.branches[0], Number(st))}` : b.label) : book;
+  if (!b || !st) return b ? b.label : book;
+  const [lvl, stg] = st.includes(".") ? st.split(".").map(Number) : [b.branches[0], Number(st)];
+  return `${b.label} — ${b.branches.length > 1 ? `المستوى ${lvl} — ` : ""}${stageName(section as SunnahSectionId, lvl, stg)}`;
 }
 
 /** «الأربعين النووية — الحديث 7» / «… — الحديث 7 إلى 9» */
@@ -155,30 +157,42 @@ export const SUNNAH_STAGE_COUNTS: Partial<Record<SunnahSectionId, Record<number,
     1: [15, 20, 40, 42], // المختارات: 117 حديثًا
     2: [10, 10, 10, 12], // الأربعين النووية: 42 حديثًا
     3: Array(12).fill(10), // مختارات من رياض الصالحين: 3 أقسام × 4 مراحل × 10 أحاديث
+    4: [...Array(16).fill(10), 10, 10, 10, 10, 17], // عمدة الأحكام إلى آخر باب الاعتكاف: 217 حديثًا — 4 أقسام × (4 مراحل × 10) ثم قسم أخير 57 (10، 10، 10، 10، 17)
+    5: [...Array(16).fill(10), 10, 10, 10, 10, 13], // عمدة الأحكام — بقية الكتاب: 213 حديثًا — 4 أقسام × (4 مراحل × 10) ثم قسم أخير 53 (10، 10، 10، 10، 13)
+    6: Array(10).fill(10), // رياض الصالحين — المئة الأولى: 100 حديث — قسمان × 5 مراحل × 10 أحاديث
+    7: Array(10).fill(10), // رياض الصالحين — المئة الثانية: الأحاديث 101–200 — قسمان × 5 مراحل × 10 أحاديث
+    8: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11], // رياض الصالحين إلى 311: الأحاديث 201–311 — 3 أقسام (4، 4، 3 مراحل)
+    9: Array(32).fill(10), // رياض الصالحين إلى 631: الأحاديث 312–631 — 4 أقسام × 8 مراحل × 10 أحاديث
+    10: [...Array(63).fill(10), 9], // رياض الصالحين إلى 1270: الأحاديث 632–1270 — 5 أقسام × 10 مراحل × 10، والقسم السادس 14 مرحلة آخرها 9 أحاديث
+    11: [...Array(62).fill(10), 6], // رياض الصالحين كاملًا: الأحاديث 1271–1896 — 5 أقسام × 10 مراحل × 10، والقسم السادس 13 مرحلة آخرها 6 أحاديث
   },
 };
 
 /**
- * المستويات المقسَّمة إلى أقسام (من المستوى الثالث في الحديث فصاعدًا): عدد مراحل كل قسم.
- * المراحل تُرقَّم في المستوى كله متتالية (1…12) وتُعرض «القسم 2 — المرحلة 1».
+ * المستويات المقسَّمة إلى أقسام (من المستوى الثالث في الحديث فصاعدًا): عدد مراحل كل قسم بالترتيب.
+ * المراحل تُرقَّم في المستوى كله متتالية (1…) وتُعرض «القسم 2 — المرحلة 1».
  * التسلسل: مراحل القسم ← سبر القسم ← مراحل القسم التالي … ← سبر آخر قسم ← سبر المستوى.
  */
-export const SUNNAH_LEVEL_PARTS: Partial<Record<SunnahSectionId, Record<number, number>>> = {
-  HADITH: { 3: 4 },
+export const SUNNAH_LEVEL_PARTS: Partial<Record<SunnahSectionId, Record<number, number[]>>> = {
+  HADITH: { 3: [4, 4, 4], 4: [4, 4, 4, 4, 5], 5: [4, 4, 4, 4, 5], 6: [5, 5], 7: [5, 5], 8: [4, 4, 3], 9: [8, 8, 8, 8], 10: [10, 10, 10, 10, 10, 14], 11: [10, 10, 10, 10, 10, 13] },
 };
 
-/** مراحل كل قسم في المستوى — null للمستوى غير المقسَّم */
-export const levelPartSize = (section: SunnahSectionId, level: number): number | null => SUNNAH_LEVEL_PARTS[section]?.[level] ?? null;
-/** عدد أقسام المستوى — 0 للمستوى غير المقسَّم */
-export function levelPartCount(section: SunnahSectionId, level: number): number {
-  const size = levelPartSize(section, level);
-  const n = SUNNAH_STAGE_COUNTS[section]?.[level]?.length ?? 0;
-  return size ? Math.ceil(n / size) : 0;
+/** آخر مرحلة (بترقيم المستوى) في كل قسم — null للمستوى غير المقسَّم */
+export function levelPartEnds(section: SunnahSectionId, level: number): number[] | null {
+  const parts = SUNNAH_LEVEL_PARTS[section]?.[level];
+  if (!parts) return null;
+  let end = 0;
+  return parts.map((n) => (end += n));
 }
+/** عدد أقسام المستوى — 0 للمستوى غير المقسَّم */
+export const levelPartCount = (section: SunnahSectionId, level: number): number => SUNNAH_LEVEL_PARTS[section]?.[level]?.length ?? 0;
 /** القسم والمرحلة داخله لمرحلة المستوى k (1…) */
 export function stagePart(section: SunnahSectionId, level: number, k: number): { part: number; stage: number } | null {
-  const size = levelPartSize(section, level);
-  return size ? { part: Math.ceil(k / size), stage: ((k - 1) % size) + 1 } : null;
+  const ends = levelPartEnds(section, level);
+  if (!ends) return null;
+  const i = ends.findIndex((e) => k <= e);
+  const part = i >= 0 ? i + 1 : ends.length;
+  return { part, stage: k - (part > 1 ? ends[part - 2] : 0) };
 }
 /** «المرحلة 3» أو «القسم 2 — المرحلة 1» */
 export function stageName(section: SunnahSectionId, level: number, k: number): string {
@@ -240,17 +254,18 @@ export function sunnahPosition(
   }
   // المستوى المقسَّم: لا تُفتح مراحل القسم التالي (ولا سبر المستوى) حتى ينجح في سبر القسم الذي أنهى مراحله
   let awaitingPart: number | null = null;
-  const size = finished ? null : levelPartSize(section, level);
-  if (stages && size) {
+  const partEnds = finished ? null : levelPartEnds(section, level);
+  if (stages && partEnds) {
     const lastDone = stage ? stage - 1 : stages.length;
-    const donePart = lastDone > 0 && lastDone % size === 0 ? lastDone / size : lastDone === stages.length && lastDone > 0 ? Math.ceil(lastDone / size) : null;
+    const i = partEnds.indexOf(lastDone);
+    const donePart = lastDone > 0 && i >= 0 ? i + 1 : null;
     if (donePart && !passedParts.some((p) => p.level === level && p.part === donePart)) {
       awaitingPart = donePart;
       stage = null;
     }
   }
   // المرحلة المعتبرة لنطاق الأرقام: الحالية، أو آخر مرحلة أنهاها
-  const rangeStage = stages ? (stage ?? (awaitingPart ? awaitingPart * (size as number) : stages.length)) : null;
+  const rangeStage = stages ? (stage ?? (awaitingPart && partEnds ? partEnds[awaitingPart - 1] : stages.length)) : null;
   const range = rangeStage ? stageRange(section, level, rangeStage) : null;
   const book = rangeStage ? stageBookKey(section, level, rangeStage) : levelBook(section, level).id;
   return {
@@ -279,7 +294,7 @@ export function sunnahPositionLabel(p: SunnahPosition): string {
   if (!p.stages) return lvl;
   if (p.awaitingLevelExam) return `${lvl} — أنهى مراحله كلها، ينتظر سبر المستوى`;
   if (p.awaitingPart) return `${lvl} — أنهى مراحل القسم ${p.awaitingPart}، ينتظر سبر القسم`;
-  const of = levelPartSize(p.section, p.level) ? "" : ` من ${p.stages.length}`;
+  const of = levelPartCount(p.section, p.level) ? "" : ` من ${p.stages.length}`;
   return `${lvl} — ${stageName(p.section, p.level, p.stage as number)}${of} (من ${b?.unit ?? "الرقم"} ${p.stageStart} إلى ${p.stageEnd})`;
 }
 
@@ -302,7 +317,8 @@ export function stageRange(section: SunnahSectionId, level: number, stage: numbe
 /** مفتاح الكتاب الذي يُحفظ به التسميع: «MUKHTARAT:2» للترقيم لكل مرحلة، وإلا معرّف الكتاب */
 export const stageBookKey = (section: SunnahSectionId, level: number, stage: number) => {
   const b = levelBook(section, level);
-  return b.perStage ? `${b.id}:${stage}` : b.id;
+  // كتاب يمتد على أكثر من مستوى (عمدة الأحكام): المستوى في المفتاح كي لا تتداخل مراحلهما — «UMDA:4.17»
+  return b.perStage ? (b.branches.length > 1 ? `${b.id}:${level}.${stage}` : `${b.id}:${stage}`) : b.id;
 };
 
 /** موقع الطالب من سبوره في المنهج: المستويات الناجحة (محليًا أو من الأوقاف، النجاح 80) والمراحل الناجحة (بغير «إعادة») */
