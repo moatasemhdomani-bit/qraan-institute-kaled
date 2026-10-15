@@ -48,7 +48,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       results: {
         include: {
           student: {
-            select: { id: true, name: true, fatherName: true, motherName: true, birthDate: true, guardianPhone: true },
+            select: { id: true, name: true, fatherName: true, motherName: true, birthDate: true, birthPlace: true, guardianPhone: true },
           },
         },
       },
@@ -90,6 +90,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       const prev = Array.from(new Set(mine.map((e) => branchAt(s.id, e.nominationPresent, e.batch.date))));
       return {
         name: s.name,
+        birthPlace: s.birthPlace?.trim() || BIRTH_PLACE,
         father: s.fatherName?.trim() || EMPTY,
         mother: s.motherName?.trim() || EMPTY,
         birthYear: s.birthDate && /^\d{4}/.test(s.birthDate) ? Number(s.birthDate.slice(0, 4)) : null,
@@ -118,7 +119,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         cell(`B${r}`, 8, x.name) +
         cell(`C${r}`, 8, x.father) +
         cell(`D${r}`, 8, x.mother) +
-        cell(`E${r}`, 8, BIRTH_PLACE) +
+        cell(`E${r}`, 8, x.birthPlace) +
         cell(`F${r}`, 8, x.birthYear ?? EMPTY) +
         cell(`G${r}`, 8, EMPTY) +
         cell(`H${r}`, 8, x.mobile) +

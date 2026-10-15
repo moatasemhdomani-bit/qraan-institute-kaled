@@ -28,7 +28,7 @@ export async function workDatesThisWeek(): Promise<string[]> {
 export async function loadSunnahExamRows(section?: SunnahSectionId, types?: SunnahExamRow["type"][]): Promise<SunnahExamRow[]> {
   const exams = await prisma.exam.findMany({
     where: {
-      type: { in: types ?? ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE"] },
+      type: { in: types ?? ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE", "SUNNAH_PART"] },
       ...(section ? { sunnahSection: section } : {}),
     },
     include: { examiner: { select: { name: true } } },

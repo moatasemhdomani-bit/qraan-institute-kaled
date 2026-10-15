@@ -50,6 +50,7 @@ model User {
   familyName    String? // النسبة: الكنية أو اسم العائلة
   phone         String?
   birthDate     String?
+  birthPlace    String? @default("حلب") // مكان الولادة (المدينة)
   nationalId    String?
   address       String?
   currentJob    String?
@@ -158,6 +159,7 @@ model Student {
   motherName    String?
   familyName    String? // النسبة: الكنية أو اسم العائلة
   birthDate     String?
+  birthPlace    String? @default("حلب") // مكان الولادة (المدينة)
   address       String?
   fatherJob     String?
   photoUrl      String?
@@ -176,6 +178,8 @@ model Student {
   behavior String @default("ممتاز")
   // ملاحظة المدرّس الخاصة: ما يعمل على تصحيحه للطالب — تظهر للمدرّس وحده في شاشة التسميع، لا للإدارة ولا لولي الأمر
   teacherNote String?
+  // ملاحظة التقرير الشهري: تبقى محفوظة من فترة لأخرى حتى يعدّلها المدرّس (مركز التقارير) أو الإدارة (تقرير تسميع الحلقات)
+  reportNote String?
 
   // حالة الطالب: نشط (افتراضيًا) أو منقطع — المنقطع يُخرَج من حلقته (فيغيب عن الحضور والتسميع اليوميين)
   // وتبقى بياناته الشخصية وكل سجلاته محفوظة
@@ -299,6 +303,7 @@ enum ExamType {
   SUNNAH_NOMINATION // سبر ترشيح الأوقاف في السنة النبوية (داخل المعهد) — الناجح يُرفع إلى قائمة الجاهزين لسبر الأوقاف
   SUNNAH_AWQAF // سبر السنة النبوية الخارجي من جهة الأوقاف
   SUNNAH_STAGE // سبر مرحلة في السنة النبوية (داخل المعهد) — بتقدير
+  SUNNAH_PART // سبر قسم في المستوى المقسَّم (من المستوى الثالث في الحديث) — بتقدير، ورقم القسم في sunnahStage
 }
 
 // أقسام السنة النبوية الثلاثة — منفصلة، يسير الطالب في كل منها فرعًا بعد فرع

@@ -41,7 +41,7 @@ export default async function SunnahSectionPage({ params }: { params: Promise<{ 
     <>
       <PageHeader
         title={sec.label}
-        subtitle="تسميع بالأرقام ← سبر المرحلة ← سبر المستوى المحلي (النجاح من 80) — وسبر ترشيح الأوقاف في شاشته."
+        subtitle="تسميع بالأرقام ← سبر المرحلة ← سبر القسم (في المستويات المقسَّمة) ← سبر المستوى المحلي (النجاح من 80) — وسبر ترشيح الأوقاف في شاشته."
         action={
           <Link href="/exams/sunnah" style={{ fontSize: 13, color: "var(--ink-2)" }}>
             {role === "SUNNAH_EXAMINER" ? "← رجوع إلى السبر المحلي" : "← رجوع إلى سبر السنة النبوية"}

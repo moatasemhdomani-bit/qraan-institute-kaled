@@ -49,7 +49,7 @@ export default async function SunnahNominationPage({ searchParams }: { searchPar
     );
   }
 
-  const [students, exams] = await Promise.all([loadSunnahStudents(), loadSunnahExamRows(sec.id, ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_STAGE"])]);
+  const [students, exams] = await Promise.all([loadSunnahStudents(), loadSunnahExamRows(sec.id, ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_STAGE", "SUNNAH_PART"])]);
 
   return (
     <>

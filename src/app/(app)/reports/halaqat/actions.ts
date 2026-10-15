@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { revalidatePath } from "next/cache";
 import { buildHalaqatBlocks, type HalaqatPreviewBlock } from "@/lib/reports";
 
 export type { HalaqatPreviewBlock as PreviewBlock, HalaqatPreviewRow as PreviewRow } from "@/lib/reports";
@@ -43,6 +44,14 @@ export async function issueHalaqatReport(
   if (blocks.length === 0) return { error: "لا طلاب في نطاق الحلقات المختار." };
 
   const paramsJson = JSON.stringify({ halqaScope, notes });
+
+  // ما عدّلته الإدارة من الملاحظات يُحفظ للطالب — يبقى حتى يعدّله المدرّس أو الإدارة
+  const current = new Map(blocks.flatMap((b) => b.rows.map((r) => [r.studentId, r.note] as const)));
+  const changed = Object.entries(notes).filter(([sid, n]) => current.has(sid) && (n ?? "").trim() !== (current.get(sid) ?? "").trim());
+  if (changed.length) {
+    await prisma.$transaction(changed.map(([sid, n]) => prisma.student.update({ where: { id: sid }, data: { reportNote: (n ?? "").trim() || null } })));
+    revalidatePath("/monthly-report");
+  }
 
   const existing = await prisma.issuedReport.findFirst({
     where: { kind: "HALAQAT", name, fromDate: from, toDate: to, paramsJson },

@@ -5,7 +5,7 @@ import { cardStyle, chipStyle, inputStyle, primaryButtonStyle, softButtonStyle }
 import { toWesternDigits } from "@/lib/numbers";
 import { today, formatDateAr } from "@/lib/daily";
 import { TYPE_LABELS } from "@/lib/exam";
-import { SUNNAH_SECTIONS, SUNNAH_PASS_MARK, branchOrdinal, sunnahBranchLabel, sunnahProgressWarning, levelExamBlock, SUNNAH_PASS_STARS, SUNNAH_REPEAT_STARS, type SunnahSectionId, type SunnahLevelExamType, type SunnahStartPoint } from "@/lib/sunnah";
+import { SUNNAH_SECTIONS, SUNNAH_PASS_MARK, branchOrdinal, sunnahBranchLabel, stageName, sunnahProgressWarning, levelExamBlock, SUNNAH_PASS_STARS, SUNNAH_REPEAT_STARS, type SunnahSectionId, type SunnahLevelExamType, type SunnahStartPoint } from "@/lib/sunnah";
 import Drawer from "@/components/Drawer";
 import DateField from "@/components/DateField";
 import NumberField from "@/components/NumberField";
@@ -17,7 +17,7 @@ import SunnahStarsField from "./SunnahStarsField";
 export type SunnahExamRow = {
   id: string;
   studentId: string;
-  type: "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE";
+  type: "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE" | "SUNNAH_PART";
   section: SunnahSectionId;
   branch: number;
   date: string;
@@ -33,8 +33,9 @@ export type SunnahExamRow = {
 type StudentRow = { id: string; name: string; no: number; stars: number; halqaName: string | null };
 
 /** نجاح في سبر المستوى (محلي أو أوقاف) */
-const passed = (e: SunnahExamRow) => e.type !== "SUNNAH_STAGE" && !e.repeat && e.mark != null && e.mark >= SUNNAH_PASS_MARK;
-const stageOk = (e: SunnahExamRow) => e.type === "SUNNAH_STAGE" && !!e.grade && e.grade !== "إعادة";
+const graded = (e: SunnahExamRow) => e.type === "SUNNAH_STAGE" || e.type === "SUNNAH_PART";
+const passed = (e: SunnahExamRow) => !graded(e) && !e.repeat && e.mark != null && e.mark >= SUNNAH_PASS_MARK;
+const stageOk = (e: SunnahExamRow) => graded(e) && !!e.grade && e.grade !== "إعادة";
 
 export default function SunnahClient({
   section,
@@ -87,11 +88,11 @@ export default function SunnahClient({
   }, [students, search]);
 
   const canEditRow = (e: SunnahExamRow) =>
-    e.type !== "SUNNAH_STAGE" && (isDirector || e.examinerId === currentUserId) && e.type !== "SUNNAH_AWQAF" && canLocal;
+    !graded(e) && (isDirector || e.examinerId === currentUserId) && e.type !== "SUNNAH_AWQAF" && canLocal;
   const canDeleteRow = (e: SunnahExamRow) => canDeleteAny || e.examinerId === currentUserId;
 
   const examLine = (e: SunnahExamRow, showStudent: boolean) => {
-    const ok = e.type === "SUNNAH_STAGE" ? stageOk(e) : passed(e);
+    const ok = graded(e) ? stageOk(e) : passed(e);
     return (
       <div key={e.id} style={{ display: "flex", flexDirection: "column", gap: 5, padding: "10px 12px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -99,10 +100,10 @@ export default function SunnahClient({
           <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>{TYPE_LABELS[e.type]}</span>
           <span style={{ fontSize: 13, fontWeight: 600 }}>
             {sunnahBranchLabel(e.section, e.branch)}
-            {e.type === "SUNNAH_STAGE" ? ` — المرحلة ${e.stageNo}` : ""}
+            {e.type === "SUNNAH_STAGE" ? ` — ${stageName(e.section, e.branch, e.stageNo ?? 0)}` : e.type === "SUNNAH_PART" ? ` — القسم ${e.stageNo}` : ""}
           </span>
-          <span style={{ fontSize: 14, fontWeight: 700 }}>{e.type === "SUNNAH_STAGE" ? e.grade : e.repeat ? "إعادة" : `${e.mark} / 100`}</span>
-          {!e.repeat && e.type !== "SUNNAH_STAGE" && (
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{graded(e) ? e.grade : e.repeat ? "إعادة" : `${e.mark} / 100`}</span>
+          {!e.repeat && !graded(e) && (
             <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, color: ok ? "var(--ok)" : "var(--bad)", border: `1px solid color-mix(in srgb, ${ok ? "var(--ok)" : "var(--bad)"} 50%, transparent)` }}>
               {ok ? "ناجح" : "إعادة"}
             </span>

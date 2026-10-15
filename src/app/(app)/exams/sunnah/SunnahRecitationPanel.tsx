@@ -20,6 +20,8 @@ import {
   SUNNAH_PASS_STARS,
   SUNNAH_REPEAT_STARS,
   SUNNAH_DAILY_ALERT,
+  stageName,
+  levelPartCount,
   type SunnahSectionId,
   type SunnahStartPoint,
 } from "@/lib/sunnah";
@@ -155,7 +157,7 @@ export default function SunnahRecitationPanel({
     setError("");
     setSaved("");
     if (maxNo != null && items.some((it) => (parseInt(it.no, 10) || 0) > maxNo)) {
-      return setError(`لا يُسمَّع بعد ${unit} ${maxNo} حتى ينجح الطالب في سبر المرحلة ${pos.stage ?? ""}.`);
+      return setError(`لا يُسمَّع بعد ${unit} ${maxNo} حتى ينجح الطالب في سبر ${pos.stage ? stageName(section, pos.level, pos.stage) : "المرحلة"}.`);
     }
     startTransition(async () => {
       const res = await saveSunnahRecitation({
@@ -171,22 +173,26 @@ export default function SunnahRecitationPanel({
     });
   }
 
+  // سبر المرحلة، أو سبر القسم في المستوى المقسَّم
+  const isPartExam = mode === "partExam";
   function saveStage() {
-    if (!pos.stage) return;
+    const target = isPartExam ? pos.awaitingPart : pos.stage;
+    if (!target) return;
     setStageError("");
     startTransition(async () => {
       const res = await saveSunnahStageExam({
         studentId,
         section,
         level: pos.level,
-        stage: pos.stage as number,
+        stage: target,
+        part: isPartExam,
         stars: stageStars,
         grade: stageGrade,
         date: stageDate,
         notes: "",
       });
       if (res.error) return setStageError(res.error);
-      setSaved("✓ حُفظ سبر المرحلة.");
+      setSaved(isPartExam ? "✓ حُفظ سبر القسم." : "✓ حُفظ سبر المرحلة.");
     });
   }
 
@@ -207,7 +213,12 @@ export default function SunnahRecitationPanel({
       <button type="button" onClick={() => setLockMsg(noStages ? SUNNAH_NOT_AVAILABLE : `سبر المرحلة يُفتح بعد تسميع أرقامها كلها (${unit} ${pos.stageStart}–${pos.stageEnd}).`)} style={lockedBtn}>
         🔒 سبر المرحلة
       </button>
-      <button type="button" onClick={() => setLockMsg(noStages ? SUNNAH_NOT_AVAILABLE : "سبر المستوى يُفتح بعد النجاح في كل مراحل المستوى.")} style={lockedBtn}>
+      {levelPartCount(section, pos.level) > 0 && (
+        <button type="button" onClick={() => setLockMsg("سبر القسم يُفتح بعد النجاح في كل مراحل القسم.")} style={lockedBtn}>
+          🔒 سبر القسم
+        </button>
+      )}
+      <button type="button" onClick={() => setLockMsg(noStages ? SUNNAH_NOT_AVAILABLE : levelPartCount(section, pos.level) > 0 ? "سبر المستوى يُفتح بعد النجاح في سبر كل أقسام المستوى." : "سبر المستوى يُفتح بعد النجاح في كل مراحل المستوى.")} style={lockedBtn}>
         🔒 سبر المستوى
       </button>
     </div>
@@ -239,11 +250,11 @@ export default function SunnahRecitationPanel({
         </div>
       )}
 
-      {/* سبر المرحلة: حين يُتمّ أرقامها */}
-      {mode === "stageExam" && canRecite && pos.stage != null && (
+      {/* سبر المرحلة: حين يُتمّ أرقامها — أو سبر القسم: حين ينجح في كل مراحله */}
+      {((mode === "stageExam" && pos.stage != null) || (isPartExam && pos.awaitingPart != null)) && canRecite && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 11, border: "1px solid var(--line)" }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>
-            سبر المرحلة {pos.stage} ({unit} {pos.stageStart}–{pos.stageEnd})
+            {isPartExam ? `سبر القسم ${pos.awaitingPart} — أنهى الطالب مراحله كلها` : `سبر ${stageName(section, pos.level, pos.stage as number)} (${unit} ${pos.stageStart}–${pos.stageEnd})`}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             {SUNNAH_REC_GRADES.map((g) => (
@@ -263,7 +274,7 @@ export default function SunnahRecitationPanel({
           <DateField label="تاريخ السبر" value={stageDate} onChange={setStageDate} />
           {stageError && <div style={noticeStyle}>{stageError}</div>}
           <button type="button" onClick={saveStage} disabled={pending || !stageGrade} style={{ ...primaryButtonStyle, alignSelf: "flex-start", padding: "9px 20px", opacity: pending || !stageGrade ? 0.6 : 1 }}>
-            حفظ سبر المرحلة
+            {isPartExam ? "حفظ سبر القسم" : "حفظ سبر المرحلة"}
           </button>
         </div>
       )}
@@ -460,7 +471,7 @@ function SetupForm({ section, studentId }: { section: SunnahSectionId; studentId
                   }}
                   style={{ ...chipStyle(stage === k + 1), padding: "9px 14px" }}
                 >
-                  {k + 1} <span style={{ opacity: 0.7, fontSize: 12 }}>({from}–{end})</span>
+                  {stageName(section, level, k + 1)} <span style={{ opacity: 0.7, fontSize: 12 }}>({from}–{end})</span>
                 </button>
               );
             })}

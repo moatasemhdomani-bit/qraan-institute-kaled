@@ -39,6 +39,7 @@ export default async function StudentsPage() {
     mother: s.motherName || "",
     familyName: s.familyName || "",
     birth: s.birthDate || "",
+    birthPlace: s.birthPlace || "",
     address: s.address || "",
     job: s.fatherJob || "",
     phone: s.studentPhone || "",

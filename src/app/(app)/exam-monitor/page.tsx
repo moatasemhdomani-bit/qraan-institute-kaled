@@ -113,8 +113,8 @@ export default async function ExamMonitorPage() {
   // المدرّس يرى في الفلترة أنواع السبر التي يُختبر بها طلابه فقط: القراءة العربية لمدرّسها، وأنواع القرآن لمدرّس القرآن
   const me = session.role === "TEACHER" || session.role === "EXAM_SUPERVISOR" ? { track: session.track } : null;
   // السنة النبوية لكل طلاب المعهد — تظهر لكل مدرّس
-  const sunnah = ["SUNNAH_STAGE", "SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF"] as const;
-  const typeFilters: ("LOCAL" | "WAQF_NOMINATION" | "AWQAF_ACTUAL" | "ARABIC" | "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE")[] = !me
+  const sunnah = ["SUNNAH_STAGE", "SUNNAH_PART", "SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF"] as const;
+  const typeFilters: ("LOCAL" | "WAQF_NOMINATION" | "AWQAF_ACTUAL" | "ARABIC" | "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE" | "SUNNAH_PART")[] = !me
     ? ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL", "ARABIC", ...sunnah]
     : me.track === "ARABIC"
       ? ["ARABIC", ...sunnah]

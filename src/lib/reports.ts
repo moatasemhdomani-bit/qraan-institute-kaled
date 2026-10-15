@@ -1,7 +1,7 @@
 import { prisma, rawPrisma } from "./db";
 import { countedNewPages } from "./daily";
 import { passFailLabel } from "./exam";
-import { sunnahBranchLabel } from "./sunnah";
+import { sunnahBranchLabel, stageName, type SunnahSectionId } from "./sunnah";
 import { sunnahLevelsFor } from "./sunnahServer";
 import { LEVEL_LABELS } from "./track";
 import { awqafPassed } from "./awqaf";
@@ -152,14 +152,12 @@ export async function buildHalaqatBlocks(from: string, to: string, halqaScope: s
     orderBy: { name: "asc" },
   });
   const studentIds = students.map((s) => s.id);
-  const months = monthsInRange(from, to);
 
-  const [recitations, localExams, nomExams, awqafResults, notes] = await Promise.all([
+  const [recitations, localExams, nomExams, awqafResults] = await Promise.all([
     prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "LOCAL", date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
     prisma.awqafResult.findMany({ where: { studentId: { in: studentIds }, sunnahSection: null, batch: { date: { gte: from, lte: to } } } }),
-    prisma.teacherMonthlyNote.findMany({ where: { studentId: { in: studentIds }, month: { in: months } } }),
   ]);
 
   return halaqat
@@ -175,11 +173,8 @@ export async function buildHalaqatBlocks(from: string, to: string, halqaScope: s
           const loc = localSplit(localExams.filter((e) => e.studentId === s.id));
           const nom = nominationSplit(nomExams.filter((e) => e.studentId === s.id));
           const real = realAwqafSplit(awqafResults.filter((r) => r.studentId === s.id));
-          const teacherNote = notes
-            .filter((n) => n.studentId === s.id)
-            .map((n) => n.note)
-            .filter(Boolean)
-            .join(" / ");
+          // الملاحظة الدائمة (يكتبها المدرّس أو الإدارة)
+          const teacherNote = s.reportNote ?? "";
           return {
             studentId: s.id,
             studentName: s.name,
@@ -277,7 +272,7 @@ export type ArabicHalaqatRow = {
 };
 export type ArabicHalaqatBlock = { halqaId: string; halqaName: string; teacherName: string; cohortName: string; rows: ArabicHalaqatRow[] };
 
-function arabicExamMarks(exams: { date: string; stage: number | null; grade: string | null; resultMark: number | null; repeat?: boolean }[]): ArabicExamMark[] {
+export function arabicExamMarks(exams: { date: string; stage: number | null; grade: string | null; resultMark: number | null; repeat?: boolean }[]): ArabicExamMark[] {
   return [...exams]
     .sort((a, b) => a.date.localeCompare(b.date))
     .filter((e) => e.stage != null)
@@ -412,7 +407,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     prisma.exam.findMany({ where: { studentId, type: arabic ? "ARABIC" : "LOCAL", date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
     prisma.awqafResult.findMany({ where: { studentId, sunnahSection: null, batch: { date: { gte: from, lte: to } } } }),
-    prisma.exam.findMany({ where: { studentId, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE"] }, date: { gte: from, lte: to } }, orderBy: { date: "asc" } }),
+    prisma.exam.findMany({ where: { studentId, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE", "SUNNAH_PART"] }, date: { gte: from, lte: to } }, orderBy: { date: "asc" } }),
   ]);
 
   const pages = pagesSummary(recitations);
@@ -450,9 +445,9 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     quranLevel: LEVEL_LABELS[student.track],
     sunnah: sunnahExams.map((e) => ({
       date: e.date,
-      kind: e.type === "SUNNAH_STAGE" ? "سبر مرحلة" : e.type === "SUNNAH" ? "سبر مستوى (محلي)" : e.type === "SUNNAH_NOMINATION" ? "ترشيح الأوقاف" : "سبر الأوقاف",
-      branch: sunnahBranchLabel(e.sunnahSection, e.stage) + (e.type === "SUNNAH_STAGE" ? ` — المرحلة ${e.sunnahStage}` : ""),
-      result: e.type === "SUNNAH_STAGE" ? (e.grade ?? "—") : e.repeat ? "إعادة" : `${e.resultMark ?? "—"} / 100`,
+      kind: e.type === "SUNNAH_STAGE" ? "سبر مرحلة" : e.type === "SUNNAH_PART" ? "سبر قسم" : e.type === "SUNNAH" ? "سبر مستوى (محلي)" : e.type === "SUNNAH_NOMINATION" ? "ترشيح الأوقاف" : "سبر الأوقاف",
+      branch: sunnahBranchLabel(e.sunnahSection, e.stage) + (e.type === "SUNNAH_STAGE" ? ` — ${stageName(e.sunnahSection as SunnahSectionId, e.stage ?? 0, e.sunnahStage ?? 0)}` : e.type === "SUNNAH_PART" ? ` — القسم ${e.sunnahStage}` : ""),
+      result: e.type === "SUNNAH_STAGE" || e.type === "SUNNAH_PART" ? (e.grade ?? "—") : e.repeat ? "إعادة" : `${e.resultMark ?? "—"} / 100`,
       passed: passFailLabel({ type: e.type as "SUNNAH", resultMark: e.resultMark, repeat: e.repeat, grade: e.grade }) === "ناجح",
     })),
   };

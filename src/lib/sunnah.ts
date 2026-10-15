@@ -86,7 +86,7 @@ export const SUNNAH_BOOKS: Record<SunnahSectionId, { id: string; label: string; 
   HADITH: [
     { id: "MUKHTARAT", label: "المختارات", unit: "الحديث", branches: [1], perStage: true },
     { id: "ARBAEEN", label: "الأربعين النووية", unit: "الحديث", branches: [2] },
-    { id: "RIYAD_SELECTED", label: "مختارات من رياض الصالحين", unit: "الحديث", branches: [3] },
+    { id: "RIYAD_SELECTED", label: "مختارات من رياض الصالحين", unit: "الحديث", branches: [3], perStage: true },
     { id: "UMDA", label: "عمدة الأحكام", unit: "الحديث", branches: [4, 5] },
     { id: "RIYAD", label: "رياض الصالحين", unit: "الحديث", branches: [6, 7, 8, 9, 10, 11] },
   ],
@@ -103,11 +103,11 @@ export const SUNNAH_BOOKS: Record<SunnahSectionId, { id: string; label: string; 
 };
 
 export const sunnahBook = (section: string, book: string) => SUNNAH_BOOKS[section as SunnahSectionId]?.find((b) => b.id === book.split(":")[0]);
-/** «المختارات — المرحلة 2» لمفتاح الكتاب ذي الترقيم لكل مرحلة، وإلا اسم الكتاب */
+/** «المختارات — المرحلة 2» (أو «… — القسم 2 — المرحلة 1») لمفتاح الكتاب ذي الترقيم لكل مرحلة، وإلا اسم الكتاب */
 export function sunnahBookLabel(section: string, book: string): string {
   const b = sunnahBook(section, book);
   const st = book.split(":")[1];
-  return b ? (st ? `${b.label} — المرحلة ${st}` : b.label) : book;
+  return b ? (st ? `${b.label} — ${stageName(section as SunnahSectionId, b.branches[0], Number(st))}` : b.label) : book;
 }
 
 /** «الأربعين النووية — الحديث 7» / «… — الحديث 7 إلى 9» */
@@ -154,8 +154,37 @@ export const SUNNAH_STAGE_COUNTS: Partial<Record<SunnahSectionId, Record<number,
   HADITH: {
     1: [15, 20, 40, 42], // المختارات: 117 حديثًا
     2: [10, 10, 10, 12], // الأربعين النووية: 42 حديثًا
+    3: Array(12).fill(10), // مختارات من رياض الصالحين: 3 أقسام × 4 مراحل × 10 أحاديث
   },
 };
+
+/**
+ * المستويات المقسَّمة إلى أقسام (من المستوى الثالث في الحديث فصاعدًا): عدد مراحل كل قسم.
+ * المراحل تُرقَّم في المستوى كله متتالية (1…12) وتُعرض «القسم 2 — المرحلة 1».
+ * التسلسل: مراحل القسم ← سبر القسم ← مراحل القسم التالي … ← سبر آخر قسم ← سبر المستوى.
+ */
+export const SUNNAH_LEVEL_PARTS: Partial<Record<SunnahSectionId, Record<number, number>>> = {
+  HADITH: { 3: 4 },
+};
+
+/** مراحل كل قسم في المستوى — null للمستوى غير المقسَّم */
+export const levelPartSize = (section: SunnahSectionId, level: number): number | null => SUNNAH_LEVEL_PARTS[section]?.[level] ?? null;
+/** عدد أقسام المستوى — 0 للمستوى غير المقسَّم */
+export function levelPartCount(section: SunnahSectionId, level: number): number {
+  const size = levelPartSize(section, level);
+  const n = SUNNAH_STAGE_COUNTS[section]?.[level]?.length ?? 0;
+  return size ? Math.ceil(n / size) : 0;
+}
+/** القسم والمرحلة داخله لمرحلة المستوى k (1…) */
+export function stagePart(section: SunnahSectionId, level: number, k: number): { part: number; stage: number } | null {
+  const size = levelPartSize(section, level);
+  return size ? { part: Math.ceil(k / size), stage: ((k - 1) % size) + 1 } : null;
+}
+/** «المرحلة 3» أو «القسم 2 — المرحلة 1» */
+export function stageName(section: SunnahSectionId, level: number, k: number): string {
+  const sp = stagePart(section, level, k);
+  return sp ? `القسم ${sp.part} — المرحلة ${sp.stage}` : `المرحلة ${k}`;
+}
 
 /** نهاية كل مرحلة في ترقيم الكتاب (تراكميًا) — null بلا مراحل مُدخلة */
 export function levelStages(section: SunnahSectionId, level: number): number[] | null {
@@ -185,8 +214,10 @@ export type SunnahPosition = {
   /** أول رقم جديد في المرحلة الحالية وآخر رقم فيها */
   stageStart: number | null;
   stageEnd: number | null;
-  /** نجح في كل مراحل المستوى — ينتظر سبر المستوى */
+  /** نجح في كل مراحل المستوى (وأقسامه) — ينتظر سبر المستوى */
   awaitingLevelExam: boolean;
+  /** المستوى المقسَّم: أنهى مراحل هذا القسم وينتظر سبره — null خلاف ذلك */
+  awaitingPart: number | null;
   /** أنهى كل مستويات المنهج */
   finished: boolean;
 };
@@ -194,7 +225,8 @@ export type SunnahPosition = {
 export function sunnahPosition(
   section: SunnahSectionId,
   passedLevels: number[],
-  passedStages: { level: number; stage: number }[]
+  passedStages: { level: number; stage: number }[],
+  passedParts: { level: number; part: number }[] = []
 ): SunnahPosition {
   const total = SUNNAH_SECTIONS.find((s) => s.id === section)!.branches.length;
   const top = Math.max(0, ...passedLevels);
@@ -206,8 +238,19 @@ export function sunnahPosition(
     const i = stages.findIndex((_, k) => !passedStages.some((p) => p.level === level && p.stage === k + 1));
     stage = i >= 0 ? i + 1 : null;
   }
-  // المرحلة المعتبرة لنطاق الأرقام: الحالية، أو الأخيرة إن أتمّ المراحل كلها
-  const rangeStage = stages ? (stage ?? stages.length) : null;
+  // المستوى المقسَّم: لا تُفتح مراحل القسم التالي (ولا سبر المستوى) حتى ينجح في سبر القسم الذي أنهى مراحله
+  let awaitingPart: number | null = null;
+  const size = finished ? null : levelPartSize(section, level);
+  if (stages && size) {
+    const lastDone = stage ? stage - 1 : stages.length;
+    const donePart = lastDone > 0 && lastDone % size === 0 ? lastDone / size : lastDone === stages.length && lastDone > 0 ? Math.ceil(lastDone / size) : null;
+    if (donePart && !passedParts.some((p) => p.level === level && p.part === donePart)) {
+      awaitingPart = donePart;
+      stage = null;
+    }
+  }
+  // المرحلة المعتبرة لنطاق الأرقام: الحالية، أو آخر مرحلة أنهاها
+  const rangeStage = stages ? (stage ?? (awaitingPart ? awaitingPart * (size as number) : stages.length)) : null;
   const range = rangeStage ? stageRange(section, level, rangeStage) : null;
   const book = rangeStage ? stageBookKey(section, level, rangeStage) : levelBook(section, level).id;
   return {
@@ -218,7 +261,8 @@ export function sunnahPosition(
     stage,
     stageStart: stage && range ? range.from : null,
     stageEnd: range ? range.to : null,
-    awaitingLevelExam: !!stages && stage === null,
+    awaitingLevelExam: !!stages && stage === null && awaitingPart === null,
+    awaitingPart,
     finished,
   };
 }
@@ -234,7 +278,9 @@ export function sunnahPositionLabel(p: SunnahPosition): string {
   // الترقيم لكل مرحلة: «المرحلة 2 من 4 (من الحديث 1 إلى 20)»
   if (!p.stages) return lvl;
   if (p.awaitingLevelExam) return `${lvl} — أنهى مراحله كلها، ينتظر سبر المستوى`;
-  return `${lvl} — المرحلة ${p.stage} من ${p.stages.length} (من ${b?.unit ?? "الرقم"} ${p.stageStart} إلى ${p.stageEnd})`;
+  if (p.awaitingPart) return `${lvl} — أنهى مراحل القسم ${p.awaitingPart}، ينتظر سبر القسم`;
+  const of = levelPartSize(p.section, p.level) ? "" : ` من ${p.stages.length}`;
+  return `${lvl} — ${stageName(p.section, p.level, p.stage as number)}${of} (من ${b?.unit ?? "الرقم"} ${p.stageStart} إلى ${p.stageEnd})`;
 }
 
 /** أول رقم في المستوى (ترقيم الكتاب) — 1 للكتاب ذي الترقيم لكل مرحلة */
@@ -265,10 +311,13 @@ export type SunnahStartPoint = { level: number; stage: number | null; startNo: n
 
 /** المستويات والمراحل المنجزة بحكم الإعداد الأول */
 function startCredits(section: SunnahSectionId, start?: SunnahStartPoint | null) {
-  if (!start) return { levels: [] as number[], stages: [] as { level: number; stage: number }[] };
+  if (!start) return { levels: [] as number[], stages: [] as { level: number; stage: number }[], parts: [] as { level: number; part: number }[] };
+  const sp = start.stage ? stagePart(section, start.level, start.stage) : null;
   return {
     levels: Array.from({ length: start.level - 1 }, (_, i) => i + 1),
     stages: start.stage ? Array.from({ length: start.stage - 1 }, (_, i) => ({ level: start.level, stage: i + 1 })) : [],
+    // الأقسام قبل قسم البداية تُعدّ منجزة (بسبرها)
+    parts: sp ? Array.from({ length: sp.part - 1 }, (_, i) => ({ level: start.level, part: i + 1 })) : [],
   };
 }
 
@@ -285,8 +334,11 @@ export function positionFromExams(
   const passedStages = mine
     .filter((e) => e.type === "SUNNAH_STAGE" && !e.repeat && !!e.grade && e.grade !== SUNNAH_REPEAT_GRADE && e.stageNo != null)
     .map((e) => ({ level: e.branch as number, stage: e.stageNo as number }));
+  const passedParts = mine
+    .filter((e) => e.type === "SUNNAH_PART" && !e.repeat && !!e.grade && e.grade !== SUNNAH_REPEAT_GRADE && e.stageNo != null)
+    .map((e) => ({ level: e.branch as number, part: e.stageNo as number }));
   const credit = startCredits(section, start);
-  return sunnahPosition(section, [...passedLevels, ...credit.levels], [...passedStages, ...credit.stages]);
+  return sunnahPosition(section, [...passedLevels, ...credit.levels], [...passedStages, ...credit.stages], [...passedParts, ...credit.parts]);
 }
 
 /**
@@ -345,7 +397,14 @@ export function levelExamBlock(
         !credited.some((c) => c.level === level && c.stage === k) &&
         !mine.some((e) => e.type === "SUNNAH_STAGE" && e.stageNo === k && !e.repeat && !!e.grade && e.grade !== SUNNAH_REPEAT_GRADE)
     );
-  return missing.length ? `سبر المستوى ${level} بعد النجاح في كل مراحله — لم ينجح بعد في: المرحلة ${missing.join("، ")}.` : null;
+  if (missing.length) return `سبر المستوى ${level} بعد النجاح في كل مراحله — لم ينجح بعد في: ${missing.map((k) => stageName(section, level, k)).join("، ")}.`;
+  // المستوى المقسَّم: وبعد النجاح في سبر كل أقسامه
+  const missingParts = Array.from({ length: levelPartCount(section, level) }, (_, i) => i + 1).filter(
+    (k) =>
+      !startCredits(section, start).parts.some((c) => c.level === level && c.part === k) &&
+      !mine.some((e) => e.type === "SUNNAH_PART" && e.stageNo === k && !e.repeat && !!e.grade && e.grade !== SUNNAH_REPEAT_GRADE)
+  );
+  return missingParts.length ? `سبر المستوى ${level} بعد النجاح في سبر كل أقسامه — لم ينجح بعد في سبر: القسم ${missingParts.join("، ")}.` : null;
 }
 
 /**
@@ -403,7 +462,7 @@ export const SUNNAH_REC_GRADES = ["ناجح", SUNNAH_REPEAT_GRADE] as const;
  * ما يُفتح للمختبِر بحسب موقع الطالب: تسميع الأحاديث، أو سبر المرحلة (بعد تسميع كل أرقامها بغير «إعادة»)،
  * أو سبر المستوى (بعد النجاح في كل مراحله). المستوى بلا مراحل: تسميع فقط.
  */
-export type SunnahMode = "setup" | "recite" | "stageExam" | "levelExam" | "finished" | "unavailable";
+export type SunnahMode = "setup" | "recite" | "stageExam" | "partExam" | "levelExam" | "finished" | "unavailable";
 
 export function sunnahMode(
   pos: SunnahPosition,
@@ -416,6 +475,7 @@ export function sunnahMode(
   // المستوى بلا مراحل مُدخلة: لا تسميع ولا سبر — «غير متاح حاليًا»
   if (!pos.stages) return "unavailable";
   if (pos.awaitingLevelExam) return "levelExam";
+  if (pos.awaitingPart) return "partExam";
   if (pos.stageStart == null || pos.stageEnd == null) return "recite";
   // آخر تقدير لكل رقم في كتاب المستوى
   const latest = new Map<number, string>();

@@ -10,7 +10,7 @@ import { SUNNAH_SECTIONS, sunnahSection } from "@/lib/sunnah";
  */
 
 const EMPTY = "__";
-// حاليًا للجميع — تُضاف لاحقًا لبيانات الطالب
+// إن لم يُدخل مكان الولادة في بيانات الطالب
 const BIRTH_CITY = "حلب";
 const INSTITUTE = "خالد بن الوليد";
 const DISTRICT = "الحمدانية";
@@ -56,13 +56,13 @@ const cell = (ref: string, style: number, v: string | number | null) => {
   return `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
 };
 
-type Row = { order: number; name: string; father: string; mother: string; birthYear: number | null; branch: string; mark: number | string; mobile: string };
+type Row = { order: number; name: string; birthPlace: string; father: string; mother: string; birthYear: number | null; branch: string; mark: number | string; mobile: string };
 
 export async function sunnahNominationExcel(batchId: string): Promise<{ buf: Uint8Array; date: string } | null> {
   const batch = await prisma.awqafBatch.findUnique({
     where: { id: batchId },
     include: {
-      results: { include: { student: { select: { id: true, name: true, fatherName: true, motherName: true, birthDate: true, guardianPhone: true } } } },
+      results: { include: { student: { select: { id: true, name: true, fatherName: true, motherName: true, birthDate: true, birthPlace: true, guardianPhone: true } } } },
     },
   });
   if (!batch || batch.kind !== "SUNNAH") return null;
@@ -87,6 +87,7 @@ export async function sunnahNominationExcel(batchId: string): Promise<{ buf: Uin
         // ترتيب المنهج ثم المستوى
         order: SUNNAH_SECTIONS.findIndex((x) => x.id === section) * 100 + level,
         name: s.name,
+        birthPlace: s.birthPlace?.trim() || BIRTH_CITY,
         father: s.fatherName?.trim() || EMPTY,
         mother: s.motherName?.trim() || EMPTY,
         birthYear: s.birthDate && /^\d{4}/.test(s.birthDate) ? Number(s.birthDate.slice(0, 4)) : null,
@@ -123,7 +124,7 @@ export async function sunnahNominationExcel(batchId: string): Promise<{ buf: Uin
       cell(`B${r}`, adult ? 10 : 6, x.name) +
       cell(`C${r}`, 6, x.father) +
       cell(`D${r}`, 6, x.mother) +
-      cell(`E${r}`, 6, BIRTH_CITY) +
+      cell(`E${r}`, 6, x.birthPlace) +
       cell(`F${r}`, 7, x.birthYear ?? EMPTY) +
       cell(`G${r}`, 6, x.branch) +
       cell(`H${r}`, 8, x.mark) +

@@ -60,6 +60,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
 
   const guardianPhone = normalizePhone(String(formData.get("guardianPhone") || ""));
   if (!guardianPhone) return { error: "رقم ولي الأمر حقل إلزامي." };
+  // مكان الولادة إلزامي للجديد والسابقين (يُطلب عند أي تعديل لمن لم يُدخل له)
+  if (!String(formData.get("birthPlace") || "").trim()) return { error: "مكان الولادة حقل إلزامي." };
   if (!isValidMobile(guardianPhone)) return { error: "رقم ولي الأمر بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
   const studentPhone = normalizePhone(String(formData.get("phone") || ""));
   if (studentPhone && !isValidMobile(studentPhone)) return { error: "رقم هاتف الطالب بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
@@ -78,6 +80,7 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     motherName: String(formData.get("mother") || "") || null,
     familyName: String(formData.get("familyName") || "") || null,
     birthDate: String(formData.get("birth") || "") || null,
+    birthPlace: String(formData.get("birthPlace") || "").trim() || null,
     address: String(formData.get("address") || "") || null,
     // الطالب اليتيم: عمل الوالد «متوفى»
     fatherJob: isOrphan ? "متوفى" : String(formData.get("job") || "") || null,

@@ -8,7 +8,7 @@ export async function sunnahLevelsFor(studentIds: string[]): Promise<Record<stri
   if (studentIds.length === 0) return {};
   const [exams, starts, recs] = await Promise.all([
     prisma.exam.findMany({
-      where: { studentId: { in: studentIds }, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE"] } },
+      where: { studentId: { in: studentIds }, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE", "SUNNAH_PART"] } },
       select: { studentId: true, type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true },
     }),
     prisma.sunnahStart.findMany({ where: { studentId: { in: studentIds } } }),

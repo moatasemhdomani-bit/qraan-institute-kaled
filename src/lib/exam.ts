@@ -1,5 +1,5 @@
 import { MIN_PAGE, MAX_PAGE } from "./daily";
-import { SUNNAH_PASS_MARK, sunnahBranchLabel } from "./sunnah";
+import { SUNNAH_PASS_MARK, sunnahBranchLabel, stageName, type SunnahSectionId } from "./sunnah";
 
 export { MIN_PAGE, MAX_PAGE };
 
@@ -10,9 +10,9 @@ export const NOMINATION_PARTS: Record<"present" | "absent", number[]> = {
   absent: [5, 10, 15, 20, 25, 30],
 };
 
-export type ExamTypeId = "LOCAL" | "WAQF_NOMINATION" | "PLACEMENT" | "ARABIC" | "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE";
+export type ExamTypeId = "LOCAL" | "WAQF_NOMINATION" | "PLACEMENT" | "ARABIC" | "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE" | "SUNNAH_PART";
 
-export const isSunnahType = (t: string) => t === "SUNNAH" || t === "SUNNAH_NOMINATION" || t === "SUNNAH_AWQAF" || t === "SUNNAH_STAGE";
+export const isSunnahType = (t: string) => t === "SUNNAH" || t === "SUNNAH_NOMINATION" || t === "SUNNAH_AWQAF" || t === "SUNNAH_STAGE" || t === "SUNNAH_PART";
 
 export const TYPE_LABELS: Record<ExamTypeId, string> = {
   LOCAL: "سبر محلي",
@@ -23,6 +23,7 @@ export const TYPE_LABELS: Record<ExamTypeId, string> = {
   SUNNAH_NOMINATION: "سبر ترشيح الأوقاف (السنة النبوية)",
   SUNNAH_AWQAF: "سبر الأوقاف (السنة النبوية)",
   SUNNAH_STAGE: "سبر مرحلة (السنة النبوية)",
+  SUNNAH_PART: "سبر قسم (السنة النبوية)",
 };
 
 /** سبر القراءة العربية: ست مراحل — 1 إلى 5 بتقدير، والسادسة بعلامة من 100 (النجاح 90 فأكثر). */
@@ -92,7 +93,7 @@ export function resultLabel(exam: ExamResultShape): string {
   }
   if (exam.repeat) return "إعادة";
   if (exam.type === "ARABIC" && !isArabicMarkStage(exam.stage)) return exam.grade || "—";
-  if (exam.type === "SUNNAH_STAGE") return exam.grade || "—";
+  if (exam.type === "SUNNAH_STAGE" || exam.type === "SUNNAH_PART") return exam.grade || "—";
   return exam.resultMark != null ? `${exam.resultMark} / 100` : "—";
 }
 
@@ -116,7 +117,7 @@ type PassFailShape = ExamResultShape & { nominationPresent?: boolean | null };
 /** "ناجح" أو "إعادة" — أو null لما لا حدّ نجاح له (تحديد مستوى، أو سبر بلا نتيجة بعد). */
 export function passFailLabel(exam: PassFailShape): "ناجح" | "إعادة" | null {
   if (exam.repeat && exam.type !== "PLACEMENT") return "إعادة";
-  if (exam.type === "SUNNAH_STAGE") return !exam.grade ? null : exam.grade === ARABIC_FAIL_GRADE ? "إعادة" : "ناجح";
+  if (exam.type === "SUNNAH_STAGE" || exam.type === "SUNNAH_PART") return !exam.grade ? null : exam.grade === ARABIC_FAIL_GRADE ? "إعادة" : "ناجح";
   if (exam.type === "ARABIC") {
     if (isArabicMarkStage(exam.stage)) return exam.resultMark == null ? null : exam.resultMark >= ARABIC_PASS_MARK ? "ناجح" : "إعادة";
     if (!exam.grade) return null;
@@ -213,7 +214,8 @@ export function examKindLabel(e: {
   sunnahSection?: string | null;
   sunnahStage?: number | null;
 }): string {
-  if (e.type === "SUNNAH_STAGE") return `${sunnahBranchLabel(e.sunnahSection, e.stage, false)} — المرحلة ${e.sunnahStage ?? ""}`;
+  if (e.type === "SUNNAH_STAGE") return `${sunnahBranchLabel(e.sunnahSection, e.stage, false)} — ${stageName(e.sunnahSection as SunnahSectionId, e.stage ?? 0, e.sunnahStage ?? 0)}`;
+  if (e.type === "SUNNAH_PART") return `${sunnahBranchLabel(e.sunnahSection, e.stage, false)} — سبر القسم ${e.sunnahStage ?? ""}`;
   if (e.type === "ARABIC") return e.stage != null ? arabicStageLabel(e.stage) : "";
   if (e.type === "SUNNAH" || e.type === "SUNNAH_NOMINATION" || e.type === "SUNNAH_AWQAF") return sunnahBranchLabel(e.sunnahSection, e.stage, false);
   const mode = e.nominationPresent == null ? "" : e.nominationPresent ? "حاضرًا" : "غيبًا";

@@ -35,6 +35,7 @@ export default async function UsersPage() {
     mother: u.motherName || "",
     family: u.familyName || "",
     birth: u.birthDate || "",
+    birthPlace: u.birthPlace || "",
     nid: u.nationalId || "",
     address: u.address || "",
     job: u.currentJob || "",

@@ -352,9 +352,9 @@ button {
 .app-shell.nav-collapsed .app-sidebar {
   border-inline-start: none !important;
 }
-/* القائمة مطويّة: هامش ضيق على يمين المحتوى يبقى للزر وحده، فلا يقع تحته شيء أثناء التمرير */
+/* القائمة مطويّة: المحتوى يمتد إلى أقصى اليمين، والزر يبقى في شريط علوي فوقه (لا هامش جانبي محجوز له) */
 .app-shell.nav-collapsed .app-content-pad {
-  padding-inline-start: 66px !important;
+  padding-top: 62px !important;
 }
 .app-mobile-nav {
   display: none;
@@ -394,11 +394,11 @@ button {
     width: 34px;
     height: 34px;
   }
-  .app-shell.nav-collapsed .app-content-pad {
-    padding-inline-start: 50px !important;
-  }
   .app-content-pad {
     padding: 14px !important;
     gap: 16px !important;
+  }
+  .app-shell.nav-collapsed .app-content-pad {
+    padding-top: 50px !important;
   }
 }

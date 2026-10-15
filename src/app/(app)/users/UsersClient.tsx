@@ -60,6 +60,7 @@ type StaffRow = {
   mother: string;
   family: string;
   birth: string;
+  birthPlace: string;
   nid: string;
   address: string;
   job: string;
@@ -613,6 +614,7 @@ function StaffForm({
           <Field label="النسبة (الكنية/العائلة)" name="family" defaultValue={initial?.family} required={req} />
           <PhoneField label={req ? "رقم التواصل *" : "رقم التواصل"} name="phone" defaultValue={initial?.phone} />
           <Field label={req ? "تاريخ الميلاد *" : "تاريخ الميلاد"} name="birth" type="date" defaultValue={initial?.birth} />
+          <Field label="مكان الولادة *" name="birthPlace" defaultValue={initial?.birthPlace || "حلب"} required />
           <div>
             <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الرقم الوطني{req ? " *" : ""}</label>
             {/* أرقام فقط، ويبقى الصفر على اليسار (يُحفظ نصًّا) */}

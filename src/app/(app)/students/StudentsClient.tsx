@@ -38,6 +38,7 @@ type StudentRow = {
   mother: string;
   familyName: string;
   birth: string;
+  birthPlace: string;
   address: string;
   job: string;
   phone: string;
@@ -500,6 +501,7 @@ function StudentForm({
           <Field label="اسم الوالدة" name="mother" defaultValue={initial?.mother} />
           <Field label="النسبة" name="familyName" defaultValue={initial?.familyName} />
           <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} />
+          <Field label="مكان الولادة" name="birthPlace" defaultValue={initial?.birthPlace || "حلب"} required />
           <Field label="عنوان السكن" name="address" defaultValue={initial?.address} />
           {/* اليتيم: عمل الوالد «متوفى» تلقائيًا */}
           {isOrphan ? (
