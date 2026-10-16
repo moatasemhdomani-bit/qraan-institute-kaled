@@ -24,6 +24,7 @@ type MonthlyRow = {
   newTotal: number;
   pastJuz: number;
   locPass: number; locFail: number;
+  pastPass: number; pastFail: number;
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
   note: string;
@@ -165,6 +166,7 @@ function MonthlyTable({ arabic, data }: { arabic: boolean; data: { rows: Monthly
               <th style={th}>مجموع الجديد</th>
               {!arabic && <th style={th}>مجموع الماضي (أجزاء)</th>}
               <th style={th}>{arabic ? "الاختبار" : "اختبار محلي"}</th>
+              {!arabic && <th style={th}>سبر ماضٍ غيباً</th>}
               {!arabic && <th style={th}>ترشيح الأوقاف</th>}
               {!arabic && <th style={th}>سبر الأوقاف الفعلي</th>}
               <th style={{ ...th, minWidth: 220 }}>ملاحظة</th>
@@ -179,6 +181,7 @@ function MonthlyTable({ arabic, data }: { arabic: boolean; data: { rows: Monthly
                 <td style={{ padding: 8, textAlign: "center" }}>{r.newTotal}</td>
                 {!arabic && <td style={{ padding: 8, textAlign: "center" }}>{formatJuz(r.pastJuz)}</td>}
                 <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.locPass, r.locFail)}</td>
+                {!arabic && <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.pastPass, r.pastFail)}</td>}
                 {!arabic && <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.nomPass, r.nomFail)}</td>}
                 {!arabic && <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.realPass, r.realFail)}</td>}
                 <td style={{ padding: 6 }}>

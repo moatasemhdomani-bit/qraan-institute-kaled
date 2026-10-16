@@ -65,6 +65,10 @@ export default function StudentReportPreview({ preview }: { preview: StudentPrev
         {!preview.arabic && (
           <>
             <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>سبر ماضٍ غيباً</div>
+              {passFailCell(preview.pastPass, preview.pastFail)}
+            </div>
+            <div style={{ padding: 10, borderRadius: 10, border: "1px solid var(--line)" }}>
               <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 4 }}>ترشيح الأوقاف للقرآن</div>
               {passFailCell(preview.nomPass, preview.nomFail)}
             </div>

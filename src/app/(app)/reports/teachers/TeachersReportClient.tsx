@@ -118,6 +118,7 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
                   <th style={{ padding: 8 }}>صفحات جديد لكل الطلاب</th>
                   <th style={{ padding: 8 }}>أجزاء ماضٍ لكل الطلاب</th>
                   <th style={{ padding: 8 }}>اختبارات محلية</th>
+                  <th style={{ padding: 8 }}>سبر ماضٍ غيباً</th>
                   <th style={{ padding: 8 }}>ترشيح الأوقاف</th>
                   <th style={{ padding: 8 }}>سبر الأوقاف الفعلي</th>
                   <th style={{ padding: 8 }}>عدد الطلاب</th>
@@ -132,6 +133,7 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
                     <td style={{ padding: 8, textAlign: "center" }}>{r.newPages}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{formatJuz(r.pastJuz)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.locPass, r.locFail)}</td>
+                    <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.pastPass, r.pastFail)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.nomPass, r.nomFail)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.awqPass, r.awqFail)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{r.count}</td>

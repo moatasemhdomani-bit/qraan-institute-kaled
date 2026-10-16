@@ -63,6 +63,19 @@ export function nominationSplit(exams: NominationExamRow[]): { pass: number; fai
   return { pass, fail };
 }
 
+type PastGhaibRow = { resultMark: number | null; repeat?: boolean };
+
+/** عدد سبور «سبر ماضٍ غيباً» الناجحة/المُعادة — النجاح من 80 كالسبر المحلي غيباً. */
+export function pastGhaibSplit(exams: PastGhaibRow[]): { pass: number; fail: number } {
+  let pass = 0, fail = 0;
+  for (const e of exams) {
+    const label = passFailLabel({ type: "PAST_GHAIB", resultMark: e.resultMark, repeat: e.repeat });
+    if (label === "ناجح") pass++;
+    else if (label === "إعادة") fail++;
+  }
+  return { pass, fail };
+}
+
 type AwqafResultRow = { score: number | null; nominationPresent: boolean };
 
 /** عدد نتائج سبر الأوقاف الفعلي الناجحة/المُعادة — نفس حدّ مسار ترشيح كل طالب. */
@@ -130,6 +143,8 @@ export type HalaqatPreviewRow = {
   newTotal: number;
   pastJuz: number;
   locPass: number; locFail: number;
+  /** سبر ماضٍ غيباً */
+  pastPass: number; pastFail: number;
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
   note: string;
@@ -153,11 +168,12 @@ export async function buildHalaqatBlocks(from: string, to: string, halqaScope: s
   });
   const studentIds = students.map((s) => s.id);
 
-  const [recitations, localExams, nomExams, awqafResults] = await Promise.all([
+  const [recitations, localExams, nomExams, awqafResults, pastExams] = await Promise.all([
     prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "LOCAL", date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
     prisma.awqafResult.findMany({ where: { studentId: { in: studentIds }, sunnahSection: null, batch: { date: { gte: from, lte: to } } } }),
+    prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "PAST_GHAIB", date: { gte: from, lte: to } } }),
   ]);
 
   return halaqat
@@ -171,6 +187,7 @@ export async function buildHalaqatBlocks(from: string, to: string, halqaScope: s
         .map((s) => {
           const pages = pagesSummary(recitations.filter((r) => r.studentId === s.id));
           const loc = localSplit(localExams.filter((e) => e.studentId === s.id));
+          const past = pastGhaibSplit(pastExams.filter((e) => e.studentId === s.id));
           const nom = nominationSplit(nomExams.filter((e) => e.studentId === s.id));
           const real = realAwqafSplit(awqafResults.filter((r) => r.studentId === s.id));
           // الملاحظة الدائمة (يكتبها المدرّس أو الإدارة)
@@ -183,6 +200,7 @@ export async function buildHalaqatBlocks(from: string, to: string, halqaScope: s
             newTotal: pages.newTotal,
             pastJuz: pages.pastJuz,
             locPass: loc.pass, locFail: loc.fail,
+            pastPass: past.pass, pastFail: past.fail,
             nomPass: nom.pass, nomFail: nom.fail,
             realPass: real.pass, realFail: real.fail,
             note: teacherNote,
@@ -200,6 +218,8 @@ export type TeachersPreviewRow = {
   newPages: number;
   pastJuz: number;
   locPass: number; locFail: number;
+  /** سبر ماضٍ غيباً */
+  pastPass: number; pastFail: number;
   /** سبر ترشيح الأوقاف */
   nomPass: number; nomFail: number;
   /** سبر الأوقاف الفعلي */
@@ -222,17 +242,19 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
   });
   const studentIds = allStudents.map((s) => s.id);
 
-  const [recitations, localExams, nomExams, awqafResults] = await Promise.all([
+  const [recitations, localExams, nomExams, awqafResults, pastExams] = await Promise.all([
     prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "LOCAL", date: { gte: from, lte: to } } }),
     prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
     prisma.awqafResult.findMany({ where: { studentId: { in: studentIds }, sunnahSection: null, batch: { date: { gte: from, lte: to } } } }),
+    prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "PAST_GHAIB", date: { gte: from, lte: to } } }),
   ]);
 
   return teachers
     .map((t) => {
       const halqaIds = new Set(t.halaqatTaught.map((h) => h.id));
       const studs = allStudents.filter((s) => s.halqaId && halqaIds.has(s.halqaId));
+      let pastPass = 0, pastFail = 0;
       let newPages = 0, pastJuz = 0, locPass = 0, locFail = 0, nomPass = 0, nomFail = 0, awqPass = 0, awqFail = 0;
       for (const s of studs) {
         const pages = pagesSummary(recitations.filter((r) => r.studentId === s.id));
@@ -240,6 +262,8 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
         pastJuz += pages.pastJuz;
         const loc = localSplit(localExams.filter((e) => e.studentId === s.id));
         locPass += loc.pass; locFail += loc.fail;
+        const past = pastGhaibSplit(pastExams.filter((e) => e.studentId === s.id));
+        pastPass += past.pass; pastFail += past.fail;
         const nom = nominationSplit(nomExams.filter((e) => e.studentId === s.id));
         const real = realAwqafSplit(awqafResults.filter((r) => r.studentId === s.id));
         nomPass += nom.pass; nomFail += nom.fail;
@@ -249,7 +273,7 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
         teacherId: t.id,
         teacherName: t.name,
         halqaNames: t.halaqatTaught.map((h) => h.name).join("، ") || "—",
-        newPages, pastJuz, locPass, locFail, nomPass, nomFail, awqPass, awqFail,
+        newPages, pastJuz, locPass, locFail, pastPass, pastFail, nomPass, nomFail, awqPass, awqFail,
         count: studs.length,
       };
     })
@@ -375,6 +399,8 @@ export type StudentPreview = {
   newPages: number;
   pastJuz: number;
   locPass: number; locFail: number;
+  /** سبر ماضٍ غيباً */
+  pastPass: number; pastFail: number;
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
   behavior: string;
@@ -400,7 +426,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
   if (!student) return null;
 
   const arabic = examFamily(student.track) === "ARABIC";
-  const [attendance, recitations, localExams, nomExams, awqafResults, sunnahExams] = await Promise.all([
+  const [attendance, recitations, localExams, nomExams, awqafResults, sunnahExams, pastExams] = await Promise.all([
     prisma.attendance.findMany({ where: { studentId, date: { gte: from, lte: to } } }),
     prisma.recitation.findMany({ where: { studentId, date: { gte: from, lte: to } } }),
     // طالب القراءة العربية: اختباراته اختبارات المراحل (ARABIC) بدل السبر المحلي
@@ -408,6 +434,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     prisma.exam.findMany({ where: { studentId, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
     prisma.awqafResult.findMany({ where: { studentId, sunnahSection: null, batch: { date: { gte: from, lte: to } } } }),
     prisma.exam.findMany({ where: { studentId, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE", "SUNNAH_PART"] }, date: { gte: from, lte: to } }, orderBy: { date: "asc" } }),
+    prisma.exam.findMany({ where: { studentId, type: "PAST_GHAIB", date: { gte: from, lte: to } } }),
   ]);
 
   const pages = pagesSummary(recitations);
@@ -416,6 +443,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     ? { pass: arabicMarks.filter((m) => m.passed === true).length, fail: arabicMarks.filter((m) => m.passed === false).length }
     : localSplit(localExams);
   const nom = arabic ? { pass: 0, fail: 0 } : nominationSplit(nomExams);
+  const past = arabic ? { pass: 0, fail: 0 } : pastGhaibSplit(pastExams);
   const real = arabic ? { pass: 0, fail: 0 } : realAwqafSplit(awqafResults);
 
   return {
@@ -433,6 +461,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     newPages: pages.newTotal,
     pastJuz: pages.pastJuz,
     locPass: loc.pass, locFail: loc.fail,
+    pastPass: past.pass, pastFail: past.fail,
     nomPass: nom.pass, nomFail: nom.fail,
     realPass: real.pass, realFail: real.fail,
     behavior: student.behavior,

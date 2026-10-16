@@ -98,6 +98,7 @@ export type HalaqatReportRow = {
   newTotal: number;
   pastJuz: number;
   locPass: number; locFail: number;
+  pastPass: number; pastFail: number;
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
   note: string;
@@ -122,12 +123,13 @@ export function halaqatReportHtml(input: {
           <th rowspan="2">مجموع الجديد</th>
           <th rowspan="2">مجموع الماضي (أجزاء)</th>
           <th colspan="2">اختبار محلي</th>
+          <th colspan="2">سبر ماضٍ غيباً</th>
           <th colspan="2">ترشيح الأوقاف</th>
           <th colspan="2">سبر الأوقاف الفعلي</th>
           <th rowspan="2">ملاحظات</th>
         </tr>
         <tr>
-          <th>ناجح</th><th>إعادة</th><th>ناجح</th><th>إعادة</th><th>ناجح</th><th>إعادة</th>
+          <th>ناجح</th><th>إعادة</th><th>ناجح</th><th>إعادة</th><th>ناجح</th><th>إعادة</th><th>ناجح</th><th>إعادة</th>
         </tr>
       </thead>
       <tbody>
@@ -140,6 +142,7 @@ export function halaqatReportHtml(input: {
               <td>${r.newTotal}</td>
               <td>${formatJuz(r.pastJuz)}</td>
               ${passFailCells(r.locPass, r.locFail)}
+              ${passFailCells(r.pastPass ?? 0, r.pastFail ?? 0)}
               ${passFailCells(r.nomPass, r.nomFail)}
               ${passFailCells(r.realPass, r.realFail)}
               <td class="note">${escapeHtml(r.note?.trim() || "—")}</td>
@@ -257,6 +260,7 @@ export type TeachersReportRow = {
   newPages: number;
   pastJuz: number;
   locPass: number; locFail: number;
+  pastPass: number; pastFail: number;
   nomPass: number; nomFail: number;
   awqPass: number; awqFail: number;
   count: number;
@@ -271,7 +275,7 @@ export function teachersReportHtml(input: {
     <table>
       <thead><tr>
         <th>المدرس</th><th>الحلقة</th><th>صفحات جديد لكل الطلاب</th><th>أجزاء ماضٍ لكل الطلاب</th>
-        <th>اختبارات محلية (ناجحة/إعادة)</th><th>ترشيح الأوقاف (ناجحة/إعادة)</th><th>سبر الأوقاف الفعلي (ناجحة/إعادة)</th>
+        <th>اختبارات محلية (ناجحة/إعادة)</th><th>سبر ماضٍ غيباً (ناجحة/إعادة)</th><th>ترشيح الأوقاف (ناجحة/إعادة)</th><th>سبر الأوقاف الفعلي (ناجحة/إعادة)</th>
         <th>عدد الطلاب</th><th>ملاحظات</th>
       </tr></thead>
       <tbody>
@@ -283,6 +287,7 @@ export function teachersReportHtml(input: {
               <td>${r.newPages}</td>
               <td>${formatJuz(r.pastJuz)}</td>
               <td><span class="pass">${r.locPass}</span> / <span class="fail">${r.locFail}</span></td>
+              <td><span class="pass">${r.pastPass ?? 0}</span> / <span class="fail">${r.pastFail ?? 0}</span></td>
               <td><span class="pass">${r.nomPass}</span> / <span class="fail">${r.nomFail}</span></td>
               <td><span class="pass">${r.awqPass}</span> / <span class="fail">${r.awqFail}</span></td>
               <td>${r.count}</td>
@@ -308,6 +313,7 @@ export function studentReportHtml(input: {
   newPages: number;
   pastJuz: number;
   locPass: number; locFail: number;
+  pastPass: number; pastFail: number;
   nomPass: number; nomFail: number;
   realPass: number; realFail: number;
   behavior: string;
@@ -358,9 +364,10 @@ ${
 
     <h3 class="section">سبر الطالب</h3>
     <table>
-      <thead><tr><th>اختبار محلي</th><th>ترشيح الأوقاف للقرآن</th><th>سبر الأوقاف الفعلي</th></tr></thead>
+      <thead><tr><th>اختبار محلي</th><th>سبر ماضٍ غيباً</th><th>ترشيح الأوقاف للقرآن</th><th>سبر الأوقاف الفعلي</th></tr></thead>
       <tbody><tr>
         <td><span class="pass">${input.locPass}</span> / <span class="fail">${input.locFail}</span></td>
+        <td><span class="pass">${input.pastPass ?? 0}</span> / <span class="fail">${input.pastFail ?? 0}</span></td>
         <td><span class="pass">${input.nomPass}</span> / <span class="fail">${input.nomFail}</span></td>
         <td><span class="pass">${input.realPass}</span> / <span class="fail">${input.realFail}</span></td>
       </tr></tbody>

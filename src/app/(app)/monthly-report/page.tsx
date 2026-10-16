@@ -5,7 +5,7 @@ import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import { today, isValidDate, weekdayName, inHoliday, holidayDaysIn } from "@/lib/daily";
-import { pagesSummary, localSplit, nominationSplit, realAwqafSplit, arabicExamMarks } from "@/lib/reports";
+import { pagesSummary, localSplit, nominationSplit, realAwqafSplit, arabicExamMarks, pastGhaibSplit } from "@/lib/reports";
 import { parsePastItems, pastSummary } from "@/lib/pastRecitation";
 import TeacherReportsClient, { type ReportType } from "./TeacherReportsClient";
 
@@ -54,13 +54,14 @@ export default async function TeacherReportsPage({
   let log: Parameters<typeof TeacherReportsClient>[0]["log"] = null;
 
   if (type === "monthly" && from <= to) {
-    const [recitations, localExams, nomExams, awqafResults, arabicExams, notes] = await Promise.all([
+    const [recitations, localExams, nomExams, awqafResults, arabicExams, notes, pastExams] = await Promise.all([
       prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { gte: from, lte: to } } }),
       arabic ? Promise.resolve([]) : prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "LOCAL", date: { gte: from, lte: to } } }),
       arabic ? Promise.resolve([]) : prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "WAQF_NOMINATION", date: { gte: from, lte: to } } }),
       arabic ? Promise.resolve([]) : prisma.awqafResult.findMany({ where: { studentId: { in: studentIds }, sunnahSection: null, batch: { date: { gte: from, lte: to } } } }),
       arabic ? prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "ARABIC", date: { gte: from, lte: to } } }) : Promise.resolve([]),
       prisma.student.findMany({ where: { id: { in: studentIds } }, select: { id: true, reportNote: true } }),
+      arabic ? Promise.resolve([]) : prisma.exam.findMany({ where: { studentId: { in: studentIds }, type: "PAST_GHAIB", date: { gte: from, lte: to } } }),
     ]);
     monthly = {
       rows: halqa.students
@@ -75,12 +76,14 @@ export default async function TeacherReportsPage({
               })()
             : localSplit(localExams.filter((e) => e.studentId === s.id));
           const nom = nominationSplit(nomExams.filter((e) => e.studentId === s.id));
+          const past = pastGhaibSplit(pastExams.filter((e) => e.studentId === s.id));
           const real = realAwqafSplit(awqafResults.filter((r) => r.studentId === s.id));
           return {
             studentId: s.id,
             studentName: s.name,
             from: pages.from, to: pages.to, newTotal: pages.newTotal, pastJuz: pages.pastJuz,
             locPass: loc.pass, locFail: loc.fail,
+            pastPass: past.pass, pastFail: past.fail,
             nomPass: nom.pass, nomFail: nom.fail,
             realPass: real.pass, realFail: real.fail,
             note: notes.find((n) => n.id === s.id)?.reportNote ?? "",

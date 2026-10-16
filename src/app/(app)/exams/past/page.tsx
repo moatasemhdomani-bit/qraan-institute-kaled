@@ -18,7 +18,8 @@ export default async function PastExamPage({ searchParams }: { searchParams: Pro
 
   const [halaqatRaw, examsRaw] = await Promise.all([
     prisma.halqa.findMany({
-      where: { track: "QURAN_GHAIB", ...cohortScope(session) },
+      // حلقات القرآن تجمع طلاب «قرآن حاضراً» و«قرآن غيباً» معًا — تُعرض الحلقات التي فيها طلاب غيباً
+      where: { track: { in: ["QURAN", "QURAN_GHAIB"] }, students: { some: { track: "QURAN_GHAIB" } }, ...cohortScope(session) },
       include: {
         teacher: { select: { name: true } },
         cohort: { select: { name: true } },
@@ -73,6 +74,7 @@ export default async function PastExamPage({ searchParams }: { searchParams: Pro
         type="PAST_GHAIB"
         newLabel="سبر ماضٍ جديد"
         historyLabel="سجل سبوره في منهج القرآن"
+        emptyLabel="لا يوجد طالب «قرآن غيباً» في الحلقات بعد — مستوى الطالب يُضبط من «شؤون الطلاب»."
         readOnly={false}
         currentUserId={session.userId}
         isDirector={session.role === "DIRECTOR"}

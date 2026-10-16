@@ -27,6 +27,7 @@ export default function ExamBrowseClient({
   initialHalqaId,
   newLabel,
   historyLabel,
+  emptyLabel,
 }: {
   type: ExamTypeId;
   readOnly: boolean;
@@ -42,6 +43,8 @@ export default function ExamBrowseClient({
   newLabel?: string;
   /** عنوان سجل الطالب حين يضم أنواعًا عدة */
   historyLabel?: string;
+  /** نص القائمة الفارغة (افتراضيًا «لا توجد حلقات بعد.») */
+  emptyLabel?: string;
 }) {
   const [search, setSearch] = useState("");
   // حلقات كل فوج معزولة: يُختار الفوج أولًا، ثم تظهر حلقاته وحدها
@@ -109,7 +112,7 @@ export default function ExamBrowseClient({
       )}
 
       {halaqat.length === 0 ? (
-        <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا توجد حلقات بعد.</div>
+        <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>{emptyLabel ?? "لا توجد حلقات بعد."}</div>
       ) : (
         <div style={{ ...cardStyle, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
