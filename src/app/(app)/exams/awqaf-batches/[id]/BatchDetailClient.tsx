@@ -131,6 +131,7 @@ function ResultRow({ result }: { result: Result }) {
         <input type="hidden" name="id" value={result.id} />
         <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>العلامة</span>
         <NumberField
+          half
           name="score"
           defaultValue={result.score != null ? String(result.score) : ""}
           style={{ width: 90, minHeight: 36 }}

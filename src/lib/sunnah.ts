@@ -87,7 +87,7 @@ export const SUNNAH_BOOKS: Record<SunnahSectionId, { id: string; label: string; 
     { id: "MUKHTARAT", label: "المختارات", unit: "الحديث", branches: [1], perStage: true },
     { id: "ARBAEEN", label: "الأربعين النووية", unit: "الحديث", branches: [2] },
     { id: "RIYAD_SELECTED", label: "مختارات من رياض الصالحين", unit: "الحديث", branches: [3], perStage: true },
-    { id: "UMDA", label: "عمدة الأحكام", unit: "الحديث", branches: [4, 5], perStage: true },
+    { id: "UMDA", label: "عمدة الأحكام", unit: "الحديث", branches: [4, 5] }, // ترقيم متصل في الكتاب كله: 1 … 430
     { id: "RIYAD", label: "رياض الصالحين", unit: "الحديث", branches: [6, 7, 8, 9, 10, 11] }, // ترقيم متصل في الكتاب كله: 1 … 1896
   ],
   SHAMAIL: [
@@ -323,7 +323,14 @@ export const stageBookKey = (section: SunnahSectionId, level: number, stage: num
 
 /** موقع الطالب من سبوره في المنهج: المستويات الناجحة (محليًا أو من الأوقاف، النجاح 80) والمراحل الناجحة (بغير «إعادة») */
 /** الإعداد الأول للطالب في منهج: يبدأ من مستوى ومرحلة ورقم — ما قبلها يُعدّ منجزًا */
-export type SunnahStartPoint = { level: number; stage: number | null; startNo: number };
+export type SunnahStartPoint = { level: number; stage: number | null; startNo: number; resetAt?: string | null };
+
+/** بعد «إعادة ضبط مستوى الطالب»: ما سُجّل قبلها (سبر أو تسميع) لا يُحتسب في موقعه */
+export function afterReset<T extends { createdAt?: string | Date | null }>(rows: T[], start?: SunnahStartPoint | null): T[] {
+  if (!start?.resetAt) return rows;
+  const at = new Date(start.resetAt).getTime();
+  return rows.filter((r) => r.createdAt != null && new Date(r.createdAt).getTime() >= at);
+}
 
 /** المستويات والمراحل المنجزة بحكم الإعداد الأول */
 function startCredits(section: SunnahSectionId, start?: SunnahStartPoint | null) {
@@ -339,10 +346,10 @@ function startCredits(section: SunnahSectionId, start?: SunnahStartPoint | null)
 
 export function positionFromExams(
   section: SunnahSectionId,
-  exams: { type: string; section: string | null; branch: number | null; mark: number | null; repeat: boolean; grade?: string | null; stageNo?: number | null }[],
+  exams: { type: string; section: string | null; branch: number | null; mark: number | null; repeat: boolean; grade?: string | null; stageNo?: number | null; createdAt?: string | Date | null }[],
   start?: SunnahStartPoint | null
 ): SunnahPosition {
-  const mine = exams.filter((e) => e.section === section && e.branch != null);
+  const mine = afterReset(exams, start).filter((e) => e.section === section && e.branch != null);
   const passedLevels = mine
     // المستوى التالي يُفتح بالنجاح في السبر المحلي للمستوى
     .filter((e) => (e.type === "SUNNAH" || e.type === "SUNNAH_AWQAF") && !e.repeat && e.mark != null && e.mark >= SUNNAH_PASS_MARK)
@@ -366,7 +373,7 @@ export function sunnahSuggest(
   history: { section: string; book: string; fromNo: number; toNo: number; grade: string; date: string; createdAt: string }[],
   startPoint?: SunnahStartPoint | null
 ): { book: string; nos: number[] } {
-  const inBook = history.filter((h) => h.section === pos.section && h.book === pos.book);
+  const inBook = afterReset(history, startPoint).filter((h) => h.section === pos.section && h.book === pos.book);
   // لم يسمّع بعد في كتاب المستوى: يبدأ من الرقم الذي اختاره المختبِر في الإعداد الأول
   const fromStart = startPoint && startPoint.level === pos.level && (startPoint.stage ?? null) === (pos.stage ?? null) && !inBook.length ? startPoint.startNo : null;
   if (!pos.stages) return fromStart ? { book: pos.book, nos: [fromStart] } : inBook.length ? sunnahNext(pos.section, inBook) : { book: pos.book, nos: [1] };
@@ -393,10 +400,10 @@ export function levelExamBlock(
   type: SunnahLevelExamType,
   section: SunnahSectionId,
   level: number,
-  exams: { type: string; section: string | null; branch: number | null; mark: number | null; repeat: boolean; grade?: string | null; stageNo?: number | null }[],
+  exams: { type: string; section: string | null; branch: number | null; mark: number | null; repeat: boolean; grade?: string | null; stageNo?: number | null; createdAt?: string | Date | null }[],
   start?: SunnahStartPoint | null
 ): string | null {
-  const mine = exams.filter((e) => e.section === section && e.branch === level);
+  const mine = afterReset(exams, start).filter((e) => e.section === section && e.branch === level);
   if (type === "SUNNAH_AWQAF") {
     return passedLevelExam(mine, "SUNNAH_NOMINATION") ? null : `لا يدخل سبر الأوقاف للمستوى ${level} إلا من نجح في سبر ترشيح الأوقاف لهذا المستوى.`;
   }
@@ -495,7 +502,7 @@ export function sunnahMode(
   if (pos.stageStart == null || pos.stageEnd == null) return "recite";
   // آخر تقدير لكل رقم في كتاب المستوى
   const latest = new Map<number, string>();
-  for (const h of [...history]
+  for (const h of afterReset(history, startPoint)
     .filter((h) => h.section === pos.section && h.book === pos.book)
     .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt)))
     for (let n = h.fromNo; n <= h.toNo; n++) latest.set(n, h.grade);

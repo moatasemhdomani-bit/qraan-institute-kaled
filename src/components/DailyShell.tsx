@@ -12,6 +12,7 @@ export default function DailyShell({
   date,
   lockReason,
   dutyNote,
+  allOption = false,
 }: {
   basePath: string;
   halaqat: { id: string; name: string }[];
@@ -19,6 +20,8 @@ export default function DailyShell({
   date: string;
   lockReason: string | null;
   dutyNote: string;
+  /** زر «كل الحلقات» أوّل الحلقات (المدرّس صاحب أكثر من حلقة) */
+  allOption?: boolean;
 }) {
   const router = useRouter();
   const go = (halqa: string, d: string) => router.push(`${basePath}?halqa=${halqa}&date=${d}`);
@@ -61,6 +64,11 @@ export default function DailyShell({
       }}
     >
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {allOption && (
+          <button onClick={() => go("all", date)} style={chipStyle(activeHalqaId === "all")}>
+            كل الحلقات
+          </button>
+        )}
         {halaqat.map((h) => (
           <button key={h.id} onClick={() => go(h.id, date)} style={chipStyle(h.id === activeHalqaId)}>
             {h.name}

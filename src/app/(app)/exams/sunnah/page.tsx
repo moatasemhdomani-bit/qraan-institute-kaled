@@ -24,16 +24,23 @@ export default async function SunnahHubPage() {
       />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }}>
         {SUNNAH_SECTIONS.map((s) => (
-          <Link key={s.id} href={`/exams/sunnah/${sunnahSlug(s.id)}`} style={{ ...cardStyle, textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", gap: 6 }}>
+          <Link key={s.id} href={`/exams/sunnah/${sunnahSlug(s.id)}`} style={{ ...cardStyle, padding: "16px 18px", textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 17, fontWeight: 700 }}>{s.label}</div>
             <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{s.branches.length} مستويات</div>
           </Link>
         ))}
         {/* سبر ترشيح الأوقاف: لمختبر الحديث من القائمة، وللمدير من هنا */}
         {session.role === "DIRECTOR" && (
-          <Link href="/exams/sunnah/nomination" style={{ ...cardStyle, textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", gap: 6 }}>
+          <Link href="/exams/sunnah/nomination" style={{ ...cardStyle, padding: "16px 18px", textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 17, fontWeight: 700 }}>سبر ترشيح الأوقاف</div>
             <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>لمن نجح في السبر المحلي لمستوى</div>
+          </Link>
+        )}
+        {/* الإدارة: إعادة ضبط مستوى طالب في منهج — خيارات الإعداد الأول من جديد */}
+        {(session.role === "DIRECTOR" || session.role === "ADMIN") && (
+          <Link href="/exams/sunnah/reset" style={{ ...cardStyle, padding: "16px 18px", textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ fontSize: 17, fontWeight: 700 }}>إعادة ضبط مستوى طالب</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>يختار المنهج ثم الطالب، ومن أين يبدأ الآن</div>
           </Link>
         )}
       </div>

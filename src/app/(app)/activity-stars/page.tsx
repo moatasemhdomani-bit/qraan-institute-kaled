@@ -13,7 +13,8 @@ export default async function ActivityStarsPage() {
   if (!session) redirect("/login");
   if (session.role !== "ACTIVITY_OFFICER") redirect("/dashboard");
 
-  const [studentsRaw, halaqat, txns] = await Promise.all([
+  const [me, studentsRaw, halaqat, txns] = await Promise.all([
+    prisma.user.findUnique({ where: { id: session.userId }, select: { activityStars: true } }),
     prisma.student.findMany({
       where: { active: true },
       select: { id: true, name: true, studentNo: true, stars: true, halqaId: true },
@@ -21,7 +22,8 @@ export default async function ActivityStarsPage() {
     }),
     prisma.halqa.findMany({ select: { id: true, name: true } }),
     prisma.starTxn.findMany({
-      where: { byId: session.userId, byRole: "ACTIVITY_OFFICER" },
+      // عملياته على الطلاب، وإيداع الإدارة لرصيد نشاطه أو سحبه
+      where: { OR: [{ byId: session.userId, byRole: "ACTIVITY_OFFICER" }, { officerId: session.userId }] },
       orderBy: { createdAt: "desc" },
       take: ARCHIVE_LIMIT,
       include: STAR_TXN_INCLUDE,
@@ -31,7 +33,7 @@ export default async function ActivityStarsPage() {
 
   return (
     <>
-      <PageHeader title="نجوم النشاط" subtitle="سحب النجوم من الطلاب مقابل دخولهم النشاط — وإعادة ما سُحب بالغلط." />
+      <PageHeader title="نجوم النشاط" subtitle="ابحثوا عن الطالب واضغطوا على مربعه: سحب نجومه مقابل دخوله النشاط، أو إيداع نجوم له من رصيد النشاط — وإعادة ما سُحب بالغلط." />
       <ActivityStarsClient
         students={studentsRaw.map((s) => ({
           id: s.id,
@@ -42,6 +44,7 @@ export default async function ActivityStarsPage() {
         }))}
         archive={txns.map(starTxnRow)}
         archiveLimit={ARCHIVE_LIMIT}
+        balance={me?.activityStars ?? 0}
       />
     </>
   );

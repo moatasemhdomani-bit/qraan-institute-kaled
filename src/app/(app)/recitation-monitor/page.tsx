@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
-import { today, isValidDate, formatDateAr, pageSpan, countedNewPages } from "@/lib/daily";
+import { today, isValidDate, formatDateAr, pageSpan, countedNewPages, holidayDaysIn } from "@/lib/daily";
 import { hasPastRecitation } from "@/lib/track";
 import PageHeader from "@/components/PageHeader";
 import RecitationMonitorClient from "./RecitationMonitorClient";
@@ -85,12 +85,16 @@ export default async function RecitationMonitorPage({
   const pending = blocks.filter((b) => !b.uploaded);
   const canRecord = session.role === "DIRECTOR";
 
+  // يوم عطلة رسمية: «عطلة — الاسم» كما حفظته الإدارة
+  const holidayName = (await holidayDaysIn(date, date)).get(date) ?? null;
+
   return (
     <>
       <PageHeader
         title="متابعة التسميع"
         subtitle={
           `تسميع كل الحلقات ليوم ${formatDateAr(date)}` +
+          (holidayName ? ` — عطلة — ${holidayName}` : "") +
           (canRecord ? " — يمكنك فتح أي حلقة وتسجيل تسميعها." : " — عرض فقط.")
         }
       />

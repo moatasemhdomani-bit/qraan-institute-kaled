@@ -11,12 +11,15 @@ export default function StarArchive({
   limit,
   title = "أرشيف التعديلات على أرصدة النجوم",
   onReturn,
+  kindFilter = true,
 }: {
   rows: StarTxnRow[];
   limit: number;
   title?: string;
   /** مسؤول النشاط: «إعادة» نجوم سحبها بالغلط */
   onReturn?: (id: string) => Promise<StarResult>;
+  /** أزرار «الكل / إيداع / سحب» — تُخفى حين يكون نوع العملية ضمن فلاتر الشاشة */
+  kindFilter?: boolean;
 }) {
   const [filter, setFilter] = useState<"ALL" | "CHARGE" | "WITHDRAW">("ALL");
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -35,10 +38,10 @@ export default function StarArchive({
   }
 
   return (
-    <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div style={{ fontSize: 15, fontWeight: 700, flex: 1 }}>{title}</div>
-        {(["ALL", "CHARGE", "WITHDRAW"] as const).map((k) => (
+        {kindFilter && (["ALL", "CHARGE", "WITHDRAW"] as const).map((k) => (
           <button key={k} type="button" onClick={() => setFilter(k)} style={chipStyle(filter === k)}>
             {k === "ALL" ? "الكل" : starKindLabel(k)}
           </button>
@@ -62,13 +65,15 @@ export default function StarArchive({
                   <>
                     {r.studentName} {r.studentNo != null && <span style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 500 }}>#{r.studentNo}</span>}
                   </>
+                ) : r.officerName ? (
+                  <>رصيد النشاط — {r.officerName}</>
                 ) : (
                   <>رصيد الحلقة</>
                 )}
               </div>
               <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
-                {r.halqaName ?? "—"}
-                {r.fromPool && (charge ? " · من رصيد الحلقة" : " · عادت إلى رصيد الحلقة")}
+                {r.studentName || !r.officerName ? (r.halqaName ?? "—") : "مسؤول النشاط"}
+                {r.fromPool && (r.officerId ? " · من رصيد النشاط" : charge ? " · من رصيد الحلقة" : " · عادت إلى رصيد الحلقة")}
               </div>
             </div>
             <div style={{ minWidth: 0, fontSize: 12.5, color: "var(--ink-2)" }}>

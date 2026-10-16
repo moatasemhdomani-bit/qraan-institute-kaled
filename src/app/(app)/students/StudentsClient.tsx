@@ -493,23 +493,24 @@ function StudentForm({
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+        {/* كل البيانات إجبارية عدا الصورة — عمودان: الاسم ثم النسبة على يساره، وتحته الوالد ثم الوالدة على يساره */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
           <ReadOnly label="رقم الطالب" value={initial ? initial.no : "يُحدَّد تلقائيًا عند الحفظ"} />
           <ReadOnly label="تاريخ التسجيل" value={initial ? initial.registeredAt : todayLabel} />
-          <Field label="اسم الطالب" name="name" defaultValue={initial?.name} />
-          <Field label="اسم الوالد" name="father" defaultValue={initial?.father} />
-          <Field label="اسم الوالدة" name="mother" defaultValue={initial?.mother} />
-          <Field label="النسبة" name="familyName" defaultValue={initial?.familyName} />
-          <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} />
+          <Field label="اسم الطالب" name="name" defaultValue={initial?.name} required />
+          <Field label="النسبة" name="familyName" defaultValue={initial?.familyName} required />
+          <Field label="اسم الوالد" name="father" defaultValue={initial?.father} required />
+          <Field label="اسم الوالدة" name="mother" defaultValue={initial?.mother} required />
+          <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} required />
           <Field label="مكان الولادة" name="birthPlace" defaultValue={initial?.birthPlace || "حلب"} required />
-          <Field label="عنوان السكن" name="address" defaultValue={initial?.address} />
+          <Field label="عنوان السكن" name="address" defaultValue={initial?.address} required />
           {/* اليتيم: عمل الوالد «متوفى» تلقائيًا */}
           {isOrphan ? (
             <ReadOnly label="عمل الوالد الحالي" value="متوفى" />
           ) : (
-            <Field label="عمل الوالد الحالي" name="job" defaultValue={initial?.job === "متوفى" ? "" : initial?.job} />
+            <Field label="عمل الوالد الحالي" name="job" defaultValue={initial?.job === "متوفى" ? "" : initial?.job} required />
           )}
-          <PhoneField label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} />
+          <PhoneField label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} required />
           <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
         </div>
 
@@ -807,7 +808,7 @@ function Field({
 }) {
   if (type === "date") {
     // المواليد قد تكون سنة وحدها (كما في الطلاب المستوردين من الجدول القديم)
-    return <DateField label={label} name={name} defaultValue={defaultValue} width="100%" allowYearOnly={name === "birth"} />;
+    return <DateField label={required ? `${label} *` : label} name={name} defaultValue={defaultValue} width="100%" allowYearOnly={name === "birth"} />;
   }
   return (
     <div>

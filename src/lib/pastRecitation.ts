@@ -71,3 +71,11 @@ export function validatePastItems(items: { kind: string; juz: number | null; gra
 export function pastSummary(items: PastItem[]): string {
   return items.map((i) => `${pastItemLabel(i)} (${i.grade})`).join("، ");
 }
+
+/** بنود الماضي بلا تقدير (سبر ماضٍ غيباً: الجزء أو الحزب وحده) — ما لا يصحّ يُهمَل. */
+export function parsePastRefs(raw: unknown): { kind: PastKind; juz: number }[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((x) => !!x && typeof x === "object" && PAST_KINDS.some((k) => k.id === (x as PastItem).kind) && Number.isInteger((x as PastItem).juz))
+    .map((x) => ({ kind: (x as PastItem).kind, juz: (x as PastItem).juz }));
+}

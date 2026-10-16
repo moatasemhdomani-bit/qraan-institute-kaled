@@ -10,7 +10,8 @@ import ExamFormDrawer, { type ExistingExam } from "./ExamFormDrawer";
 
 type StudentLite = { id: string; no: number; name: string; halqaName?: string };
 type Halqa = { id: string; name: string; teacherName: string; cohortName: string; students: StudentLite[] };
-type ExamRow = ExistingExam & { examinerId: string; examinerName: string };
+/** type: نوع السبر حين يعرض السجلُّ أنواعًا عدة (سجل الطالب في منهج القرآن) */
+type ExamRow = ExistingExam & { examinerId: string; examinerName: string; type?: ExamTypeId };
 
 type AwqafRow = { batchDate: string; score: number | null; passed: boolean | null; certLabel: string };
 
@@ -24,6 +25,8 @@ export default function ExamBrowseClient({
   readyStudents,
   awqafByStudent,
   initialHalqaId,
+  newLabel,
+  historyLabel,
 }: {
   type: ExamTypeId;
   readOnly: boolean;
@@ -35,6 +38,10 @@ export default function ExamBrowseClient({
   awqafByStudent?: Record<string, AwqafRow[]>;
   /** فُتحت الشاشة من «متابعة السبر» على حلقة بعينها */
   initialHalqaId?: string;
+  /** نص زر السبر الجديد (افتراضيًا «<النوع> جديد») */
+  newLabel?: string;
+  /** عنوان سجل الطالب حين يضم أنواعًا عدة */
+  historyLabel?: string;
 }) {
   const [search, setSearch] = useState("");
   // حلقات كل فوج معزولة: يُختار الفوج أولًا، ثم تظهر حلقاته وحدها
@@ -143,7 +150,7 @@ export default function ExamBrowseClient({
             <div style={{ padding: "24px 16px", fontSize: 13, color: "var(--ink-2)" }}>لا يوجد طلاب في هذه الحلقة بعد.</div>
           ) : (
             activeHalqa.students.map((s) => {
-              const exams = examsByStudent[s.id] ?? [];
+              const exams = (examsByStudent[s.id] ?? []).filter((e) => (e.type ?? type) === type);
               const never = exams.length === 0;
               return (
                 <button
@@ -183,7 +190,7 @@ export default function ExamBrowseClient({
         >
           {!readOnly && (
             <button onClick={() => setFormOpen({ existing: null })} style={{ ...primaryButtonStyle, width: "100%", minHeight: 48 }}>
-              {label} جديد
+              {newLabel ?? `${label} جديد`}
             </button>
           )}
 
@@ -206,15 +213,18 @@ export default function ExamBrowseClient({
           )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            {historyLabel && <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-3)" }}>{historyLabel}</div>}
             {(examsByStudent[fileStudent.id] ?? []).length === 0 && (
               <div style={{ padding: "30px 16px", borderRadius: 12, border: "1px dashed var(--line)", background: "var(--card-2-grad)", textAlign: "center", fontSize: 13, color: "var(--ink-2)" }}>
-                لا سجل {label} لهذا الطالب بعد.
+                {historyLabel ? "لا سبر مسجَّل لهذا الطالب بعد." : `لا سجل ${label} لهذا الطالب بعد.`}
               </div>
             )}
             {(examsByStudent[fileStudent.id] ?? []).map((e) => {
-              const canEdit = !readOnly && (isDirector || e.examinerId === currentUserId);
+              const rowType = e.type ?? type;
+              // يُعدَّل من هذه الشاشة سبرُ نوعها وحده — بقية سجل الطالب للاطلاع
+              const canEdit = !readOnly && rowType === type && (isDirector || e.examinerId === currentUserId);
               const passFail = passFailLabel({
-                type,
+                type: rowType,
                 localKind: e.localKind,
                 resultMark: e.resultMark,
                 repeat: e.repeat,
@@ -226,7 +236,8 @@ export default function ExamBrowseClient({
                 <div key={e.id} style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 15, fontWeight: 700 }}>
-                      {resultLabel({ type, localKind: e.localKind, resultMark: e.resultMark, stage: e.stage, grade: e.grade, repeat: e.repeat })}
+                      {rowType !== type && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)", marginInlineEnd: 6 }}>{TYPE_LABELS[rowType]}</span>}
+                      {resultLabel({ type: rowType, localKind: e.localKind, resultMark: e.resultMark, stage: e.stage, grade: e.grade, repeat: e.repeat })}
                     </span>
                     {passFail && !e.repeat && (
                       <span
@@ -242,9 +253,9 @@ export default function ExamBrowseClient({
                         {passFail}
                       </span>
                     )}
-                    {examKindLabel({ ...e, type }) && (
+                    {examKindLabel({ ...e, type: rowType }) && (
                       <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: "1px solid var(--accent-line)", color: "var(--ink)" }}>
-                        {examKindLabel({ ...e, type })}
+                        {examKindLabel({ ...e, type: rowType })}
                       </span>
                     )}
                     {canEdit && (

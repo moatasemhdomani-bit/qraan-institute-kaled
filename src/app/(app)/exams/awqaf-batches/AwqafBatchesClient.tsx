@@ -3,11 +3,11 @@
 import { useState, useActionState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { cardStyle, inputStyle, primaryButtonStyle, softButtonStyle } from "@/lib/ui";
+import { cardStyle, chipStyle, inputStyle, primaryButtonStyle, softButtonStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import DateField from "@/components/DateField";
-import { createAwqafBatch, type FormState } from "./actions";
-import { today, formatDateAr } from "@/lib/daily";
+import { createAwqafBatch, deleteAwqafBatch, type FormState } from "./actions";
+import { today } from "@/lib/daily";
 
 type Candidate = { id: string; no: number; name: string; nominationDate: string; nominationPresent: boolean; priorFailNote: string | null };
 type SunnahCandidate = { key: string; studentId: string; section: string; level: number; no: number; name: string; label: string; note: string };
@@ -116,13 +116,13 @@ export default function AwqafBatchesClient({
         batches.map((b) => {
           const badge = batchBadge(b);
           return (
+            <div key={b.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <Link
-              key={b.id}
               href={`/exams/awqaf-batches/${b.id}`}
               style={{ ...cardStyle, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8, textDecoration: "none", color: "var(--ink)" }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 15.5, fontWeight: 700 }}>دفعة {formatDateAr(b.date)}</span>
+                <span style={{ fontSize: 15.5, fontWeight: 700 }}>دفعة {b.date}</span>
                 <span style={{ padding: "2px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>{KIND_LABEL[b.kind] ?? b.kind}</span>
                 <span
                   style={{
@@ -147,6 +147,8 @@ export default function AwqafBatchesClient({
                 </div>
               )}
             </Link>
+            <DeleteBatch id={b.id} label={`دفعة ${b.date} — ${KIND_LABEL[b.kind] ?? b.kind} (${b.studentCount} طالبًا)`} />
+            </div>
           );
         })
       )}
@@ -333,5 +335,60 @@ function NewBatchDrawer({
         </button>
       </form>
     </Drawer>
+  );
+}
+
+/** حذف الدفعة بتأكيد: تُحذف نتائج طلابها وشهاداتهم معها */
+function DeleteBatch({ id, label }: { id: string; label: string }) {
+  const router = useRouter();
+  const [confirm, setConfirm] = useState(false);
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  // هل يُحذف طلاب الدفعة من قائمة المؤهلين لسبر الأوقاف؟ (لا اختيار افتراضي)
+  const [remove, setRemove] = useState<boolean | null>(null);
+  if (!confirm) {
+    return (
+      <button type="button" onClick={() => setConfirm(true)} style={{ alignSelf: "flex-start", padding: "5px 12px", borderRadius: 9, border: "1px solid var(--line)", background: "transparent", color: "var(--bad-ink, var(--bad))", fontSize: 12.5, cursor: "pointer" }}>
+        حذف الدفعة
+      </button>
+    );
+  }
+  return (
+    <div style={{ padding: "10px 12px", borderRadius: 11, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 13, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div>
+        حذف {label} نهائيًا؟ تُحذف علامات طلابها وشهاداتهم المسجّلة فيها. ترفيع طالب نجح فيها لا يُلغى.
+      </div>
+      <div style={{ fontWeight: 700 }}>هل تريد حذف الطلاب من قائمة المؤهلين لسبر الأوقاف؟</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" onClick={() => setRemove(true)} style={{ ...chipStyle(remove === true), padding: "7px 14px" }}>
+          نعم، احذفهم من القائمة
+        </button>
+        <button type="button" onClick={() => setRemove(false)} style={{ ...chipStyle(remove === false), padding: "7px 14px" }}>
+          لا، يعودون إلى القائمة
+        </button>
+      </div>
+      {error && <div style={{ color: "var(--bad)" }}>{error}</div>}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          type="button"
+          disabled={pending || remove === null}
+          onClick={async () => {
+            if (remove === null) return;
+            setPending(true);
+            setError("");
+            const res = await deleteAwqafBatch(id, remove);
+            setPending(false);
+            if (res.error) setError(res.error);
+            else router.refresh();
+          }}
+          style={{ padding: "7px 16px", borderRadius: 9, border: "none", background: "var(--bad)", color: "#fff", fontSize: 13, cursor: "pointer", opacity: pending || remove === null ? 0.5 : 1 }}
+        >
+          {pending ? "جارٍ الحذف…" : "تأكيد الحذف"}
+        </button>
+        <button type="button" onClick={() => setConfirm(false)} style={{ ...softButtonStyle, padding: "7px 16px" }}>
+          إلغاء
+        </button>
+      </div>
+    </div>
   );
 }

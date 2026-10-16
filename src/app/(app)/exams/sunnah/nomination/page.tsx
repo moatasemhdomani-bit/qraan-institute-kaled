@@ -38,7 +38,7 @@ export default async function SunnahNominationPage({ searchParams }: { searchPar
             <Link
               key={s.id}
               href={`/exams/sunnah/nomination?section=${sunnahSlug(s.id)}`}
-              style={{ ...cardStyle, textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", gap: 6 }}
+              style={{ ...cardStyle, padding: "16px 18px", textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", gap: 6 }}
             >
               <div style={{ fontSize: 17, fontWeight: 700 }}>{s.label}</div>
               <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>سبر ترشيح الأوقاف</div>

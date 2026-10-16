@@ -16,99 +16,119 @@ export default function TeacherStarsClient({
   halaqat,
   archive,
   archiveLimit,
+  defaultHalqaId,
 }: {
   halaqat: HalqaRow[];
   archive: StarTxnRow[];
   archiveLimit: number;
+  /** حلقة الفوج الجاري الآن */
+  defaultHalqaId?: string;
 }) {
-  const [halqaId, setHalqaId] = useState(halaqat[0]?.id ?? "");
+  const [halqaId, setHalqaId] = useState(defaultHalqaId ?? halaqat[0]?.id ?? "");
   const [search, setSearch] = useState("");
-  const [op, setOp] = useState<StudentRow | null>(null);
-  const halqa = halaqat.find((h) => h.id === halqaId);
+  // العملية على طالب: مع حلقته (رصيدها في النافذة)
+  const [op, setOp] = useState<{ s: StudentRow; h: HalqaRow } | null>(null);
+  // «كل الحلقات»: حلقات المدرّس كلها متتالية
+  const all = halqaId === "all";
+  const selected = useMemo(() => (all ? halaqat : halaqat.filter((h) => h.id === halqaId)), [all, halaqat, halqaId]);
 
-  const shown = useMemo(() => {
+  const filterStudents = (list: StudentRow[]) => {
     const q = toWesternDigits(search.trim());
-    const list = halqa?.students ?? [];
-    return q ? list.filter((s) => s.name.includes(q) || String(s.no) === q) : list;
-  }, [halqa, search]);
+    return q ? list.filter((st) => st.name.includes(q) || String(st.no) === q) : list;
+  };
 
-  if (!halqa) {
-    return <div style={{ ...cardStyle, fontSize: 14, color: "var(--ink-2)" }}>لا توجد لك حلقة في هذا الحساب.</div>;
+  if (selected.length === 0) {
+    return <div style={{ ...cardStyle, padding: "16px 18px", fontSize: 14, color: "var(--ink-2)" }}>لا توجد لك حلقة في هذا الحساب.</div>;
   }
+
+  const pick = (id: string) => {
+    setHalqaId(id);
+    setSearch("");
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* اختيار الحلقة من الأعلى */}
+      {/* اختيار الحلقة من الأعلى — و«كل الحلقات» أوّلها */}
       {halaqat.length > 1 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" onClick={() => pick("all")} style={{ ...chipStyle(all), minHeight: 42, padding: "9px 16px" }}>
+            كل الحلقات
+          </button>
           {halaqat.map((h) => (
-            <button
-              key={h.id}
-              type="button"
-              onClick={() => {
-                setHalqaId(h.id);
-                setSearch("");
-              }}
-              style={{ ...chipStyle(h.id === halqaId), minHeight: 42, padding: "9px 16px" }}
-            >
+            <button key={h.id} type="button" onClick={() => pick(h.id)} style={{ ...chipStyle(h.id === halqaId), minHeight: 42, padding: "9px 16px" }}>
               {h.name} — {h.cohortName}
             </button>
           ))}
         </div>
       )}
 
-      <div style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 180 }}>
-          <div style={{ fontSize: 13, color: "var(--ink-2)" }}>رصيد نجوم الحلقة</div>
-          <div style={{ fontSize: 26 }}>
-            <StarBadge n={halqa.stars} />
-          </div>
-        </div>
-        <div style={{ fontSize: 12.5, color: "var(--ink-3)", maxWidth: 360 }}>
-          الشحن لطالب يُصرف من رصيد الحلقة، والسحب من طالب يعيد النجوم إلى رصيد الحلقة. تشحن الإدارة رصيد الحلقة.
-        </div>
-      </div>
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث باسم الطالب أو رقمه" style={inputStyle()} />
 
-      <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>طلاب {halqa.name}</div>
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث باسم الطالب أو رقمه" style={inputStyle()} />
-        {shown.length === 0 && (
-          <div style={{ fontSize: 13, color: "var(--ink-3)" }}>{search.trim() ? "لا يوجد طالب بهذا الاسم أو الرقم." : "لا طلاب في هذه الحلقة."}</div>
-        )}
-        {shown.map((s) => (
-          <div
-            key={s.id}
-            style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 12px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}
-          >
-            <div style={{ flex: 1, minWidth: 150, fontSize: 14.5, fontWeight: 600 }}>
-              {s.name} <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 500 }}>#{s.no}</span>
+      {selected.map((halqa) => {
+        const shown = filterStudents(halqa.students);
+        if (all && search.trim() && shown.length === 0) return null;
+        return (
+          <div key={halqa.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={{ fontSize: 13, color: "var(--ink-2)" }}>رصيد نجوم {all ? halqa.name : "الحلقة"}</div>
+                <div style={{ fontSize: 26 }}>
+                  <StarBadge n={halqa.stars} />
+                </div>
+              </div>
+              {!all && (
+                <div style={{ fontSize: 12.5, color: "var(--ink-3)", maxWidth: 360 }}>
+                  الإيداع لطالب يُصرف من رصيد الحلقة، والسحب من طالب يعيد النجوم إلى رصيد الحلقة. تودع الإدارة رصيد الحلقة.
+                </div>
+              )}
             </div>
-            <StarBadge n={s.stars} />
-            <button type="button" onClick={() => setOp(s)} style={{ ...softButtonStyle, padding: "8px 14px" }}>
-              شحن / سحب
-            </button>
-          </div>
-        ))}
-      </div>
 
-      <StarArchive rows={archive.filter((r) => r.halqaId === halqa.id)} limit={archiveLimit} title="عمليات نجوم الحلقة" />
+            <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>طلاب {halqa.name}</div>
+              {shown.length === 0 && (
+                <div style={{ fontSize: 13, color: "var(--ink-3)" }}>{search.trim() ? "لا يوجد طالب بهذا الاسم أو الرقم." : "لا طلاب في هذه الحلقة."}</div>
+              )}
+              {shown.map((st) => (
+                <div
+                  key={st.id}
+                  style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 12px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}
+                >
+                  <div style={{ flex: 1, minWidth: 150, fontSize: 14.5, fontWeight: 600 }}>
+                    {st.name} <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 500 }}>#{st.no}</span>
+                  </div>
+                  <StarBadge n={st.stars} />
+                  <button type="button" onClick={() => setOp({ s: st, h: halqa })} style={{ ...softButtonStyle, padding: "8px 14px" }}>
+                    إيداع / سحب
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      {all && search.trim() && selected.every((h) => filterStudents(h.students).length === 0) && (
+        <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا يوجد طالب بهذا الاسم أو الرقم.</div>
+      )}
+
+      <StarArchive rows={archive.filter((r) => selected.some((h) => h.id === r.halqaId))} limit={archiveLimit} title={all ? "عمليات نجوم حلقاتك" : "عمليات نجوم الحلقة"} />
 
       {op && (
         <StarOpDrawer
           title="نجوم الطالب"
-          subtitle={op.name}
+          subtitle={op.s.name}
           info={
             <div style={{ padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13.5, display: "flex", flexDirection: "column", gap: 4 }}>
               <div>
-                رصيد الطالب: <StarBadge n={op.stars} />
+                رصيد الطالب: <StarBadge n={op.s.stars} />
               </div>
               <div>
-                رصيد الحلقة: <StarBadge n={halqa.stars} />{" "}
-                <span style={{ fontSize: 12, color: "var(--ink-3)" }}>— أقصى شحن الآن {starsText(halqa.stars)}</span>
+                رصيد {op.h.name}: <StarBadge n={op.h.stars} />{" "}
+                <span style={{ fontSize: 12, color: "var(--ink-3)" }}>— أقصى إيداع الآن {starsText(op.h.stars)}</span>
               </div>
             </div>
           }
-          onSubmit={(v) => teacherStudentStars({ studentId: op.id, ...v })}
+          balance={op.s.stars}
+          onSubmit={(v) => teacherStudentStars({ studentId: op.s.id, ...v })}
           onClose={() => setOp(null)}
         />
       )}

@@ -11,7 +11,7 @@ export type StarResult = { error?: string; ok?: boolean };
 const isAdmin = (role: string) => role === "DIRECTOR" || role === "ADMIN";
 
 function checkInput(kind: string, amount: number): string | null {
-  if (kind !== "CHARGE" && kind !== "WITHDRAW") return "اختاروا العملية: شحن أو سحب.";
+  if (kind !== "CHARGE" && kind !== "WITHDRAW") return "اختاروا العملية: إيداع أو سحب.";
   if (!Number.isInteger(amount) || amount < 1) return "اكتبوا عدد النجوم (نجمة واحدة على الأقل).";
   if (amount > STAR_MAX) return `أكبر عدد في العملية الواحدة ${STAR_MAX} نجمة.`;
   return null;
@@ -25,7 +25,7 @@ function done() {
   revalidatePath("/my-stars");
 }
 
-/** الإدارة: شحن رصيد طالب أو سحبه مباشرة — لا يمسّ رصيد حلقته. */
+/** الإدارة: إيداع رصيد طالب أو سحبه مباشرة — لا يمسّ رصيد حلقته. */
 export async function adminStudentStars(input: { studentId: string; kind: StarKind; amount: number }): Promise<StarResult> {
   const session = await getSession();
   if (!session || !isAdmin(session.role)) return { error: "إدارة النجوم من صلاحية الإدارة." };
@@ -39,8 +39,11 @@ export async function adminStudentStars(input: { studentId: string; kind: StarKi
     await prisma.$transaction(async (tx) => {
       if (input.kind === "WITHDRAW") {
         const r = await tx.student.updateMany({ where: { id: input.studentId, stars: { gte: input.amount } }, data: { stars: { decrement: input.amount } } });
-        if (r.count === 0) throw new StarError("رصيد الطالب لا يكفي لهذا السحب.");
+        if (r.count === 0) throw new StarError("نجوم الطالب أقل من ذلك");
       } else {
+        // الإيداع من رصيد النشاط الذي تودعه الإدارة
+        const r = await tx.user.updateMany({ where: { id: session.userId, activityStars: { gte: input.amount } }, data: { activityStars: { decrement: input.amount } } });
+        if (r.count === 0) throw new StarError("رصيد نجوم النشاط لا يكفي — تودعه الإدارة.");
         await tx.student.update({ where: { id: input.studentId }, data: { stars: { increment: input.amount } } });
       }
       await tx.starTxn.create({
@@ -49,6 +52,8 @@ export async function adminStudentStars(input: { studentId: string; kind: StarKi
           amount: input.amount,
           studentId: input.studentId,
           halqaId: student.halqaId,
+          officerId: session.userId,
+          fromPool: input.kind === "CHARGE",
           byId: session.userId,
           byRole: session.role,
         },
@@ -63,7 +68,90 @@ export async function adminStudentStars(input: { studentId: string; kind: StarKi
   return { ok: true };
 }
 
-/** الإدارة: «نجوم الحلقات» — شحن رصيد حلقة أو أكثر أو سحبه (العدد نفسه لكل حلقة مختارة). */
+/** الإدارة: «نجوم الطلاب» — إيداع طالب أو أكثر أو سحب نجومهم (العدد نفسه لكل طالب) — لا يمسّ رصيد الحلقة. */
+export async function adminStudentsStars(input: { studentIds: string[]; kind: StarKind; amount: number }): Promise<StarResult> {
+  const session = await getSession();
+  if (!session || !isAdmin(session.role)) return { error: "إدارة النجوم من صلاحية الإدارة." };
+  const bad = checkInput(input.kind, input.amount);
+  if (bad) return { error: bad };
+  const ids = [...new Set(input.studentIds)];
+  if (ids.length === 0) return { error: "اختاروا طالبًا واحدًا على الأقل." };
+  const students = await prisma.student.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, stars: true, halqaId: true } });
+  if (students.length !== ids.length) return { error: "أحد الطلاب المختارين غير موجود." };
+  if (input.kind === "WITHDRAW") {
+    const short = students.filter((s) => s.stars < input.amount);
+    if (short.length) return { error: `نجوم الطالب أقل من ذلك: ${short.map((s) => `${s.name} (${s.stars})`).join("، ")}.` };
+  }
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const s of students) {
+        if (input.kind === "WITHDRAW") {
+          const r = await tx.student.updateMany({ where: { id: s.id, stars: { gte: input.amount } }, data: { stars: { decrement: input.amount } } });
+          if (r.count === 0) throw new StarError(`نجوم الطالب أقل من ذلك: ${s.name}.`);
+        } else {
+          await tx.student.update({ where: { id: s.id }, data: { stars: { increment: input.amount } } });
+        }
+      }
+      await tx.starTxn.createMany({
+        data: students.map((s) => ({ kind: input.kind, amount: input.amount, studentId: s.id, halqaId: s.halqaId, byId: session.userId, byRole: session.role })),
+      });
+    });
+  } catch (e) {
+    if (e instanceof StarError) return { error: e.message };
+    throw e;
+  }
+  await logAction(
+    session.userId,
+    students.length === 1
+      ? `${starKindLabel(input.kind)} ${input.amount} نجمة للطالب ${await studentRef(students[0].id)}`
+      : `${starKindLabel(input.kind)} ${input.amount} نجمة لكل من ${students.length} طلاب: ${students.map((s) => s.name).join("، ")}`
+  );
+  done();
+  return { ok: true };
+}
+
+/** الإدارة: «نجوم النشاط» — إيداع رصيد نشاط مسؤول نشاط أو أكثر أو سحبه (العدد نفسه لكل منهم). */
+export async function adminOfficerStars(input: { officerIds: string[]; kind: StarKind; amount: number }): Promise<StarResult> {
+  const session = await getSession();
+  if (!session || !isAdmin(session.role)) return { error: "إدارة النجوم من صلاحية الإدارة." };
+  const bad = checkInput(input.kind, input.amount);
+  if (bad) return { error: bad };
+  const ids = [...new Set(input.officerIds)];
+  if (ids.length === 0) return { error: "اختاروا مسؤول نشاط واحدًا على الأقل." };
+  const officers = await prisma.user.findMany({
+    where: { id: { in: ids }, deletedAt: null, assignments: { some: { role: "ACTIVITY_OFFICER" } } },
+    select: { id: true, name: true, activityStars: true },
+  });
+  if (officers.length !== ids.length) return { error: "أحد المختارين ليس مسؤول نشاط." };
+  if (input.kind === "WITHDRAW") {
+    const short = officers.filter((o) => o.activityStars < input.amount);
+    if (short.length) return { error: `رصيد النشاط لا يكفي لسحب ${input.amount}: ${short.map((o) => `${o.name} (${o.activityStars})`).join("، ")}.` };
+  }
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const o of officers) {
+        if (input.kind === "WITHDRAW") {
+          const r = await tx.user.updateMany({ where: { id: o.id, activityStars: { gte: input.amount } }, data: { activityStars: { decrement: input.amount } } });
+          if (r.count === 0) throw new StarError(`رصيد نشاط «${o.name}» لا يكفي لهذا السحب.`);
+        } else {
+          await tx.user.update({ where: { id: o.id }, data: { activityStars: { increment: input.amount } } });
+        }
+      }
+      await tx.starTxn.createMany({
+        data: officers.map((o) => ({ kind: input.kind, amount: input.amount, officerId: o.id, byId: session.userId, byRole: session.role })),
+      });
+    });
+  } catch (e) {
+    if (e instanceof StarError) return { error: e.message };
+    throw e;
+  }
+  await logAction(session.userId, `${starKindLabel(input.kind)} ${input.amount} نجمة لرصيد النشاط: ${officers.map((o) => o.name).join("، ")}`);
+  done();
+  revalidatePath("/activity-stars");
+  return { ok: true };
+}
+
+/** الإدارة: «نجوم الحلقات» — إيداع رصيد حلقة أو أكثر أو سحبه (العدد نفسه لكل حلقة مختارة). */
 export async function adminHalqaStars(input: { halqaIds: string[]; kind: StarKind; amount: number }): Promise<StarResult> {
   const session = await getSession();
   if (!session || !isAdmin(session.role)) return { error: "إدارة النجوم من صلاحية الإدارة." };
@@ -116,7 +204,7 @@ export async function adminHalqaStars(input: { halqaIds: string[]; kind: StarKin
 }
 
 /**
- * المدرّس: يصرف من رصيد حلقته على أحد طلابها (شحن)، أو يسحب من الطالب فتعود النجوم إلى رصيد الحلقة.
+ * المدرّس: يصرف من رصيد حلقته على أحد طلابها (إيداع)، أو يسحب من الطالب فتعود النجوم إلى رصيد الحلقة.
  * رصيد كل حلقة لا يُصرف إلا لطلابها.
  */
 export async function teacherStudentStars(input: { studentId: string; kind: StarKind; amount: number }): Promise<StarResult> {
@@ -138,11 +226,11 @@ export async function teacherStudentStars(input: { studentId: string; kind: Star
     await prisma.$transaction(async (tx) => {
       if (input.kind === "CHARGE") {
         const r = await tx.halqa.updateMany({ where: { id: halqa.id, stars: { gte: input.amount } }, data: { stars: { decrement: input.amount } } });
-        if (r.count === 0) throw new StarError("رصيد نجوم الحلقة لا يكفي — تشحنه الإدارة.");
+        if (r.count === 0) throw new StarError("رصيد نجوم الحلقة لا يكفي — تودعه الإدارة.");
         await tx.student.update({ where: { id: input.studentId }, data: { stars: { increment: input.amount } } });
       } else {
         const r = await tx.student.updateMany({ where: { id: input.studentId, stars: { gte: input.amount } }, data: { stars: { decrement: input.amount } } });
-        if (r.count === 0) throw new StarError("رصيد الطالب لا يكفي لهذا السحب.");
+        if (r.count === 0) throw new StarError("نجوم الطالب أقل من ذلك");
         await tx.halqa.update({ where: { id: halqa.id }, data: { stars: { increment: input.amount } } });
       }
       await tx.starTxn.create({
@@ -166,11 +254,11 @@ export async function teacherStudentStars(input: { studentId: string; kind: Star
   return { ok: true };
 }
 
-/** مسؤول النشاط: يسحب النجوم من أي طالب في المعهد مقابل دخوله النشاط — لا تعود إلى رصيد الحلقة. */
-export async function activityWithdrawStars(input: { studentId: string; amount: number }): Promise<StarResult> {
+/** مسؤول النشاط: يسحب النجوم من أي طالب في المعهد مقابل دخوله النشاط، أو يودع له — لا يمسّ رصيد الحلقة. */
+export async function activityStudentStars(input: { studentId: string; kind: StarKind; amount: number }): Promise<StarResult> {
   const session = await getSession();
-  if (!session || session.role !== "ACTIVITY_OFFICER") return { error: "سحب نجوم النشاط من صلاحية مسؤول النشاط." };
-  const bad = checkInput("WITHDRAW", input.amount);
+  if (!session || session.role !== "ACTIVITY_OFFICER") return { error: "نجوم النشاط من صلاحية مسؤول النشاط." };
+  const bad = checkInput(input.kind, input.amount);
   if (bad) return { error: bad };
 
   const student = await prisma.student.findUnique({ where: { id: input.studentId }, select: { name: true, halqaId: true, active: true } });
@@ -179,11 +267,15 @@ export async function activityWithdrawStars(input: { studentId: string; amount: 
 
   try {
     await prisma.$transaction(async (tx) => {
-      const r = await tx.student.updateMany({ where: { id: input.studentId, stars: { gte: input.amount } }, data: { stars: { decrement: input.amount } } });
-      if (r.count === 0) throw new StarError("رصيد الطالب لا يكفي.");
+      if (input.kind === "WITHDRAW") {
+        const r = await tx.student.updateMany({ where: { id: input.studentId, stars: { gte: input.amount } }, data: { stars: { decrement: input.amount } } });
+        if (r.count === 0) throw new StarError("نجوم الطالب أقل من ذلك");
+      } else {
+        await tx.student.update({ where: { id: input.studentId }, data: { stars: { increment: input.amount } } });
+      }
       await tx.starTxn.create({
         data: {
-          kind: "WITHDRAW",
+          kind: input.kind,
           amount: input.amount,
           studentId: input.studentId,
           halqaId: student.halqaId,
@@ -196,7 +288,12 @@ export async function activityWithdrawStars(input: { studentId: string; amount: 
     if (e instanceof StarError) return { error: e.message };
     throw e;
   }
-  await logAction(session.userId, `سحب ${input.amount} نجمة من الطالب ${await studentRef(input.studentId)} للنشاط`);
+  await logAction(
+    session.userId,
+    input.kind === "WITHDRAW"
+      ? `سحب ${input.amount} نجمة من الطالب ${await studentRef(input.studentId)} للنشاط`
+      : `إيداع ${input.amount} نجمة للطالب ${await studentRef(input.studentId)} (مسؤول النشاط)`
+  );
   done();
   revalidatePath("/activity-stars");
   return { ok: true };
@@ -228,6 +325,7 @@ export async function activityReturnStars(txnId: string): Promise<StarResult> {
           byId: session.userId,
           byRole: session.role,
           reason: "إعادة نجوم سُحبت بالغلط",
+          officerId: session.userId,
           reversesId: txn.id,
         },
       });

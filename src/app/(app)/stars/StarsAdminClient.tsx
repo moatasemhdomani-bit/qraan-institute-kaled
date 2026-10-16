@@ -1,44 +1,50 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cardStyle, chipStyle, inputStyle, primaryButtonStyle, softButtonStyle } from "@/lib/ui";
+import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
 import { toWesternDigits } from "@/lib/numbers";
 import type { StarTxnRow } from "@/lib/stars";
+import Select from "@/components/Select";
 import StarOpDrawer from "./StarOpDrawer";
 import StarArchive from "./StarArchive";
 import StarBadge from "./StarBadge";
-import { adminHalqaStars, adminStudentStars } from "./actions";
+import { adminHalqaStars, adminOfficerStars, adminStudentsStars } from "./actions";
 
 type StudentRow = { id: string; name: string; no: number; stars: number; active: boolean; halqaId: string | null; halqaName: string | null };
 type HalqaRow = { id: string; name: string; teacherName: string; cohortName: string; stars: number; studentIds: string[] };
+type OfficerRow = { id: string; name: string; stars: number };
 
-const starBadge = (n: number) => <StarBadge n={n} />;
+type Op = "halqa" | "officer" | "student" | null;
 
+/**
+ * «إدارة النجوم» عند الإدارة: ثلاثة أزرار — نجوم الحلقات، نجوم النشاط، نجوم الطلاب —
+ * ثم فلاتر السجل (حلقة / طالب / مسؤول نشاط) ثم السجل نفسه.
+ */
 export default function StarsAdminClient({
   halaqat,
   students,
+  officers,
   archive,
   archiveLimit,
 }: {
   halaqat: HalqaRow[];
   students: StudentRow[];
+  officers: OfficerRow[];
   archive: StarTxnRow[];
   archiveLimit: number;
 }) {
+  const [op, setOp] = useState<Op>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  // نجوم الطلاب: البحث، أو حلقة لعرض طلابها
   const [search, setSearch] = useState("");
-  const [openHalqa, setOpenHalqa] = useState<string | null>(null);
-  const [opStudent, setOpStudent] = useState<StudentRow | null>(null);
-  const [halqaOp, setHalqaOp] = useState(false);
-  // «نجوم الحلقات»: حلقة واحدة أو أكثر أو الكل
-  const [halqaPicked, setHalqaPicked] = useState<string[]>([]);
+  const [pickHalqa, setPickHalqa] = useState("");
+  // فلاتر السجل
+  const [fHalqa, setFHalqa] = useState("");
+  const [fStudent, setFStudent] = useState("");
+  const [fOfficer, setFOfficer] = useState("");
+  const [fKind, setFKind] = useState("");
 
   const byId = useMemo(() => Object.fromEntries(students.map((s) => [s.id, s])), [students]);
-
-  const matches = useMemo(() => {
-    const q = toWesternDigits(search.trim());
-    if (!q) return [];
-    return students.filter((s) => s.name.includes(q) || String(s.no) === q).slice(0, 20);
-  }, [students, search]);
 
   // الحلقات مجمّعة حسب الفوج
   const cohorts = useMemo(() => {
@@ -47,137 +53,112 @@ export default function StarsAdminClient({
     return [...m].sort((a, b) => a[0].localeCompare(b[0], "ar"));
   }, [halaqat]);
 
-  const studentRow = (s: StudentRow, showHalqa: boolean) => (
-    <div
-      key={s.id}
-      style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 12px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}
-    >
-      <div style={{ flex: 1, minWidth: 160 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 600 }}>
-          {s.name} <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 500 }}>#{s.no}</span>
-          {!s.active && <span style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 500 }}> · منقطع</span>}
-        </div>
-        {showHalqa && <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{s.halqaName ?? "غير مفروز"}</div>}
-      </div>
-      {starBadge(s.stars)}
-      <button type="button" onClick={() => setOpStudent(s)} style={{ ...softButtonStyle, padding: "8px 14px" }}>
-        شحن / سحب
-      </button>
-    </div>
-  );
+  const open = (o: Op) => {
+    setPicked([]);
+    setSearch("");
+    setPickHalqa("");
+    setOp(o);
+  };
+  const toggle = (id: string) => setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const togglePicked = (id: string) => setHalqaPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  const allPicked = halaqat.length > 0 && halqaPicked.length === halaqat.length;
+  // نجوم الطلاب: نتائج البحث أو طلاب الحلقة المختارة
+  const studentList = useMemo(() => {
+    const q = toWesternDigits(search.trim());
+    if (q) return students.filter((s) => s.name.includes(q) || String(s.no) === q).slice(0, 30);
+    if (pickHalqa) return (halaqat.find((h) => h.id === pickHalqa)?.studentIds ?? []).map((id) => byId[id]).filter(Boolean);
+    return [];
+  }, [students, search, pickHalqa, halaqat, byId]);
+
+  // السجل بعد الفلاتر — بلا أعداد على الخيارات، و«عدد النتائج» في السجل
+  const shown = useMemo(
+    () =>
+      archive.filter(
+        (r) =>
+          (!fHalqa || r.halqaId === fHalqa) &&
+          (!fStudent || r.studentId === fStudent) &&
+          (!fOfficer || r.officerId === fOfficer || r.byId === fOfficer) &&
+          (!fKind || r.kind === fKind)
+      ),
+    [archive, fHalqa, fStudent, fOfficer, fKind]
+  );
+  const studentOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const r of archive) if (r.studentId && r.studentName) seen.set(r.studentId, `${r.studentName}${r.studentNo != null ? ` #${r.studentNo}` : ""}`);
+    return [{ value: "", label: "كل الطلاب" }, ...[...seen].sort((a, b) => a[1].localeCompare(b[1], "ar")).map(([value, label]) => ({ value, label }))];
+  }, [archive]);
+
+  const allHalaqat = halaqat.length > 0 && picked.length === halaqat.length;
+  const allOfficers = officers.length > 0 && picked.length === officers.length;
+  const one = op === "student" && picked.length === 1 ? byId[picked[0]] : null;
+
+  const bigBtn = { ...primaryButtonStyle, padding: "14px 22px", fontSize: 15 } as const;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <button
-          type="button"
-          onClick={() => {
-            setHalqaPicked([]);
-            setHalqaOp(true);
-          }}
-          style={{ ...primaryButtonStyle, padding: "11px 20px" }}
-        >
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button type="button" onClick={() => open("halqa")} style={bigBtn}>
           ★ نجوم الحلقات
         </button>
-        <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>شحن رصيد حلقة أو أكثر أو سحبه — يصرفه مدرّسها على طلابها وحدهم.</span>
+        <button type="button" onClick={() => open("officer")} style={bigBtn}>
+          ★ نجوم النشاط
+        </button>
+        <button type="button" onClick={() => open("student")} style={bigBtn}>
+          ★ نجوم الطلاب
+        </button>
       </div>
 
-      {/* البحث عن طالب مباشرة */}
-      <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>البحث عن طالب</div>
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="اكتبوا اسم الطالب أو رقمه" style={inputStyle()} />
-        {search.trim() && matches.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا يوجد طالب بهذا الاسم أو الرقم.</div>}
-        {matches.map((s) => studentRow(s, true))}
-      </div>
-
-      {/* الحلقات */}
-      {cohorts.map(([cohortName, list]) => (
-        <div key={cohortName} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink-2)" }}>فوج {cohortName}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 10 }}>
-            {list.map((h) => {
-              const open = openHalqa === h.id;
-              const studentStars = h.studentIds.reduce((sum, id) => sum + (byId[id]?.stars ?? 0), 0);
-              return (
-                <button
-                  key={h.id}
-                  type="button"
-                  onClick={() => setOpenHalqa(open ? null : h.id)}
-                  style={{ ...cardStyle, textAlign: "start", cursor: "pointer", outline: open ? "2px solid var(--gold)" : "none", display: "flex", flexDirection: "column", gap: 6, color: "var(--ink)" }}
-                >
-                  <div style={{ fontSize: 15, fontWeight: 700 }}>{h.name}</div>
-                  <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{h.teacherName}</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                    <span>رصيد الحلقة: {starBadge(h.stars)}</span>
-                    <span style={{ color: "var(--ink-3)" }}>
-                      {h.studentIds.length} طالب · ★ {studentStars}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-          {list.some((h) => h.id === openHalqa) &&
-            (() => {
-              const h = list.find((x) => x.id === openHalqa)!;
-              return (
-                <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, flex: 1 }}>طلاب {h.name}</div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHalqaPicked([h.id]);
-                        setHalqaOp(true);
-                      }}
-                      style={{ ...softButtonStyle, padding: "8px 14px" }}
-                    >
-                      شحن / سحب رصيد الحلقة
-                    </button>
-                  </div>
-                  {h.studentIds.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا طلاب في هذه الحلقة.</div>}
-                  {h.studentIds.map((id) => byId[id] && studentRow(byId[id], false))}
-                </div>
-              );
-            })()}
+      {/* فلاتر السجل */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div>
+          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>نوع العملية</div>
+          <Select value={fKind} onChange={setFKind} width={150} options={[{ value: "", label: "الكل" }, { value: "CHARGE", label: "إيداع" }, { value: "WITHDRAW", label: "سحب" }]} />
         </div>
-      ))}
+        <div>
+          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الحلقة</div>
+          <Select value={fHalqa} onChange={setFHalqa} width={220} options={[{ value: "", label: "كل الحلقات" }, ...halaqat.map((h) => ({ value: h.id, label: h.name }))]} />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الطالب</div>
+          <Select value={fStudent} onChange={setFStudent} width={240} options={studentOptions} />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>مسؤول النشاط</div>
+          <Select value={fOfficer} onChange={setFOfficer} width={220} options={[{ value: "", label: "كل مسؤولي النشاط" }, ...officers.map((o) => ({ value: o.id, label: o.name }))]} />
+        </div>
+        {(fHalqa || fStudent || fOfficer || fKind) && (
+          <button
+            type="button"
+            onClick={() => {
+              setFHalqa("");
+              setFStudent("");
+              setFOfficer("");
+              setFKind("");
+            }}
+            style={{ ...chipStyle(false), padding: "9px 14px" }}
+          >
+            مسح الفلاتر
+          </button>
+        )}
+      </div>
 
-      <StarArchive rows={archive} limit={archiveLimit} />
+      <StarArchive rows={shown} limit={archiveLimit} kindFilter={false} />
 
-      {opStudent && (
-        <StarOpDrawer
-          title="نجوم الطالب"
-          subtitle={opStudent.name}
-          info={
-            <div style={{ padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13.5 }}>
-              رصيد الطالب: {starBadge(opStudent.stars)} — {opStudent.halqaName ?? "غير مفروز"}
-              <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 4 }}>شحن الإدارة وسحبها لا يمسّان رصيد الحلقة.</div>
-            </div>
-          }
-          onSubmit={(v) => adminStudentStars({ studentId: opStudent.id, ...v })}
-          onClose={() => setOpStudent(null)}
-        />
-      )}
-
-      {halqaOp && (
+      {/* نجوم الحلقات */}
+      {op === "halqa" && (
         <StarOpDrawer
           title="نجوم الحلقات"
-          subtitle="شحن رصيد حلقة أو أكثر أو سحبه"
-          canSubmit={halqaPicked.length > 0}
-          onSubmit={(v) => adminHalqaStars({ halqaIds: halqaPicked, ...v })}
-          onClose={() => setHalqaOp(false)}
+          subtitle="إيداع رصيد حلقة أو أكثر أو سحبه"
+          canSubmit={picked.length > 0}
+          onSubmit={(v) => adminHalqaStars({ halqaIds: picked, ...v })}
+          onClose={() => setOp(null)}
         >
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
               <div style={{ fontSize: 12.5, color: "var(--ink-2)", flex: 1 }}>
-                الحلقات {halqaPicked.length > 0 && `— المختارة: ${halqaPicked.length} من ${halaqat.length}`}
+                الحلقات {picked.length > 0 && `— المختارة: ${picked.length} من ${halaqat.length}`}
               </div>
-              <button type="button" onClick={() => setHalqaPicked(allPicked ? [] : halaqat.map((h) => h.id))} style={{ ...chipStyle(allPicked), padding: "6px 14px" }}>
-                {allPicked ? "✓ كل الحلقات" : "اختيار الكل"}
+              <button type="button" onClick={() => setPicked(allHalaqat ? [] : halaqat.map((h) => h.id))} style={{ ...chipStyle(allHalaqat), padding: "6px 14px" }}>
+                {allHalaqat ? "✓ كل الحلقات" : "اختيار الكل"}
               </button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -186,8 +167,8 @@ export default function StarsAdminClient({
                   <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6 }}>فوج {cohortName}</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {list.map((h) => (
-                      <button key={h.id} type="button" onClick={() => togglePicked(h.id)} style={{ ...chipStyle(halqaPicked.includes(h.id)), padding: "8px 12px" }}>
-                        {halqaPicked.includes(h.id) ? "✓ " : ""}
+                      <button key={h.id} type="button" onClick={() => toggle(h.id)} style={{ ...chipStyle(picked.includes(h.id)), padding: "8px 12px" }}>
+                        {picked.includes(h.id) ? "✓ " : ""}
                         {h.name} <span style={{ opacity: 0.75 }}>★ {h.stars}</span>
                       </button>
                     ))}
@@ -196,8 +177,114 @@ export default function StarsAdminClient({
               ))}
             </div>
             <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
-              {halqaPicked.length > 1 ? "يُشحن العدد نفسه لكل حلقة من الحلقات المختارة (أو يُسحب من كل منها)." : "اختاروا حلقة واحدة أو أكثر، أو «اختيار الكل»."}
+              {picked.length > 1 ? "يُودَع العدد نفسه لكل حلقة من الحلقات المختارة (أو يُسحب من كل منها)." : "رصيد الحلقة يصرفه مدرّسها على طلابها وحدهم."}
             </div>
+          </div>
+        </StarOpDrawer>
+      )}
+
+      {/* نجوم النشاط */}
+      {op === "officer" && (
+        <StarOpDrawer
+          title="نجوم النشاط"
+          subtitle="إيداع رصيد مسؤول نشاط أو أكثر أو سحبه"
+          canSubmit={picked.length > 0}
+          onSubmit={(v) => adminOfficerStars({ officerIds: picked, ...v })}
+          onClose={() => setOp(null)}
+        >
+          <div>
+            {officers.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا يوجد مسؤول نشاط بعد — يُضاف من «إدارة المستخدمين».</div>
+            ) : (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-2)", flex: 1 }}>
+                    مسؤولو النشاط {picked.length > 0 && `— المختارون: ${picked.length} من ${officers.length}`}
+                  </div>
+                  {officers.length > 1 && (
+                    <button type="button" onClick={() => setPicked(allOfficers ? [] : officers.map((o) => o.id))} style={{ ...chipStyle(allOfficers), padding: "6px 14px" }}>
+                      {allOfficers ? "✓ الكل" : "اختيار الكل"}
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {officers.map((o) => (
+                    <button key={o.id} type="button" onClick={() => toggle(o.id)} style={{ ...chipStyle(picked.includes(o.id)), padding: "8px 12px" }}>
+                      {picked.includes(o.id) ? "✓ " : ""}
+                      {o.name} <span style={{ opacity: 0.75 }}>★ {o.stars}</span>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
+                  رصيد النشاط يودع منه مسؤول النشاط للطلاب — وما يسحبه من الطلاب مقابل النشاط لا يعود إليه.
+                </div>
+              </>
+            )}
+          </div>
+        </StarOpDrawer>
+      )}
+
+      {/* نجوم الطلاب */}
+      {op === "student" && (
+        <StarOpDrawer
+          title="نجوم الطلاب"
+          subtitle="إيداع طالب أو أكثر أو سحب نجومهم — لا يمسّ رصيد الحلقة"
+          canSubmit={picked.length > 0}
+          balance={one ? one.stars : picked.length > 0 ? Math.min(...picked.map((id) => byId[id]?.stars ?? 0)) : undefined}
+          onSubmit={(v) => adminStudentsStars({ studentIds: picked, ...v })}
+          onClose={() => setOp(null)}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {picked.length > 0 && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {picked.map((id) => (
+                  <button key={id} type="button" onClick={() => toggle(id)} style={{ ...chipStyle(true), padding: "6px 10px" }} title="إزالة">
+                    ✕ {byId[id]?.name} <StarBadge n={byId[id]?.stars ?? 0} />
+                  </button>
+                ))}
+              </div>
+            )}
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحثوا باسم الطالب أو رقمه" style={inputStyle()} />
+            <Select
+              value={pickHalqa}
+              onChange={(v) => {
+                setPickHalqa(v);
+                setSearch("");
+              }}
+              options={[{ value: "", label: "أو اختاروا حلقة لعرض طلابها" }, ...halaqat.map((h) => ({ value: h.id, label: h.name }))]}
+            />
+            {pickHalqa && !search.trim() && studentList.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setPicked((prev) => [...new Set([...prev, ...studentList.map((s) => s.id)])])}
+                style={{ ...chipStyle(false), alignSelf: "flex-start", padding: "6px 14px" }}
+              >
+                اختيار كل طلاب الحلقة
+              </button>
+            )}
+            {(search.trim() || pickHalqa) && studentList.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا يوجد طالب.</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflow: "auto" }}>
+              {studentList.map((s) => {
+                const on = picked.includes(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => toggle(s.id)}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 10, border: `1px solid ${on ? "var(--gold)" : "var(--line)"}`, background: "var(--card-2-grad)", color: "var(--ink)", textAlign: "start", cursor: "pointer" }}
+                  >
+                    <span style={{ width: 18 }}>{on ? "✓" : ""}</span>
+                    <span style={{ flex: 1, fontSize: 14 }}>
+                      {s.name} <span style={{ fontSize: 12, color: "var(--ink-3)" }}>#{s.no}</span>
+                      {!s.active && <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}> · منقطع</span>}
+                      <span style={{ display: "block", fontSize: 12, color: "var(--ink-2)" }}>{s.halqaName ?? "غير مفروز"}</span>
+                    </span>
+                    <StarBadge n={s.stars} />
+                  </button>
+                );
+              })}
+            </div>
+            {picked.length > 1 && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>يُودَع العدد نفسه لكل طالب مختار (أو يُسحب من كل منهم).</div>}
           </div>
         </StarOpDrawer>
       )}

@@ -21,7 +21,7 @@ export default async function AwqafBatchesPage() {
     }),
     prisma.exam.findMany({
       where: { type: "WAQF_NOMINATION" },
-      select: { studentId: true, date: true, resultMark: true, nominationPresent: true },
+      select: { studentId: true, date: true, resultMark: true, nominationPresent: true, nominationDismissed: true },
       orderBy: { date: "desc" },
     }),
     prisma.student.findMany({ orderBy: { studentNo: "asc" }, select: { id: true, name: true, studentNo: true } }),
@@ -52,6 +52,8 @@ export default async function AwqafBatchesPage() {
   const candidates = Array.from(latestNomination.entries())
     .filter(([studentId, e]) => {
       if (passFailLabel({ type: "WAQF_NOMINATION", resultMark: e.resultMark, nominationPresent: e.nominationPresent }) !== "ناجح") return false;
+      // أُسقط من قائمة المؤهلين عند حذف دفعته — يعود بترشيح جديد
+      if (e.nominationDismissed) return false;
       const lastAttempt = latestAwqafAttempt.get(studentId);
       return !lastAttempt || e.date > lastAttempt.batch.date;
     })

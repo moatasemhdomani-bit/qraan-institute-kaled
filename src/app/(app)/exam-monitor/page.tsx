@@ -8,7 +8,9 @@ import ExamMonitorClient from "./ExamMonitorClient";
 export default async function ExamMonitorPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "DIRECTOR" && session.role !== "ADMIN" && session.role !== "TEACHER" && session.role !== "EXAM_SUPERVISOR") redirect("/dashboard");
+  // مختبِر القرآن: اطلاع على سبور حلقات القرآن في أفواجه
+  const quranExaminer = session.role === "EXAMINER" && session.track !== "ARABIC";
+  if (session.role !== "DIRECTOR" && session.role !== "ADMIN" && session.role !== "TEACHER" && session.role !== "EXAM_SUPERVISOR" && !quranExaminer) redirect("/dashboard");
 
   const [halaqatRaw, examsRaw, awqafResultsRaw] = await Promise.all([
     prisma.halqa.findMany({
@@ -16,10 +18,10 @@ export default async function ExamMonitorPage() {
       where:
         session.role === "TEACHER"
           ? { teacherId: session.userId, ...cohortScope(session) }
-          : session.role === "EXAM_SUPERVISOR"
+          : session.role === "EXAM_SUPERVISOR" || quranExaminer
             ? { track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] }, ...cohortScope(session) }
             : undefined,
-      include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { select: { id: true } } },
+      include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { select: { id: true, name: true, studentNo: true }, orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
     }),
     prisma.exam.findMany({
@@ -59,6 +61,7 @@ export default async function ExamMonitorPage() {
         grade: e.grade,
         sunnahSection: e.sunnahSection as string | null,
         sunnahStage: e.sunnahStage,
+        pastItems: e.pastItems,
         notes: e.notes,
         certArrived: false,
         certArchived: false,
@@ -106,21 +109,23 @@ export default async function ExamMonitorPage() {
       teacherName: h.teacher.name,
       cohortName: h.cohort.name,
       rows,
+      // «لم يُسبَر»: طلاب الحلقة لعرض من لا سبر له
+      students: h.students.map((s) => ({ id: s.id, name: s.name, no: s.studentNo })),
       neverLabel: neverCount > 0 ? `${neverCount} طالبًا لم يُسبَر بعد` : "",
     };
   });
 
   // المدرّس يرى في الفلترة أنواع السبر التي يُختبر بها طلابه فقط: القراءة العربية لمدرّسها، وأنواع القرآن لمدرّس القرآن
-  const me = session.role === "TEACHER" || session.role === "EXAM_SUPERVISOR" ? { track: session.track } : null;
+  const me = session.role === "TEACHER" || session.role === "EXAM_SUPERVISOR" || quranExaminer ? { track: session.track } : null;
   // السنة النبوية لكل طلاب المعهد — تظهر لكل مدرّس
   const sunnah = ["SUNNAH_STAGE", "SUNNAH_PART", "SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF"] as const;
-  const typeFilters: ("LOCAL" | "WAQF_NOMINATION" | "AWQAF_ACTUAL" | "ARABIC" | "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE" | "SUNNAH_PART")[] = !me
-    ? ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL", "ARABIC", ...sunnah]
+  const typeFilters: ("LOCAL" | "WAQF_NOMINATION" | "PAST_GHAIB" | "AWQAF_ACTUAL" | "ARABIC" | "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE" | "SUNNAH_PART")[] = !me
+    ? ["LOCAL", "WAQF_NOMINATION", "PAST_GHAIB", "AWQAF_ACTUAL", "ARABIC", ...sunnah]
     : me.track === "ARABIC"
       ? ["ARABIC", ...sunnah]
-      : session.role === "EXAM_SUPERVISOR"
-        ? ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL"]
-        : ["LOCAL", "WAQF_NOMINATION", "AWQAF_ACTUAL", ...sunnah];
+      : session.role === "EXAM_SUPERVISOR" || quranExaminer
+        ? ["LOCAL", "WAQF_NOMINATION", "PAST_GHAIB", "AWQAF_ACTUAL"]
+        : ["LOCAL", "WAQF_NOMINATION", "PAST_GHAIB", "AWQAF_ACTUAL", ...sunnah];
 
   return (
     <>

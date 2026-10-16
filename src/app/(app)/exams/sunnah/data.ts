@@ -48,6 +48,7 @@ export async function loadSunnahExamRows(section?: SunnahSectionId, types?: Sunn
     notes: e.notes,
     examinerId: e.examinerId,
     examinerName: e.examiner.name,
+    createdAt: e.createdAt.toISOString(),
   }));
 }
 

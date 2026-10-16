@@ -7,7 +7,7 @@ import { chipStyle, primaryButtonStyle } from "@/lib/ui";
 import type { StarKind } from "@/lib/stars";
 import type { StarResult } from "./actions";
 
-/** نافذة عملية النجوم: شحن أو سحب، العدد، ثم التأكيد. */
+/** نافذة عملية النجوم: إيداع أو سحب، العدد، ثم التأكيد. */
 export default function StarOpDrawer({
   title,
   subtitle,
@@ -17,6 +17,8 @@ export default function StarOpDrawer({
   onClose,
   canSubmit = true,
   kinds = ["CHARGE", "WITHDRAW"],
+  balance,
+  defaultKind,
 }: {
   title: string;
   subtitle: string;
@@ -27,19 +29,25 @@ export default function StarOpDrawer({
   onSubmit: (v: { kind: StarKind; amount: number }) => Promise<StarResult>;
   onClose: () => void;
   canSubmit?: boolean;
-  /** العمليات المتاحة — مسؤول النشاط: السحب وحده */
+  /** العمليات المتاحة */
   kinds?: StarKind[];
+  /** رصيد الطالب — سحب أكثر منه يُمنع برسالة «نجوم الطالب أقل من ذلك» */
+  balance?: number;
+  /** العملية المختارة سلفًا (يمكن تغييرها) — مسؤول النشاط: السحب */
+  defaultKind?: StarKind;
 }) {
-  const [kind, setKind] = useState<StarKind | "">(kinds.length === 1 ? kinds[0] : "");
+  const [kind, setKind] = useState<StarKind | "">(defaultKind ?? (kinds.length === 1 ? kinds[0] : ""));
   const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const tooMuch = kind === "WITHDRAW" && balance != null && (parseInt(amount, 10) || 0) > balance;
 
   function submit() {
     setError("");
-    if (!kind) return setError("اختاروا العملية: شحن أو سحب.");
+    if (!kind) return setError("اختاروا العملية: إيداع أو سحب.");
     const n = parseInt(amount, 10);
     if (!n || n < 1) return setError("اكتبوا عدد النجوم.");
+    if (kind === "WITHDRAW" && balance != null && n > balance) return setError("نجوم الطالب أقل من ذلك");
     startTransition(async () => {
       const res = await onSubmit({ kind, amount: n });
       if (res.error) setError(res.error);
@@ -61,7 +69,7 @@ export default function StarOpDrawer({
             disabled={pending || !canSubmit}
             style={{ ...primaryButtonStyle, flex: 1, opacity: pending || !canSubmit ? 0.6 : 1 }}
           >
-            {pending ? "جارٍ التنفيذ…" : kind ? `تأكيد ${kind === "CHARGE" ? "الشحن" : "السحب"}` : "تأكيد العملية"}
+            {pending ? "جارٍ التنفيذ…" : kind ? `تأكيد ${kind === "CHARGE" ? "الإيداع" : "السحب"}` : "تأكيد العملية"}
           </button>
           <button
             type="button"
@@ -80,7 +88,7 @@ export default function StarOpDrawer({
         <div style={{ display: "flex", gap: 8 }}>
           {kinds.includes("CHARGE") && (
           <button type="button" onClick={() => setKind("CHARGE")} style={{ ...chipStyle(kind === "CHARGE"), minHeight: 44, padding: "10px 24px" }}>
-            شحن ＋
+            إيداع ＋
           </button>
           )}
           {kinds.includes("WITHDRAW") && (
@@ -94,6 +102,9 @@ export default function StarOpDrawer({
         <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>عدد النجوم</div>
         <NumberField value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="مثلًا 5" style={{ width: 140, minHeight: 46, padding: 11, fontSize: 17 }} />
       </div>
+      {tooMuch && !error && (
+        <div style={{ padding: "12px 14px", borderRadius: 11, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 13 }}>نجوم الطالب أقل من ذلك</div>
+      )}
       {error && (
         <div style={{ padding: "12px 14px", borderRadius: 11, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 13 }}>{error}</div>
       )}

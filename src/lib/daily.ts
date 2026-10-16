@@ -167,3 +167,27 @@ export function pageSpan(from: number | null, to: number | null): number {
 export function inHoliday(date: string, h: { date: string; endDate?: string | null }): boolean {
   return date >= h.date && date <= (h.endDate || h.date);
 }
+
+/**
+ * أيام العطل الرسمية في فترة (من أيام الدوام وحدها) باسم كل عطلة كما حفظته الإدارة — للتقارير المفصّلة يومًا بيوم:
+ * تُكتب «عطلة — الاسم» في ذلك اليوم. الفترة حتى سنة على الأكثر.
+ */
+export async function holidayDaysIn(from: string, to: string): Promise<Map<string, string>> {
+  const [holidays, working] = await Promise.all([prisma.holiday.findMany(), prisma.workingDays.findUnique({ where: { id: 1 } })]);
+  let days: string[] = [];
+  try {
+    days = JSON.parse(working?.days || "[]");
+  } catch {
+    days = [];
+  }
+  const out = new Map<string, string>();
+  if (!holidays.length || from > to) return out;
+  for (let d = new Date(`${from}T12:00:00Z`), n = 0; n < 370; d = new Date(d.getTime() + 86400000), n++) {
+    const iso = d.toISOString().slice(0, 10);
+    if (iso > to) break;
+    if (days.length && !days.includes(weekdayName(iso))) continue;
+    const h = holidays.find((x) => inHoliday(iso, x));
+    if (h) out.set(iso, h.name);
+  }
+  return out;
+}

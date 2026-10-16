@@ -9,5 +9,6 @@ export default async function Home() {
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.role === "DIRECTOR" || session.role === "ADMIN") redirect("/students");
-  redirect("/dashboard");
+  // حساب الفوج الجاري الآن لمن له حسابات في أكثر من فوج — ثم لوحة المعلومات
+  redirect("/auto");
 }

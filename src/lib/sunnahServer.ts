@@ -9,7 +9,7 @@ export async function sunnahLevelsFor(studentIds: string[]): Promise<Record<stri
   const [exams, starts, recs] = await Promise.all([
     prisma.exam.findMany({
       where: { studentId: { in: studentIds }, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE", "SUNNAH_PART"] } },
-      select: { studentId: true, type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true },
+      select: { studentId: true, type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true, createdAt: true },
     }),
     prisma.sunnahStart.findMany({ where: { studentId: { in: studentIds } } }),
     prisma.sunnahRecitation.groupBy({ by: ["studentId", "section"], where: { studentId: { in: studentIds } }, _count: { _all: true } }),
@@ -23,8 +23,8 @@ export async function sunnahLevelsFor(studentIds: string[]): Promise<Record<stri
       if (!start && !recited && mine.length === 0) return { section: sec.id, label: sec.label, status: "لم يبدأ بعد" };
       const pos = positionFromExams(
         sec.id,
-        mine.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage })),
-        start ? { level: start.level, stage: start.stage, startNo: start.startNo } : null
+        mine.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage, createdAt: e.createdAt })),
+        start ? { level: start.level, stage: start.stage, startNo: start.startNo, resetAt: start.resetAt?.toISOString() ?? null } : null
       );
       return { section: sec.id, label: sec.label, status: sunnahPositionLabel(pos) };
     });
@@ -41,7 +41,8 @@ export async function sunnahAwqafCandidates(): Promise<
 > {
   const [exams, pending] = await Promise.all([
     prisma.exam.findMany({
-      where: { type: { in: ["SUNNAH_NOMINATION", "SUNNAH_AWQAF"] } },
+      // الترشيح المُسقَط من قائمة المؤهلين (عند حذف دفعته) لا يُحتسب
+      where: { type: { in: ["SUNNAH_NOMINATION", "SUNNAH_AWQAF"] }, nominationDismissed: false },
       select: { id: true, studentId: true, type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, date: true, student: { select: { name: true, studentNo: true, active: true } } },
       orderBy: { date: "desc" },
     }),

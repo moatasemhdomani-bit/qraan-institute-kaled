@@ -14,7 +14,7 @@ export default async function StarsPage() {
   if (session.role === "TEACHER") redirect("/my-stars");
   if (session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
 
-  const [halaqatRaw, studentsRaw, txns] = await Promise.all([
+  const [halaqatRaw, studentsRaw, txns, officersRaw] = await Promise.all([
     prisma.halqa.findMany({
       include: {
         teacher: { select: { name: true } },
@@ -31,6 +31,12 @@ export default async function StarsPage() {
       orderBy: { createdAt: "desc" },
       take: ARCHIVE_LIMIT,
       include: STAR_TXN_INCLUDE,
+    }),
+    // مسؤولو النشاط وأرصدة نشاطهم
+    prisma.user.findMany({
+      where: { deletedAt: null, assignments: { some: { role: "ACTIVITY_OFFICER" } } },
+      select: { id: true, name: true, activityStars: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -58,8 +64,14 @@ export default async function StarsPage() {
 
   return (
     <>
-      <PageHeader title="إدارة النجوم" subtitle="أرصدة نجوم الطلاب والحلقات — الشحن والسحب، وأرشيف كل التعديلات." />
-      <StarsAdminClient halaqat={halaqat} students={students} archive={archive} archiveLimit={ARCHIVE_LIMIT} />
+      <PageHeader title="إدارة النجوم" subtitle="نجوم الحلقات والنشاط والطلاب — الإيداع والسحب، وسجل كل العمليات." />
+      <StarsAdminClient
+        halaqat={halaqat}
+        students={students}
+        officers={officersRaw.map((o) => ({ id: o.id, name: o.name, stars: o.activityStars }))}
+        archive={archive}
+        archiveLimit={ARCHIVE_LIMIT}
+      />
     </>
   );
 }

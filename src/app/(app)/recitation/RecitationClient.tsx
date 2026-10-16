@@ -41,6 +41,10 @@ type Student = {
   surahsBefore: string[];
   /** «ملاحظة الطالب» الخاصة بالمدرّس — null = لا تظهر (المدير) */
   note: string | null;
+  /** «كل الحلقات»: حلقة الطالب ومستواها، واسمها عنوانًا قبل طلابها */
+  halqaId?: string;
+  track?: TrackId;
+  group?: string;
 };
 
 /**
@@ -155,8 +159,11 @@ export default function RecitationClient({
   students: Student[];
   alreadyUploaded: boolean;
 }) {
+  // حلقة الطالب ومستواها (في «كل الحلقات» لكل طالب حلقته)
+  const sh = (s: Student) => s.halqaId ?? halqaId;
+  const tr = (s: Student): TrackId => s.track ?? track;
   const [entries, setEntries] = useState<Record<string, Entry>>(() =>
-    Object.fromEntries(students.map((s) => [s.id, s.saved ?? blank(s, track)]))
+    Object.fromEntries(students.map((s) => [s.id, s.saved ?? blank(s, tr(s))]))
   );
   // آخر نسخة محفوظة فعلًا على الخادم لكل طالب
   const [savedEntries, setSavedEntries] = useState<Record<string, Entry>>(() =>
@@ -224,14 +231,14 @@ export default function RecitationClient({
   function save(s: Student, idx: number, part?: "new" | "past", onDone?: () => void) {
     const e = entries[s.id];
     setJustSaved(null);
-    const problem = part ? partProblem(e, part, track) : entryProblem(s, e, track);
+    const problem = part ? partProblem(e, part, tr(s)) : entryProblem(s, e, tr(s));
     if (problem) {
       fail(s.id, problem);
       return;
     }
     setSavingId(`${s.id}|${part ?? ""}`);
     startTransition(async () => {
-      const res = await saveStudentRecitation({ halqaId, date, studentId: s.id, ...e, past: pastRowsToItems(e.past), part });
+      const res = await saveStudentRecitation({ halqaId: sh(s), date, studentId: s.id, ...e, past: pastRowsToItems(e.past), part });
       setSavingId(null);
       if (res.error) {
         fail(s.id, res.error);
@@ -432,8 +439,13 @@ export default function RecitationClient({
                 ? "عُدّل ولم يُحفظ التعديل بعد"
                 : "لم يُحفظ بعد";
 
+          // «كل الحلقات»: اسم الحلقة قبل أول طالب منها
+          const heading = s.group && s.group !== students[idx - 1]?.group ? s.group : null;
           return (
             <div key={s.id}>
+              {heading && (
+                <div style={{ padding: "9px 14px", fontSize: 13.5, fontWeight: 700, background: "var(--card-2-grad)", borderTop: idx ? "1px solid var(--line)" : undefined }}>{heading}</div>
+              )}
               <button
                 type="button"
                 onClick={() => setOpen(isOpen ? null : s.id)}
@@ -520,13 +532,13 @@ export default function RecitationClient({
                   {!e.none && isSurah && (
                     <div>
                       <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 7 }}>
-                        {s.mode === "surah" && track === "ARABIC" ? "بينة للناس — السور المسمَّعة" : "السور المسمَّعة"} (سورة أو أكثر)
+                        {s.mode === "surah" && tr(s) === "ARABIC" ? "بينة للناس — السور المسمَّعة" : "السور المسمَّعة"} (سورة أو أكثر)
                       </div>
                       {s.surahsBefore.length > 0 && (
                         <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 7 }}>الباهت ✓: سُمِّعت من قبل — يمكن اختيارها لإعادة تسميعها.</div>
                       )}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {surahsFor(track).map((name) => {
+                        {surahsFor(tr(s)).map((name) => {
                           const on = surahList(e).includes(name);
                           return (
                             <button
@@ -536,7 +548,7 @@ export default function RecitationClient({
                                 const next = on ? surahList(e).filter((x) => x !== name) : [...surahList(e), name];
                                 // بترتيب السور في المصحف
                                 set(s.id, {
-                                  surahs: surahsFor(track).filter((x) => next.includes(x)).join("|"),
+                                  surahs: surahsFor(tr(s)).filter((x) => next.includes(x)).join("|"),
                                   surahsDone: doneList(e).filter((x) => next.includes(x)).join("|"),
                                 });
                               }}
@@ -624,7 +636,7 @@ export default function RecitationClient({
                       <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
                         {withPast ? "تسميع جديد «من» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت جديدًا، ويجوز تعديله لتسميع صفحة سابقة." : "«من الصفحة» مُلئ تلقائيًا بعد آخر صفحة سُمِّعت، ويجوز تعديله لتسميع صفحة سابقة."}
                         {" التقدير «إعادة» لا تُحسب صفحاته ولا يتقدّم به العدّاد."}
-                        {` الصفحات بين ${pageRange(track).min} و${pageRange(track).max}.`}
+                        {` الصفحات بين ${pageRange(tr(s)).min} و${pageRange(tr(s)).max}.`}
                       </div>
                       </>
                       )}
@@ -686,7 +698,7 @@ export default function RecitationClient({
                       <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
                         {isSurah
                           ? `السور المنتهية: ${e.none ? 0 : doneList(e).length}`
-                          : `${withPast ? "صفحات الجديد" : "إجمالي صفحات اليوم"}: ${e.none || e.noNew || e.gradeNew === REPEAT_GRADE || (singlePage(e) && !e.pageDone) ? 0 : span(e.nf, e.nt, track)}`}
+                          : `${withPast ? "صفحات الجديد" : "إجمالي صفحات اليوم"}: ${e.none || e.noNew || e.gradeNew === REPEAT_GRADE || (singlePage(e) && !e.pageDone) ? 0 : span(e.nf, e.nt, tr(s))}`}
                       </span>
                       {withPast && (
                         <span style={{ fontSize: 13, color: "var(--ink-2)" }}>

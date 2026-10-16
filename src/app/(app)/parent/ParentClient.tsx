@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { chipStyle, cardStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
+import StarBadge from "../stars/StarBadge";
 
 export default function ParentClient({
   family,
@@ -22,13 +23,13 @@ export default function ParentClient({
   activeId: string;
   from: string;
   to: string;
-  child: { name: string; meta: string };
+  child: { name: string; meta: string; stars: number };
   todayLabel: string;
   todayState: { label: string; color: string };
   recLines: string[];
   recDateLabel: string;
   attHistory: { date: string; label: string; color: string }[];
-  recHistory: { date: string; blank: boolean; newLine: string; pastLine: string }[];
+  recHistory: { date: string; blank: boolean; newLine: string; pastLine: string; holiday: string | null }[];
   examRows: { type: string; result: string; date: string; examinerName: string; notes: string | null; certStatus?: string }[];
 }) {
   const router = useRouter();
@@ -47,9 +48,18 @@ export default function ParentClient({
       )}
 
       <div style={{ ...cardStyle, padding: "20px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 19, fontWeight: 700 }}>{child.name}</div>
-          <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 3 }}>{child.meta}</div>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 19, fontWeight: 700 }}>{child.name}</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 3 }}>{child.meta}</div>
+          </div>
+          {/* رصيد نجوم الطالب */}
+          <div style={{ padding: "8px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", textAlign: "center" }}>
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>رصيد النجوم</div>
+            <div style={{ fontSize: 20 }}>
+              <StarBadge n={child.stars} />
+            </div>
+          </div>
         </div>
         <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{todayLabel}</div>
         <div>
@@ -141,7 +151,9 @@ export default function ParentClient({
               style={{ display: "flex", flexDirection: "column", gap: 6, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}
             >
               <div style={{ fontSize: 13.5, color: "var(--ink-2)", direction: "ltr", textAlign: "right" }}>{h.date}</div>
-              {h.blank ? (
+              {h.holiday ? (
+                <div style={{ fontSize: 13, color: "var(--info)", fontWeight: 600 }}>{h.holiday}</div>
+              ) : h.blank ? (
                 <div style={{ fontSize: 13, color: "var(--ink-2)" }}>لم يسمّع في هذا اليوم</div>
               ) : (
                 <>

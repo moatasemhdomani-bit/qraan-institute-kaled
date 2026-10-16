@@ -91,7 +91,7 @@ export default function SunnahRecitationPanel({
     () =>
       positionFromExams(
         section,
-        exams.map((e) => ({ type: e.type, section: e.section, branch: e.branch, mark: e.mark, repeat: e.repeat, grade: e.grade, stageNo: e.stageNo })),
+        exams.map((e) => ({ type: e.type, section: e.section, branch: e.branch, mark: e.mark, repeat: e.repeat, grade: e.grade, stageNo: e.stageNo, createdAt: e.createdAt })),
         startPoint
       ),
     [section, exams, startPoint]
@@ -383,7 +383,7 @@ export default function SunnahRecitationPanel({
 }
 
 /** الإعداد الأول: الكتاب ← المستوى ← المرحلة ← رقم الحديث الذي يبدأ منه */
-function SetupForm({ section, studentId }: { section: SunnahSectionId; studentId: string }) {
+export function SetupForm({ section, studentId, reset = false, onDone }: { section: SunnahSectionId; studentId: string; reset?: boolean; onDone?: () => void }) {
   const books = SUNNAH_BOOKS[section];
   const [book, setBook] = useState("");
   const [level, setLevel] = useState<number | null>(null);
@@ -402,14 +402,19 @@ function SetupForm({ section, studentId }: { section: SunnahSectionId; studentId
     setError("");
     if (!level) return setError("اختاروا المستوى.");
     startTransition(async () => {
-      const res = await saveSunnahStart({ studentId, section, level, stage, startNo: parseInt(startNo, 10) || 0 });
+      const res = await saveSunnahStart({ studentId, section, level, stage, startNo: parseInt(startNo, 10) || 0, reset });
       if (res.error) setError(res.error);
+      else onDone?.();
     });
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>أول تسميع لهذا الطالب في هذا المنهج — من أين يبدأ؟ (ما قبله يُعدّ منجزًا)</div>
+      <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
+        {reset
+          ? "من أين يبدأ الطالب الآن في هذا المنهج؟ ما قبله يُعدّ منجزًا، وسبوره وتسميعه السابقة تبقى في السجل ولا تُحتسب في موقعه."
+          : "أول تسميع لهذا الطالب في هذا المنهج — من أين يبدأ؟ (ما قبله يُعدّ منجزًا)"}
+      </div>
       <div>
         <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>الكتاب</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -487,7 +492,7 @@ function SetupForm({ section, studentId }: { section: SunnahSectionId; studentId
       )}
       {error && <div style={noticeStyle}>{error}</div>}
       <button type="button" onClick={save} disabled={pending || !level || !startNo} style={{ ...primaryButtonStyle, alignSelf: "flex-start", padding: "10px 22px", opacity: pending || !level || !startNo ? 0.6 : 1 }}>
-        ابدأ التسميع
+        {reset ? "حفظ المستوى الجديد" : "ابدأ التسميع"}
       </button>
     </div>
   );

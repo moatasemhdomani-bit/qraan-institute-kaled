@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
-import { today, isValidDate, formatDateAr, ATT_STATES, ATT_LABELS } from "@/lib/daily";
+import { today, isValidDate, formatDateAr, ATT_STATES, ATT_LABELS, holidayDaysIn } from "@/lib/daily";
 import PageHeader from "@/components/PageHeader";
 import MonitorClient from "./MonitorClient";
 
@@ -58,12 +58,16 @@ export default async function MonitorPage({
 
   const pending = blocks.filter((b) => !b.uploaded);
 
+  // يوم عطلة رسمية: «عطلة — الاسم» كما حفظته الإدارة
+  const holidayName = (await holidayDaysIn(date, date)).get(date) ?? null;
+
   return (
     <>
       <PageHeader
         title="متابعة الحضور"
         subtitle={
           `حضور كل الحلقات ليوم ${formatDateAr(date)}` +
+          (holidayName ? ` — عطلة — ${holidayName}` : "") +
           (session.role === "DIRECTOR" ? " — يمكنك فتح أي حلقة وتسجيل حضورها." : " — عرض فقط.")
         }
       />

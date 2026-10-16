@@ -1,4 +1,5 @@
 import { MIN_PAGE, MAX_PAGE } from "./daily";
+import { parsePastRefs, pastItemLabel } from "./pastRecitation";
 import { SUNNAH_PASS_MARK, sunnahBranchLabel, stageName, type SunnahSectionId } from "./sunnah";
 
 export { MIN_PAGE, MAX_PAGE };
@@ -10,7 +11,7 @@ export const NOMINATION_PARTS: Record<"present" | "absent", number[]> = {
   absent: [5, 10, 15, 20, 25, 30],
 };
 
-export type ExamTypeId = "LOCAL" | "WAQF_NOMINATION" | "PLACEMENT" | "ARABIC" | "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE" | "SUNNAH_PART";
+export type ExamTypeId = "LOCAL" | "WAQF_NOMINATION" | "PLACEMENT" | "ARABIC" | "SUNNAH" | "SUNNAH_NOMINATION" | "SUNNAH_AWQAF" | "SUNNAH_STAGE" | "SUNNAH_PART" | "PAST_GHAIB";
 
 export const isSunnahType = (t: string) => t === "SUNNAH" || t === "SUNNAH_NOMINATION" || t === "SUNNAH_AWQAF" || t === "SUNNAH_STAGE" || t === "SUNNAH_PART";
 
@@ -18,6 +19,7 @@ export const TYPE_LABELS: Record<ExamTypeId, string> = {
   LOCAL: "سبر محلي",
   WAQF_NOMINATION: "سبر ترشيح الأوقاف للقرآن",
   PLACEMENT: "تحديد مستوى",
+  PAST_GHAIB: "سبر ماضٍ غيباً",
   ARABIC: "سبر القراءة العربية",
   SUNNAH: "سبر المستوى المحلي (السنة النبوية)",
   SUNNAH_NOMINATION: "سبر ترشيح الأوقاف (السنة النبوية)",
@@ -104,6 +106,8 @@ export function passThreshold(
   nominationPresent: boolean | null | undefined
 ): number | null {
   if (type === "WAQF_NOMINATION") return nominationPresent ? 90 : 80;
+  // سبر ماضٍ غيباً: كالسبر المحلي غيباً
+  if (type === "PAST_GHAIB") return 80;
   if (type === "SUNNAH" || type === "SUNNAH_NOMINATION" || type === "SUNNAH_AWQAF") return SUNNAH_PASS_MARK;
   if (type === "LOCAL") {
     if (localKind === "HADIRAN") return 90;
@@ -143,7 +147,13 @@ export function validateExam(input: {
   grade?: string | null;
   startPage?: number | null;
   repeat?: boolean | null;
+  /** سبر ماضٍ غيباً: ما سُبر فيه */
+  pastItems?: { kind: string; juz: number }[];
 }): string | null {
+  if (input.type === "PAST_GHAIB") {
+    if (!input.pastItems || input.pastItems.length === 0) return "اختاروا ما سُبر فيه الطالب من الماضي (جزء أو حزب).";
+    return outcomeProblem(input.repeat, input.resultMark, 80);
+  }
   if (input.type === "ARABIC") {
     if (!input.stage || !ARABIC_STAGES.includes(input.stage)) return "اختاروا المرحلة.";
     if (isArabicMarkStage(input.stage)) {
@@ -196,6 +206,8 @@ function outcomeProblem(repeat: boolean | null | undefined, mark: number | null 
   if (repeat == null) return "اختاروا نتيجة السبر: ناجح أو إعادة.";
   if (repeat) return null;
   if (mark == null || !Number.isFinite(mark) || mark < passMark || mark > 100) return `علامة النجاح من ${passMark} إلى 100.`;
+  // لا كسور غير ربع الدرجة
+  if (!Number.isInteger(mark * 4)) return "العلامة عدد صحيح أو بكسر 0.25 أو 0.5 أو 0.75 (مثل 92.75).";
   return null;
 }
 
@@ -213,7 +225,9 @@ export function examKindLabel(e: {
   startPage?: number | null;
   sunnahSection?: string | null;
   sunnahStage?: number | null;
+  pastItems?: unknown;
 }): string {
+  if (e.type === "PAST_GHAIB") return parsePastRefs(e.pastItems).map((i) => pastItemLabel(i)).join("، ");
   if (e.type === "SUNNAH_STAGE") return `${sunnahBranchLabel(e.sunnahSection, e.stage, false)} — ${stageName(e.sunnahSection as SunnahSectionId, e.stage ?? 0, e.sunnahStage ?? 0)}`;
   if (e.type === "SUNNAH_PART") return `${sunnahBranchLabel(e.sunnahSection, e.stage, false)} — سبر القسم ${e.sunnahStage ?? ""}`;
   if (e.type === "ARABIC") return e.stage != null ? arabicStageLabel(e.stage) : "";

@@ -19,9 +19,9 @@ const EXAM_SCREENS = [
   { href: "/exams/local", label: "سبر محلي" },
   { href: "/exams/awqaf", label: "سبر ترشيح الأوقاف للقرآن" },
   { href: "/exams/placement", label: "تحديد مستوى" },
+  { href: "/exams/past", label: "سبر ماضٍ غيباً" },
   { href: "/exams/arabic", label: "سبر القراءة العربية" },
   { href: "/exams/sunnah", label: "سبر السنة النبوية" },
-  { href: "/exams/sunnah/nomination", label: "ترشيح الأوقاف للسنة النبوية" },
 ];
 
 const examBtnStyle = {
@@ -52,6 +52,7 @@ type Block = {
   teacherName: string;
   cohortName: string;
   rows: Row[];
+  students: { id: string; name: string; no: number }[];
   neverLabel: string;
 };
 
@@ -77,6 +78,8 @@ export default function ExamMonitorClient({
   const [typeFilter, setTypeFilter] = useState<"all" | RowType>("all");
   const [examinerFilter, setExaminerFilter] = useState("all");
   const [search, setSearch] = useState("");
+  // حالة الطالب: سُبِر / لم يُسبَر (بنوع السبر المختار، أو أي سبر قرآن/قراءة عربية)
+  const [status, setStatus] = useState<"all" | "done" | "never">("all");
   const [examMenu, setExamMenu] = useState(false);
   const [editing, setEditing] = useState<{ row: Row & { type: ExamTypeId }; halqaName: string } | null>(null);
 
@@ -102,7 +105,17 @@ export default function ExamMonitorClient({
       ),
     }))
     // عند البحث باسم طالب تُخفى الحلقات التي لا نتيجة فيها
-    .filter((b) => !q || b.rows.length > 0);
+    .filter((b) => !q || b.rows.length > 0 || status === "never")
+    .filter((b) => status !== "done" || b.rows.length > 0);
+
+  // «لم يُسبَر»: طلاب كل حلقة بلا سبر من النوع المختار (أو بلا سبر مستوى أصلًا — لا السنة النبوية)
+  const neverOf = (b: Block) => {
+    const sobred = new Set(
+      b.rows.filter((r) => (typeFilter === "all" ? !isSunnahType(r.type) && r.type !== "AWQAF_ACTUAL" : r.type === typeFilter)).map((r) => r.studentId)
+    );
+    return b.students.filter((s) => !sobred.has(s.id) && (!q || s.name.includes(q)));
+  };
+  const neverBlocks = status === "never" ? cohortTeacherBlocks.map((b) => ({ b, list: neverOf(b) })).filter((x) => x.list.length > 0) : [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -162,11 +175,44 @@ export default function ExamMonitorClient({
             }))}
           />
           <Select value={examinerFilter} onChange={setExaminerFilter} options={[{ value: "all", label: "كل المختبِرين" }, ...examinerNames.map((n) => ({ value: n, label: n }))]} />
+          <Select
+            value={status}
+            onChange={(v) => setStatus(v as typeof status)}
+            options={[
+              { value: "all", label: "كل الطلاب" },
+              { value: "done", label: "سُبِر" },
+              { value: "never", label: "لم يُسبَر" },
+            ]}
+          />
           {selects}
         </div>
       </div>
 
 
+      {status === "never" ? (
+        <>
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>
+            عدد النتائج: {neverBlocks.reduce((n, x) => n + x.list.length, 0)} طالبًا لم يُسبَر{typeFilter !== "all" ? ` ${typeFilter === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[typeFilter]}` : ""} في {neverBlocks.length} حلقة
+          </div>
+          {neverBlocks.length === 0 && <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا يوجد طالب لم يُسبَر.</div>}
+          {neverBlocks.map(({ b, list }) => (
+            <div key={b.id} style={{ ...cardStyle, overflow: "hidden", border: "1px solid rgba(224,138,138,0.5)" }}>
+              <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-2)" }}>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{b.name}</div>
+                <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 2 }}>{b.meta}</div>
+              </div>
+              {list.map((s) => (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}>
+                  <span style={{ fontSize: 14.5, fontWeight: 700 }}>{s.name}</span>
+                  <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>#{s.no}</span>
+                  <span style={{ marginInlineStart: "auto", fontSize: 12, color: "var(--bad-ink)" }}>لم يُسبَر</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </>
+      ) : (
+      <>
       <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>عدد النتائج: {filteredBlocks.reduce((n, b) => n + b.rows.length, 0)} سبرًا في {filteredBlocks.length} حلقة</div>
 
       {filteredBlocks.length === 0 && (
@@ -271,6 +317,8 @@ export default function ExamMonitorClient({
           )}
         </div>
       ))}
+      </>
+      )}
 
       <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
         {canEdit

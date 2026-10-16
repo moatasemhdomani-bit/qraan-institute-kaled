@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { parseHalfMark, isHalfStep } from "@/lib/numbers";
 import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { isValidDate } from "@/lib/daily";
@@ -100,9 +101,9 @@ export async function saveAwqafScore(_prev: FormState, formData: FormData): Prom
 
   const id = String(formData.get("id") || "");
   const scoreRaw = String(formData.get("score") || "");
-  const score = scoreRaw === "" ? null : parseInt(scoreRaw, 10);
-  if (score != null && (!Number.isFinite(score) || score < 0 || score > 100)) {
-    return { error: "العلامة رقم من 0 إلى 100." };
+  const score = parseHalfMark(scoreRaw);
+  if (score != null && (!isHalfStep(score) || score < 0 || score > 100)) {
+    return { error: "العلامة من 0 إلى 100 — عدد صحيح أو بكسر 0.25 أو 0.5 أو 0.75 (مثل 92.75)." };
   }
 
   const result = await prisma.awqafResult.findUnique({ where: { id }, include: { student: true, batch: true } });
@@ -284,6 +285,50 @@ export async function deleteAwqafResult(id: string): Promise<FormState> {
 
   revalidateAwqafPaths();
   revalidatePath(`/exams/awqaf-batches/${result.batchId}`);
+  revalidatePath("/exam-monitor");
+  return { ok: true };
+}
+
+/**
+ * حذف دفعة سبر أوقاف كاملة: نتائج طلابها وشهاداتهم، وسجلات سبر الأوقاف للسنّة المقابلة لعلاماتها.
+ * ترفيع طالب القرآن الذي نجح فيها (إن حدث) لا يُلغى — يُعدَّل مستواه من «شؤون الطلاب» إن لزم.
+ */
+export async function deleteAwqafBatch(id: string, removeFromEligible: boolean): Promise<FormState> {
+  const session = await getSession();
+  if (!canManage(session)) return { error: "غير مصرَّح لك بهذا الإجراء." };
+  const batch = await prisma.awqafBatch.findUnique({
+    where: { id },
+    include: { results: { select: { studentId: true, sunnahExamId: true, sunnahSection: true, sunnahLevel: true } } },
+  });
+  if (!batch) return { error: "الدفعة غير موجودة." };
+  const sunnahExamIds = batch.results.map((r) => r.sunnahExamId).filter((x): x is string => !!x);
+
+  // «حذف الطلاب من قائمة المؤهلين»: يُسقَط ترشيح كل طالب الذي دخل به الدفعة (آخر ترشيح له حتى تاريخها)
+  const dismiss: string[] = [];
+  if (removeFromEligible) {
+    for (const r of batch.results) {
+      const nom = await prisma.exam.findFirst({
+        where: r.sunnahSection
+          ? { studentId: r.studentId, type: "SUNNAH_NOMINATION", sunnahSection: r.sunnahSection, stage: r.sunnahLevel, sunnahStage: null, repeat: false, date: { lte: batch.date } }
+          : { studentId: r.studentId, type: "WAQF_NOMINATION", repeat: false, date: { lte: batch.date } },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        select: { id: true },
+      });
+      if (nom) dismiss.push(nom.id);
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.exam.deleteMany({ where: { id: { in: sunnahExamIds } } }),
+    prisma.exam.updateMany({ where: { id: { in: dismiss } }, data: { nominationDismissed: true } }),
+    prisma.awqafBatch.delete({ where: { id } }),
+  ]);
+  await logAction(
+    session.userId,
+    `حذف دفعة سبر أوقاف ${batch.kind === "SUNNAH" ? "السنّة النبوية" : "القرآن الكريم"} بتاريخ ${batch.date} — ${batch.results.length} طالبًا${removeFromEligible ? " — وحُذف طلابها من قائمة المؤهلين لسبر الأوقاف" : " — وعاد طلابها إلى قائمة المؤهلين"}`
+  );
+  revalidateAwqafPaths();
+  revalidatePath("/exams/sunnah", "layout");
   revalidatePath("/exam-monitor");
   return { ok: true };
 }

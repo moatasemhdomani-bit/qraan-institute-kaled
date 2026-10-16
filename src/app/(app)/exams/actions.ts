@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { parseHalfMark } from "@/lib/numbers";
 import { examinerTrack, examinerLike } from "@/lib/examinerTrack";
 import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -21,6 +22,7 @@ function revalidateExamPaths() {
   revalidatePath("/exams/local");
   revalidatePath("/exams/awqaf");
   revalidatePath("/exams/placement");
+  revalidatePath("/exams/past");
   revalidatePath("/exams/arabic");
   revalidatePath("/exams/sunnah", "layout");
   revalidatePath("/exams/awqaf-batches");
@@ -55,6 +57,7 @@ function examLabel(type: ExamTypeId, localKind: LocalKindId | null): string {
   if (type === "LOCAL") return `سبر محلي (${LOCAL_KIND_LABELS[localKind ?? "GHAYBAN"]})`;
   if (type === "WAQF_NOMINATION") return "سبر ترشيح الأوقاف للقرآن";
   if (type === "ARABIC") return "سبر القراءة العربية";
+  if (type === "PAST_GHAIB") return "سبر ماضٍ غيباً";
   if (isSunnahType(type)) return TYPE_LABELS[type];
   return "سبر تحديد مستوى";
 }
@@ -99,10 +102,10 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   // نتيجة السبر: «ناجح» (بعلامة ضمن علامات النجاح) أو «إعادة» (بلا علامة) — للسبر المحلي وترشيح الأوقاف
   // ومرحلتَي العلامة في القراءة العربية
   const outcome = String(formData.get("outcome") || "");
-  const usesOutcome = type === "LOCAL" || type === "WAQF_NOMINATION" || type === "ARABIC";
+  const usesOutcome = type === "LOCAL" || type === "WAQF_NOMINATION" || type === "ARABIC" || type === "PAST_GHAIB";
   const repeat = !usesOutcome ? null : outcome === "repeat" ? true : outcome === "pass" ? false : null;
   const resultMarkRaw = String(formData.get("resultMark") || "");
-  const resultMark = repeat ? null : resultMarkRaw ? parseInt(resultMarkRaw, 10) : null;
+  const resultMark = repeat ? null : parseHalfMark(resultMarkRaw);
 
   const nominationPresentRaw = String(formData.get("nominationPresent") || "");
   const nominationPresent = nominationPresentRaw === "" ? null : nominationPresentRaw === "1";
@@ -118,7 +121,20 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     studentName = String(formData.get("name") || "").trim();
   }
 
+  // سبر ماضٍ غيباً: الأجزاء والأحزاب التي سُبر فيها
+  let pastItems: { kind: string; juz: number }[] = [];
+  if (type === "PAST_GHAIB") {
+    try {
+      pastItems = (JSON.parse(String(formData.get("pastItemsJson") || "[]")) as { kind: string; juz: number }[]).filter(
+        (i) => ["HIZB1", "HIZB2", "JUZ"].includes(i.kind) && Number.isInteger(i.juz) && i.juz >= 1 && i.juz <= 30
+      );
+    } catch {
+      pastItems = [];
+    }
+  }
+
   const validationError = validateExam({
+    pastItems,
     type,
     localKind,
     juz,
@@ -142,6 +158,7 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     if (target?.track === "GRADUATED") return { error: "هذا الطالب متخرِّج — أنهى المستويات كلها." };
     if (type === "ARABIC" && target && examFamily(target.track) !== "ARABIC") return { error: "سبر القراءة العربية لطلاب القراءة العربية فقط." };
     if (type !== "ARABIC" && target && examFamily(target.track) === "ARABIC") return { error: "طالب القراءة العربية يُسبر بسبر القراءة العربية فقط." };
+    if (type === "PAST_GHAIB" && target && target.track !== "QURAN_GHAIB") return { error: "سبر ماضٍ غيباً لطلاب «قرآن غيباً» فقط." };
     if (track && (type === "ARABIC") !== (track === "ARABIC")) return { error: "هذا السبر ليس من نوع اختبارك." };
   }
 
@@ -168,7 +185,8 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     startPage: arabicPlacement ? startPage : null,
     pages: [],
     resultMark:
-      type === "WAQF_NOMINATION" || type === "LOCAL" || (type === "ARABIC" && isArabicMarkStage(stage)) ? resultMark : null,
+      type === "WAQF_NOMINATION" || type === "LOCAL" || type === "PAST_GHAIB" || (type === "ARABIC" && isArabicMarkStage(stage)) ? resultMark : null,
+    pastItems: type === "PAST_GHAIB" ? pastItems : undefined,
     repeat: !!repeat && (type !== "ARABIC" || isArabicMarkStage(stage)),
     stage: type === "ARABIC" ? stage : null,
     grade: type === "ARABIC" && !isArabicMarkStage(stage) ? grade : null,

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { defaultHalqa } from "@/lib/cohortNow";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
@@ -18,7 +19,7 @@ export default async function MyStarsPage() {
   const halaqatRaw = await prisma.halqa.findMany({
     where: { teacherId: session.userId, ...cohortScope(session) },
     include: {
-      cohort: { select: { name: true } },
+      cohort: true,
       students: { select: { id: true, name: true, studentNo: true, stars: true }, orderBy: { studentNo: "asc" } },
     },
     orderBy: { name: "asc" },
@@ -40,8 +41,8 @@ export default async function MyStarsPage() {
 
   return (
     <>
-      <PageHeader title="متابعة النجوم" subtitle="رصيد نجوم الحلقة تشحنه الإدارة، وتصرفه على طلاب الحلقة وحدهم." />
-      <TeacherStarsClient halaqat={halaqat} archive={txns.map(starTxnRow)} archiveLimit={ARCHIVE_LIMIT} />
+      <PageHeader title="متابعة النجوم" subtitle="رصيد نجوم الحلقة تودعه الإدارة، وتصرفه على طلاب الحلقة وحدهم." />
+      <TeacherStarsClient halaqat={halaqat} defaultHalqaId={defaultHalqa(halaqatRaw)?.id} archive={txns.map(starTxnRow)} archiveLimit={ARCHIVE_LIMIT} />
     </>
   );
 }

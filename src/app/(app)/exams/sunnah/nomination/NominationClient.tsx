@@ -60,7 +60,7 @@ export default function NominationClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ fontSize: 15, fontWeight: 700 }}>المؤهَّلون لسبر الترشيح ({eligible.length})</div>
         <div style={{ fontSize: 12, color: "var(--ink-3)" }}>الناجحون في السبر المحلي لمستوى ولم ينجحوا بعد في ترشيحه.</div>
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث باسم الطالب أو رقمه" style={inputStyle()} />
@@ -77,7 +77,7 @@ export default function NominationClient({
         )}
       </div>
 
-      <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ fontSize: 15, fontWeight: 700 }}>آخر سبورات الترشيح</div>
         {recent.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا سبر ترشيح بعد.</div>}
         {recent.map((e) => {

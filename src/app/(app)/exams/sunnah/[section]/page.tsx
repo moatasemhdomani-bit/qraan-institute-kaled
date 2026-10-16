@@ -54,7 +54,7 @@ export default async function SunnahSectionPage({ params }: { params: Promise<{ 
         weekDates={weekDates}
         today={today()}
         dayCounts={dayCounts}
-        starts={Object.fromEntries(startRows.map((s) => [s.studentId, { level: s.level, stage: s.stage, startNo: s.startNo }]))}
+        starts={Object.fromEntries(startRows.map((s) => [s.studentId, { level: s.level, stage: s.stage, startNo: s.startNo, resetAt: s.resetAt?.toISOString() ?? null }]))}
         exams={exams}
         recitations={recs.map((r) => ({
           id: r.id,

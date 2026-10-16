@@ -4,3 +4,14 @@ export function toWesternDigits(s: string): string {
     .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
     .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
 }
+
+/** علامة السبر: عدد صحيح أو بربع درجة (92، 92.25، 92.5، 92.75) — null للفارغ، NaN لغير الصالح */
+export function parseHalfMark(raw: string): number | null {
+  const s = toWesternDigits(raw).trim().replace(/[٫,]/g, ".");
+  if (!s) return null;
+  if (!/^\d+(\.(25|5|50|75|0)?)?$/.test(s)) return NaN;
+  return Number(s);
+}
+
+/** عدد صحيح أو بربع درجة (.25 / .5 / .75) */
+export const isHalfStep = (n: number) => Number.isFinite(n) && Number.isInteger(n * 4);

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { cardStyle, chipStyle, inputStyle, primaryButtonStyle, softButtonStyle } from "@/lib/ui";
-import { toWesternDigits } from "@/lib/numbers";
+import { toWesternDigits, parseHalfMark } from "@/lib/numbers";
 import { today, formatDateAr } from "@/lib/daily";
 import { TYPE_LABELS } from "@/lib/exam";
 import { SUNNAH_SECTIONS, SUNNAH_PASS_MARK, branchOrdinal, sunnahBranchLabel, stageName, sunnahProgressWarning, levelExamBlock, SUNNAH_PASS_STARS, SUNNAH_REPEAT_STARS, type SunnahSectionId, type SunnahLevelExamType, type SunnahStartPoint } from "@/lib/sunnah";
@@ -29,6 +29,8 @@ export type SunnahExamRow = {
   notes: string | null;
   examinerId: string;
   examinerName: string;
+  /** وقت التسجيل — ما قبل «إعادة ضبط المستوى» لا يُحتسب في الموقع */
+  createdAt: string;
 };
 type StudentRow = { id: string; name: string; no: number; stars: number; halqaName: string | null };
 
@@ -137,7 +139,7 @@ export default function SunnahClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ fontSize: 14, fontWeight: 700 }}>اختيار الطالب</div>
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="اكتبوا اسم الطالب أو رقمه — كل طلاب المعهد" style={inputStyle()} />
         {search.trim() && matches.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا يوجد طالب بهذا الاسم أو الرقم.</div>}
@@ -160,7 +162,7 @@ export default function SunnahClient({
       </div>
 
       {student && (
-        <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 180 }}>
               <div style={{ fontSize: 17, fontWeight: 700 }}>
@@ -197,7 +199,7 @@ export default function SunnahClient({
         </div>
       )}
 
-      <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ fontSize: 15, fontWeight: 700 }}>آخر السبورات</div>
         {exams.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا سبر في السنة النبوية بعد.</div>}
         {exams.slice(0, 40).map((e) => examLine(e, true))}
@@ -294,7 +296,7 @@ export function SunnahExamForm({
           branch,
           history
             .filter((h) => h.id !== existing?.id)
-            .map((h) => ({ type: h.type, section: h.section, branch: h.branch, mark: h.mark, repeat: h.repeat, grade: h.grade, stageNo: h.stageNo })),
+            .map((h) => ({ type: h.type, section: h.section, branch: h.branch, mark: h.mark, repeat: h.repeat, grade: h.grade, stageNo: h.stageNo, createdAt: h.createdAt })),
           startPoint
         )
       : null;
@@ -311,7 +313,7 @@ export function SunnahExamForm({
         branch: branch ?? 0,
         date,
         outcome,
-        mark: mark ? parseInt(mark, 10) : null,
+        mark: parseHalfMark(mark),
         notes,
         stars: withStars ? stars : 0,
       });
@@ -431,7 +433,7 @@ export function SunnahExamForm({
       {outcome === "pass" && (
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
-          <NumberField value={mark} onChange={(e) => setMark(e.target.value)} placeholder={`${SUNNAH_PASS_MARK} — 100`} style={{ width: 120, minHeight: 46, padding: 11, fontSize: 17 }} />
+          <NumberField half value={mark} onChange={(e) => setMark(e.target.value)} placeholder={`${SUNNAH_PASS_MARK} — 100`} style={{ width: 120, minHeight: 46, padding: 11, fontSize: 17 }} />
           <div style={{ marginTop: 7, fontSize: 12, color: "var(--ink-3)" }}>علامات النجاح من {SUNNAH_PASS_MARK} إلى 100.</div>
         </div>
       )}

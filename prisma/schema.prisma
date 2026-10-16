@@ -83,6 +83,9 @@ model User {
   behaviorChangesMade StudentBehaviorLog[] @relation("BehaviorActor")
   reportsIssued    IssuedReport[]  @relation("ReportIssuer")
   starTxnsMade     StarTxn[]       @relation("StarTxnBy")
+  /// مسؤول النشاط: رصيد نجوم النشاط — تشحنه الإدارة، ويُصرف منه شحنه للطلاب (ما يسحبه من الطلاب لا يعود إليه)
+  activityStars    Int             @default(0)
+  starTxnsOfficer  StarTxn[]       @relation("StarTxnOfficer")
   sunnahRecitationsTaken SunnahRecitation[] @relation("SunnahRecitationBy")
   sunnahStartsSet   SunnahStart[]   @relation("SunnahStartBy")
 }
@@ -303,6 +306,7 @@ enum ExamType {
   SUNNAH_NOMINATION // سبر ترشيح الأوقاف في السنة النبوية (داخل المعهد) — الناجح يُرفع إلى قائمة الجاهزين لسبر الأوقاف
   SUNNAH_AWQAF // سبر السنة النبوية الخارجي من جهة الأوقاف
   SUNNAH_STAGE // سبر مرحلة في السنة النبوية (داخل المعهد) — بتقدير
+  PAST_GHAIB // سبر ماضٍ غيباً (مختبِرو القرآن) — لطلاب قرآن غيباً، بالأجزاء والأحزاب، النجاح 80
   SUNNAH_PART // سبر قسم في المستوى المقسَّم (من المستوى الثالث في الحديث) — بتقدير، ورقم القسم في sunnahStage
 }
 
@@ -358,7 +362,7 @@ model Exam {
   pages Int[] @default([])
 
   // WAQF_NOMINATION، وLOCAL (الأنواع الثلاثة) — علامة من 100، يُدخلها المختبِر مباشرةً
-  resultMark Int?
+  resultMark Float? // تقبل نصف درجة (92.5)
   // نتيجة السبر «إعادة» (بدل «راسب»): يختار المختبِر «ناجح» أو «إعادة» أولًا — للإعادة لا علامة، وللنجاح علامة ضمن علامات النجاح
   repeat Boolean @default(false)
 
@@ -372,6 +376,12 @@ model Exam {
 
   // SUNNAH وSUNNAH_AWQAF: القسم، والفرع في stage (1…)، والعلامة في resultMark (النجاح 80) أو repeat
   sunnahSection SunnahSection?
+  /// سبر ماضٍ غيباً: ما سُبر فيه — [{ kind: HIZB1|HIZB2|JUZ, juz }]
+  pastItems Json?
+
+  /// ترشيح أوقاف (قرآن أو سنّة) أُسقط من قائمة المؤهلين لسبر الأوقاف — عند حذف دفعته باختيار الإدارة؛ يعود الطالب بترشيح جديد
+  nominationDismissed Boolean @default(false)
+
   // SUNNAH_STAGE: رقم المرحلة ضمن المستوى (stage = المستوى/الفرع)، والتقدير في grade
   sunnahStage   Int?
 
@@ -425,7 +435,7 @@ model AwqafResult {
   studentId String
   student   Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  score Int? // علامة من 100 — تصل من جهة الأوقاف، تُدخلها الإدارة بعد الاختبار
+  score Float? // علامة من 100 (تقبل نصف درجة) — تصل من جهة الأوقاف، تُدخلها الإدارة بعد الاختبار
 
   // حاضرًا (تلاوة، حدّ النجاح 90) أو غيبًا (حفظ، حدّ النجاح 80) — لقطة من مسار ترشيحه وقت إضافته للدفعة
   nominationPresent Boolean
@@ -569,6 +579,9 @@ model StarTxn {
   fromPool  Boolean     @default(false)
   byId      String
   by        User        @relation("StarTxnBy", fields: [byId], references: [id])
+  /// مسؤول النشاط المعنيّ: شحن الإدارة لرصيد نشاطه أو سحبه (بلا طالب)، أو عمليته هو على طالب
+  officerId String?
+  officer   User?       @relation("StarTxnOfficer", fields: [officerId], references: [id], onDelete: SetNull)
   byRole    Role
   reason    String?
   /// إعادة نجوم سُحبت بالغلط: تشير إلى عملية السحب الأصلية (تُعاد مرة واحدة فقط)
@@ -578,6 +591,7 @@ model StarTxn {
 
   @@index([createdAt])
   @@index([studentId])
+  @@index([officerId])
   @@index([halqaId])
 }
 
@@ -614,6 +628,8 @@ model SunnahStart {
   stage     Int?
   /// أول رقم يُسمّعه في كتاب المستوى
   startNo   Int
+  /// «إعادة ضبط مستوى طالب» (الإدارة): ما قبل هذا الوقت من سبور وتسميع في المنهج لا يُحتسب في موقعه — يبقى في السجل
+  resetAt   DateTime?
   setById   String
   setBy     User          @relation("SunnahStartBy", fields: [setById], references: [id])
 

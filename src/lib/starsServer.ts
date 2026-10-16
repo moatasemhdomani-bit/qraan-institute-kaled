@@ -9,6 +9,7 @@ export const STAR_TXN_INCLUDE = {
   student: { select: { name: true, studentNo: true } },
   halqa: { select: { name: true } },
   by: { select: { name: true } },
+  officer: { select: { name: true } },
   reversedBy: { select: { id: true } },
 } as const;
 
@@ -18,6 +19,10 @@ type TxnWithInclude = {
   kind: string;
   amount: number;
   halqaId: string | null;
+  studentId: string | null;
+  byId: string;
+  officerId: string | null;
+  officer: { name: string } | null;
   fromPool: boolean;
   byRole: string;
   reason: string | null;
@@ -40,11 +45,15 @@ export function starTxnRow(t: TxnWithInclude): StarTxnRow {
     at: formatDateTimeAr(t.createdAt),
     kind: t.kind as StarKind,
     amount: t.amount,
+    studentId: t.studentId,
     studentName: t.student?.name ?? null,
     studentNo: t.student?.studentNo ?? null,
     halqaId: t.halqaId,
     halqaName: t.halqa?.name ?? null,
+    byId: t.byId,
     byName: t.by.name,
+    officerId: t.officerId,
+    officerName: t.officer?.name ?? null,
     byLabel: starActorLabel(t.byRole),
     fromPool: t.fromPool,
     reason: t.reason,
@@ -74,7 +83,7 @@ export async function awardStars(studentId: string, amount: number, reason: stri
 }
 
 /**
- * نجوم مختبر الحديث: موجبة تُشحن، وسالبة تُسحب بقدر ما في الرصيد (الرصيد صفر يُعفى). لا تمسّ رصيد الحلقة.
+ * نجوم مختبر الحديث: موجبة تُودَع، وسالبة تُسحب بقدر ما في الرصيد (الرصيد صفر يُعفى). لا تمسّ رصيد الحلقة.
  * يُرجع ما تغيّر فعلًا في الرصيد.
  */
 export async function applyStars(studentId: string, n: number, reason: string, byId: string, byRole: Role): Promise<number> {

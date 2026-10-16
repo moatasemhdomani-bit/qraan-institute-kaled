@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { isHalfStep } from "@/lib/numbers";
 import { logAction, studentRef } from "@/lib/audit";
 import { isValidDate, GRADES } from "@/lib/daily";
 import { passFailLabel, ARABIC_GRADES, ARABIC_FAIL_GRADE, TYPE_LABELS } from "@/lib/exam";
@@ -59,7 +60,7 @@ export async function saveSunnahExam(input: SunnahExamInput): Promise<SunnahSave
   if (input.outcome !== "pass" && input.outcome !== "repeat") return { error: "اختاروا نتيجة السبر: ناجح أو إعادة." };
   const repeat = input.outcome === "repeat";
   const mark = repeat ? null : input.mark;
-  if (!repeat && (mark == null || !Number.isInteger(mark) || mark < SUNNAH_PASS_MARK || mark > 100)) {
+  if (!repeat && (mark == null || !isHalfStep(mark) || mark < SUNNAH_PASS_MARK || mark > 100)) {
     return { error: `علامة النجاح من ${SUNNAH_PASS_MARK} إلى 100.` };
   }
   const stars = input.type === "SUNNAH_AWQAF" || input.id ? 0 : (input.stars ?? 0);
@@ -84,13 +85,13 @@ export async function saveSunnahExam(input: SunnahExamInput): Promise<SunnahSave
       type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_STAGE", "SUNNAH_PART"] },
       ...(input.id ? { NOT: { id: input.id } } : {}),
     },
-    select: { type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true },
+    select: { type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true, createdAt: true },
   });
   const blocked = levelExamBlock(
     input.type,
     input.section,
     input.branch,
-    prior.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage })),
+    prior.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage, createdAt: e.createdAt })),
     await loadStart(input.studentId, input.section)
   );
   if (blocked) return { error: blocked };
@@ -219,18 +220,18 @@ export async function deleteSunnahRecitation(id: string): Promise<SunnahSaveResu
 /** موقع الطالب الآن في المنهج — من سبوره المحفوظة */
 async function loadStart(studentId: string, section: SunnahSectionId) {
   const st = await prisma.sunnahStart.findUnique({ where: { studentId_section: { studentId, section } } });
-  return st ? { level: st.level, stage: st.stage, startNo: st.startNo } : null;
+  return st ? { level: st.level, stage: st.stage, startNo: st.startNo, resetAt: st.resetAt?.toISOString() ?? null } : null;
 }
 
 async function loadPosition(studentId: string, section: SunnahSectionId) {
   const start = await loadStart(studentId, section);
   const exams = await prisma.exam.findMany({
     where: { studentId, sunnahSection: section, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE", "SUNNAH_PART"] } },
-    select: { type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true },
+    select: { type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true, createdAt: true },
   });
   return positionFromExams(
     section,
-    exams.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage })),
+    exams.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage, createdAt: e.createdAt })),
     start
   );
 }
@@ -326,9 +327,20 @@ export async function saveSunnahStageExam(input: {
  * الإعداد الأول لطالب في منهج (لم يسمّع فيه بعد): يختار المختبِر الكتاب والمستوى والمرحلة ورقم الحديث الذي يبدأ منه.
  * ما قبل ذلك يُعدّ منجزًا. يُعدَّل ما دام الطالب لم يسمّع ولم يُسبر في هذا المنهج.
  */
-export async function saveSunnahStart(input: { studentId: string; section: SunnahSectionId; level: number; stage: number | null; startNo: number }): Promise<SunnahSaveResult> {
+export async function saveSunnahStart(input: {
+  studentId: string;
+  section: SunnahSectionId;
+  level: number;
+  stage: number | null;
+  startNo: number;
+  /** «إعادة ضبط مستوى طالب» (الإدارة): إعداد أول جديد ولو سمّع أو سُبر — ما قبله لا يُحتسب في موقعه */
+  reset?: boolean;
+}): Promise<SunnahSaveResult> {
   const session = await getSession();
-  if (!session || (session.role !== "SUNNAH_EXAMINER" && session.role !== "DIRECTOR")) return { error: "الإعداد الأول من صلاحية مختبر الحديث." };
+  const reset = !!input.reset;
+  if (reset) {
+    if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) return { error: "إعادة ضبط مستوى الطالب من صلاحية الإدارة." };
+  } else if (!session || (session.role !== "SUNNAH_EXAMINER" && session.role !== "DIRECTOR")) return { error: "الإعداد الأول من صلاحية مختبر الحديث." };
   const sec = sunnahSection(input.section);
   if (!sec) return { error: "المنهج غير معروف." };
   if (!Number.isInteger(input.level) || input.level < 1 || input.level > sec.branches.length) return { error: "اختاروا المستوى." };
@@ -347,9 +359,9 @@ export async function saveSunnahStart(input: { studentId: string; section: Sunna
     prisma.sunnahRecitation.count({ where: { studentId: input.studentId, section: input.section } }),
     prisma.exam.count({ where: { studentId: input.studentId, sunnahSection: input.section } }),
   ]);
-  if (recs || exams) return { error: "سمّع الطالب أو سُبر في هذا المنهج — لا يُعدَّل إعداده الأول." };
+  if (!reset && (recs || exams)) return { error: "سمّع الطالب أو سُبر في هذا المنهج — لا يُعدَّل إعداده الأول." };
 
-  const data = { level: input.level, stage, startNo: input.startNo, setById: session.userId };
+  const data = { level: input.level, stage, startNo: input.startNo, setById: session.userId, ...(reset ? { resetAt: new Date() } : {}) };
   await prisma.sunnahStart.upsert({
     where: { studentId_section: { studentId: input.studentId, section: input.section } },
     update: data,
@@ -357,7 +369,7 @@ export async function saveSunnahStart(input: { studentId: string; section: Sunna
   });
   await logAction(
     session.userId,
-    `الإعداد الأول للطالب ${await studentRef(input.studentId)} في ${sec.label}: المستوى ${input.level}${stage ? ` — ${stageName(input.section, input.level, stage)}` : ""} — من الرقم ${input.startNo}`
+    `${reset ? "إعادة ضبط مستوى" : "الإعداد الأول"} للطالب ${await studentRef(input.studentId)} في ${sec.label}: المستوى ${input.level}${stage ? ` — ${stageName(input.section, input.level, stage)}` : ""} — من الرقم ${input.startNo}`
   );
   revalidatePath("/exams/sunnah", "layout");
   return { ok: true };

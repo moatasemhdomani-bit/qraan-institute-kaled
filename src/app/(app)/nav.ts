@@ -16,6 +16,9 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[]; tr
   { id: "exams-local", href: "/exams/local", label: "السبر المحلي", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
   { id: "exams-awqaf", href: "/exams/awqaf", label: "سبر ترشيح الأوقاف للقرآن", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
   { id: "exams-placement", href: "/exams/placement", label: "تحديد مستوى", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
+  { id: "exams-past", href: "/exams/past", label: "سبر ماضٍ غيباً", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
+  // «متابعة السبر» لكل مختبري القرآن — اطلاع
+  { id: "exam-monitor-examiner", href: "/exam-monitor", label: "متابعة السبر", roles: ["EXAMINER"], track: "QURAN" },
   { id: "exams-arabic", href: "/exams/arabic", label: "سبر القراءة العربية", roles: ["EXAMINER"], track: "ARABIC" },
   { id: "exams-sunnah", href: "/exams/sunnah", label: "سبر السنة النبوية", roles: ["ADMIN"] },
   // مختبر الحديث: «سبر محلي» (المناهج الثلاثة: تسميع، مراحل، سبر المستوى) و«سبر ترشيح الأوقاف»

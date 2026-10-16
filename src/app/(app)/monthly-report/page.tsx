@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
+import { defaultHalqa } from "@/lib/cohortNow";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
-import { today, isValidDate, weekdayName, inHoliday } from "@/lib/daily";
+import { today, isValidDate, weekdayName, inHoliday, holidayDaysIn } from "@/lib/daily";
 import { pagesSummary, localSplit, nominationSplit, realAwqafSplit, arabicExamMarks } from "@/lib/reports";
 import { parsePastItems, pastSummary } from "@/lib/pastRecitation";
 import TeacherReportsClient, { type ReportType } from "./TeacherReportsClient";
@@ -32,7 +33,7 @@ export default async function TeacherReportsPage({
   const halaqat = await prisma.halqa.findMany({
     where: { teacherId: session.userId, ...cohortScope(session) },
     orderBy: { name: "asc" },
-    include: { students: { orderBy: { studentNo: "asc" }, select: { id: true, name: true, studentNo: true } } },
+    include: { cohort: true, students: { orderBy: { studentNo: "asc" }, select: { id: true, name: true, studentNo: true } } },
   });
   const header = <PageHeader title="مركز التقارير" subtitle="اختاروا نوع التقرير: التقرير الشهري، تقرير طالب، أو سجل التسميع." />;
 
@@ -45,7 +46,7 @@ export default async function TeacherReportsPage({
     );
   }
 
-  const halqa = halaqat.find((h) => h.id === sp.halqa) ?? halaqat[0];
+  const halqa = halaqat.find((h) => h.id === sp.halqa) ?? defaultHalqa(halaqat) ?? halaqat[0];
   const arabic = halqa.track === "ARABIC";
   const studentIds = halqa.students.map((s) => s.id);
 
@@ -102,12 +103,13 @@ export default async function TeacherReportsPage({
       workDays = [];
     }
     const recDates = new Set(recs.map((r) => r.date));
+    const holidayNames = await holidayDaysIn(from, to);
     const days: string[] = [];
     for (let d = new Date(`${from}T12:00:00Z`); days.length < LOG_MAX_DAYS; d = new Date(d.getTime() + 86400000)) {
       const iso = d.toISOString().slice(0, 10);
       if (iso > to) break;
       const isWork = (workDays.length === 0 || workDays.includes(weekdayName(iso))) && !holidays.some((h) => inHoliday(iso, h));
-      if (isWork || recDates.has(iso)) days.push(iso);
+      if (isWork || recDates.has(iso) || holidayNames.has(iso)) days.push(iso);
     }
     const cellOf = (r: (typeof recs)[number]) => {
       if (r.none) return { none: true, fresh: "لم يسمّع", past: "" };
@@ -121,7 +123,7 @@ export default async function TeacherReportsPage({
       return { none: false, fresh, past };
     };
     log = {
-      days: days.map((d) => ({ date: d, label: `${weekdayName(d)} ${d.slice(8, 10)}/${d.slice(5, 7)}` })),
+      days: days.map((d) => ({ date: d, label: `${weekdayName(d)} ${d.slice(8, 10)}/${d.slice(5, 7)}`, holiday: holidayNames.get(d) ?? null })),
       truncated: days.length >= LOG_MAX_DAYS,
       rows: halqa.students
         .slice()

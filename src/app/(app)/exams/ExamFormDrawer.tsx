@@ -28,6 +28,10 @@ import Drawer from "@/components/Drawer";
 import DeleteExamButton from "./DeleteExamButton";
 import DateField from "@/components/DateField";
 import NumberField from "@/components/NumberField";
+import { parseHalfMark } from "@/lib/numbers";
+import { PAST_KINDS, parsePastRefs, pastItemLabel, type PastKind } from "@/lib/pastRecitation";
+
+type PastItemLite = { kind: PastKind; juz: number };
 
 const initialState: FormState = {};
 
@@ -48,6 +52,8 @@ export type ExistingExam = {
   /** السنة النبوية: القسم (والفرع في stage) */
   sunnahSection?: string | null;
   sunnahStage?: number | null;
+  /** سبر ماضٍ غيباً */
+  pastItems?: unknown;
   notes: string | null;
 };
 
@@ -93,6 +99,7 @@ function OutcomeMark({
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>العلامة</div>
           <NumberField
+            half
             value={mark}
             onChange={(e) => setMark(e.target.value)}
             placeholder={passMark != null ? `${passMark} — 100` : "— 100"}
@@ -141,6 +148,9 @@ export default function ExamFormDrawer({
   const [arabicNotes, setArabicNotes] = useState(() => splitArabicNotes(existing?.notes));
   const [stage, setStage] = useState<number | null>(existing?.stage ?? null);
   const [grade, setGrade] = useState(existing?.grade ?? "");
+  // سبر ماضٍ غيباً: النوع (حزب 1 / حزب 2 / جزء) ← رقم الجزء — بند أو أكثر
+  const [pastItems, setPastItems] = useState<PastItemLite[]>(() => parsePastRefs(existing?.pastItems));
+  const [pastKind, setPastKind] = useState<PastKind | "">("");
   useEffect(() => {
     if (state.ok) {
       onSaved?.();
@@ -160,7 +170,7 @@ export default function ExamFormDrawer({
       : passFailLabel({
           type,
           localKind: localKind || null,
-          resultMark: resultMark ? parseInt(resultMark, 10) : null,
+          resultMark: parseHalfMark(resultMark),
           nominationPresent,
           stage,
           grade: grade || null,
@@ -205,6 +215,7 @@ export default function ExamFormDrawer({
         <input type="hidden" name="nominationParts" value={nominationParts ?? ""} />
         <input type="hidden" name="stage" value={stage ?? ""} />
         <input type="hidden" name="grade" value={grade} />
+        <input type="hidden" name="pastItemsJson" value={JSON.stringify(pastItems)} />
 
         {isArabic && (
           <>
@@ -421,6 +432,66 @@ export default function ExamFormDrawer({
               />
             )}
 
+          </>
+        )}
+
+        {type === "PAST_GHAIB" && (
+          <>
+            <div style={{ padding: 14, borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>ما سُبر فيه الطالب من الماضي</div>
+              {pastItems.length > 0 && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {pastItems.map((i, k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setPastItems((v) => v.filter((_, x) => x !== k))}
+                      title="إزالة"
+                      style={{ ...chipStyle(true), padding: "7px 12px" }}
+                    >
+                      ✕ {pastItemLabel(i)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div>
+                <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>{pastItems.length ? "+ ماضٍ آخر — النوع" : "النوع"}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {PAST_KINDS.map((k) => (
+                    <button key={k.id} type="button" onClick={() => setPastKind(k.id)} style={{ ...chipStyle(pastKind === k.id), minHeight: 44, padding: "10px 20px" }}>
+                      {k.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {pastKind && (
+                <div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>الجزء</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {JUZ.map((j) => {
+                      const has = pastItems.some((i) => i.kind === pastKind && i.juz === j);
+                      return (
+                        <button
+                          key={j}
+                          type="button"
+                          disabled={has}
+                          onClick={() => {
+                            setPastItems((v) => [...v, { kind: pastKind, juz: j }]);
+                            setPastKind("");
+                          }}
+                          style={{ ...chipStyle(has), width: 42, minHeight: 40, padding: 0, opacity: has ? 0.5 : 1 }}
+                        >
+                          {j}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+            {pastItems.length > 0 && (
+              <OutcomeMark outcome={outcome} setOutcome={setOutcome} mark={resultMark} setMark={setResultMark} passMark={passThreshold("PAST_GHAIB", null, null)} />
+            )}
           </>
         )}
 

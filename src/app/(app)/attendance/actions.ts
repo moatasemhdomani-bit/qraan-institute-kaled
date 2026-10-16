@@ -22,26 +22,31 @@ export async function uploadAttendance(_prev: FormState, formData: FormData): Pr
     return { error: "تسجيل الحضور من صلاحية المدرّس أو مدير المعهد." };
   }
 
-  const halqaId = String(formData.get("halqaId") || "");
+  // «كل الحلقات»: حلقات المدرّس كلها في رفع واحد
+  const halqaIds = [...new Set(formData.getAll("halqaId").map(String).filter(Boolean))];
   const date = String(formData.get("date") || "");
   if (!isValidDate(date)) return { error: "التاريخ غير صحيح." };
 
   const locked = await dayLockReason(date);
   if (locked) return { error: `${locked} — لا يُسجَّل حضور في يوم لا دوام فيه.` };
 
-  const halqa = await prisma.halqa.findUnique({
-    where: { id: halqaId },
+  if (halqaIds.length === 0) return { error: "الحلقة غير موجودة." };
+  const halaqat = await prisma.halqa.findMany({
+    where: { id: { in: halqaIds } },
     include: { students: { select: { id: true } } },
   });
-  if (!halqa) return { error: "الحلقة غير موجودة." };
-  if (session.role === "TEACHER" && (halqa.teacherId !== session.userId || !session.cohortIds.includes(halqa.cohortId))) {
+  if (halaqat.length !== halqaIds.length) return { error: "الحلقة غير موجودة." };
+  if (session.role === "TEACHER" && halaqat.some((h) => h.teacherId !== session.userId || !session.cohortIds.includes(h.cohortId))) {
     return { error: "هذه ليست حلقتك." };
   }
 
-  const entries = halqa.students.map((st) => ({
-    studentId: st.id,
-    status: String(formData.get(`att_${st.id}`) || "") as AttendanceStatus,
-  }));
+  const entries = halaqat.flatMap((h) =>
+    h.students.map((st) => ({
+      studentId: st.id,
+      halqaId: h.id,
+      status: String(formData.get(`att_${st.id}`) || "") as AttendanceStatus,
+    }))
+  );
 
   const missing = entries.filter((e) => !VALID.has(e.status as never));
   if (missing.length) {
@@ -51,23 +56,24 @@ export async function uploadAttendance(_prev: FormState, formData: FormData): Pr
     };
   }
 
-  const existing = await prisma.attendance.count({ where: { halqaId, date } });
+  const existing = await prisma.attendance.count({ where: { halqaId: { in: halqaIds }, date } });
 
   await prisma.$transaction(
     entries.map((e) =>
       prisma.attendance.upsert({
         where: { studentId_date: { studentId: e.studentId, date } },
-        update: { status: e.status, halqaId, recordedById: session.userId },
-        create: { studentId: e.studentId, date, status: e.status, halqaId, recordedById: session.userId },
+        update: { status: e.status, halqaId: e.halqaId, recordedById: session.userId },
+        create: { studentId: e.studentId, date, status: e.status, halqaId: e.halqaId, recordedById: session.userId },
       })
     )
   );
 
+  const names = halaqat.map((h) => h.name).join("، ");
   await logAction(
     session.userId,
     existing > 0
-      ? `عدّل حضور حلقة ${halqa.name} ليوم ${formatDateAr(date)}`
-      : `رفع حضور حلقة ${halqa.name} ليوم ${formatDateAr(date)}`
+      ? `عدّل حضور ${halaqat.length > 1 ? "الحلقات" : "حلقة"} ${names} ليوم ${formatDateAr(date)}`
+      : `رفع حضور ${halaqat.length > 1 ? "الحلقات" : "حلقة"} ${names} ليوم ${formatDateAr(date)}`
   );
 
   revalidatePath("/attendance");

@@ -3,7 +3,7 @@ import { parsePastItems, pastSummary } from "@/lib/pastRecitation";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { today, isValidDate, formatDateAr, ATT_LABELS, ATT_STATES, pageSpan } from "@/lib/daily";
+import { today, isValidDate, formatDateAr, ATT_LABELS, ATT_STATES, pageSpan, holidayDaysIn } from "@/lib/daily";
 import { resultLabel, examKindLabel, TYPE_LABELS } from "@/lib/exam";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
 import { hasPastRecitation } from "@/lib/track";
@@ -91,6 +91,10 @@ export default async function ParentPage({
   ]);
 
   const stateColor = ATT_STATES.find((s) => s.id === todayAtt?.status)?.color ?? "var(--info)";
+  // أيام العطل في الفترة: «عطلة — الاسم» في جدولي الحضور والتسميع
+  const holidayNames = await holidayDaysIn(from, to);
+  const holidayRows = [...holidayNames].filter(([d]) => !attHistory.some((a) => a.date === d));
+  const holidayRecRows = [...holidayNames].filter(([d]) => !recHistory.some((r) => r.date === d));
 
   const recLines: string[] = [];
   if (todayRec) {
@@ -128,18 +132,29 @@ export default async function ParentPage({
         to={to}
         child={{
           name: child.name,
+          stars: child.stars,
           meta: child.halqa ? `${child.halqa.name} · ${child.halqa.cohort.name} · رقم ${child.studentNo}` : `رقم ${child.studentNo} — بلا حلقة بعد`,
         }}
         todayLabel={todayAtt ? `آخر يوم مسجَّل: ${formatDateAr(todayAtt.date)}` : "لا يوجد حضور مسجَّل بعد"}
         todayState={{ label: todayAtt ? ATT_LABELS[todayAtt.status] : "—", color: stateColor }}
         recLines={recLines}
         recDateLabel={todayRec ? formatDateAr(todayRec.date) : ""}
-        attHistory={attHistory.map((a) => ({
-          date: formatDateAr(a.date),
-          label: ATT_LABELS[a.status],
-          color: ATT_STATES.find((s) => s.id === a.status)?.color ?? "var(--info)",
-        }))}
-        recHistory={recHistory.map((r) => ({
+        attHistory={[
+          ...attHistory.map((a) => ({
+            raw: a.date,
+            date: formatDateAr(a.date),
+            label: ATT_LABELS[a.status],
+            color: ATT_STATES.find((s) => s.id === a.status)?.color ?? "var(--info)",
+          })),
+          ...holidayRows.map(([d, name]) => ({ raw: d, date: formatDateAr(d), label: `عطلة — ${name}`, color: "var(--info)" })),
+        ]
+          .sort((x, y) => y.raw.localeCompare(x.raw))
+          .map(({ raw: _raw, ...rest }) => rest)}
+        recHistory={[
+          ...holidayRecRows.map(([d, name]) => ({ raw: d, date: formatDateAr(d), blank: false, holiday: `عطلة — ${name}`, newLine: "", pastLine: "" })),
+          ...recHistory.map((r) => ({
+          raw: r.date,
+          holiday: null as string | null,
           date: formatDateAr(r.date),
           blank: r.none,
           newLine:
@@ -155,7 +170,10 @@ export default async function ParentPage({
             : r.noPast
             ? "لم يقرأ ماضيًا"
             : `ماضي: ${pastSummary(parsePastItems(r.pastItems)) || "لم يُسجَّل بعد"}`,
-        }))}
+          })),
+        ]
+          .sort((x, y) => y.raw.localeCompare(x.raw))
+          .map(({ raw: _raw, ...rest }) => rest)}
         examRows={[
           ...exams.map((e) => ({
             type: [TYPE_LABELS[e.type], examKindLabel(e)].filter(Boolean).join(" — "),

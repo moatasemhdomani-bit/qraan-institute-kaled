@@ -7,7 +7,8 @@ import { chipStyle } from "@/lib/ui";
 
 const initialState: FormState = {};
 
-type Student = { id: string; no: number; name: string };
+/** group: اسم حلقة الطالب — في «كل الحلقات» يظهر عنوانًا قبل طلاب كل حلقة */
+type Student = { id: string; no: number; name: string; group?: string };
 
 export default function AttendanceClient({
   halqaId,
@@ -16,7 +17,8 @@ export default function AttendanceClient({
   saved,
   alreadyUploaded,
 }: {
-  halqaId: string;
+  /** حلقة واحدة، أو كل حلقات المدرّس في رفع واحد */
+  halqaId: string | string[];
   date: string;
   students: Student[];
   saved: Record<string, string>;
@@ -38,7 +40,9 @@ export default function AttendanceClient({
 
   return (
     <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <input type="hidden" name="halqaId" value={halqaId} />
+      {(Array.isArray(halqaId) ? halqaId : [halqaId]).map((id) => (
+        <input key={id} type="hidden" name="halqaId" value={id} />
+      ))}
       <input type="hidden" name="date" value={date} />
       {students.map((s) => (
         <input key={s.id} type="hidden" name={`att_${s.id}`} value={marks[s.id] || ""} />
@@ -96,11 +100,15 @@ export default function AttendanceClient({
             {students.length === 0 ? "لا يوجد طلاب في هذه الحلقة بعد." : "لا أحد ناقص — الجميع مسجَّل."}
           </div>
         )}
-        {shown.map((s) => {
+        {shown.map((s, i) => {
           const cur = marks[s.id];
+          const heading = s.group && s.group !== shown[i - 1]?.group ? s.group : null;
           return (
+            <div key={s.id}>
+            {heading && (
+              <div style={{ padding: "9px 14px", fontSize: 13.5, fontWeight: 700, background: "var(--card-2-grad)", borderTop: i ? "1px solid var(--line)" : undefined }}>{heading}</div>
+            )}
             <div
-              key={s.id}
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -155,6 +163,7 @@ export default function AttendanceClient({
                   );
                 })}
               </div>
+            </div>
             </div>
           );
         })}

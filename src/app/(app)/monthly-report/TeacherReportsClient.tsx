@@ -29,7 +29,7 @@ type MonthlyRow = {
   note: string;
 };
 type LogData = {
-  days: { date: string; label: string }[];
+  days: { date: string; label: string; holiday: string | null }[];
   truncated: boolean;
   rows: { studentId: string; studentName: string; studentNo: number; cells: Record<string, { none: boolean; fresh: string; past: string }> }[];
 };
@@ -221,7 +221,9 @@ function LogTable({ arabic, data }: { arabic: boolean; data: LogData }) {
                   const c = r.cells[d.date];
                   return (
                     <td key={d.date} style={{ padding: 6, verticalAlign: "top", borderInlineStart: "1px solid var(--line-2)", lineHeight: 1.6 }}>
-                      {!c ? (
+                      {!c && d.holiday ? (
+                        <span style={{ color: "var(--info)", fontWeight: 600 }}>عطلة — {d.holiday}</span>
+                      ) : !c ? (
                         <span style={{ color: "var(--ink-3)" }}>—</span>
                       ) : c.none ? (
                         <span style={{ color: "var(--bad-ink)" }}>{c.fresh}</span>
