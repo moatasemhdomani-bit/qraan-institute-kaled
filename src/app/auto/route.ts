@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { redirect } from "next/navigation";
 import { getSession, createSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { currentCohortId } from "@/lib/cohortNow";
@@ -7,10 +7,10 @@ import { currentCohortId } from "@/lib/cohortNow";
  * عند فتح الموقع: الموظف الذي له حسابات في أكثر من فوج (مدرّس/مختبِر…) يدخل تلقائيًا على حساب الفوج الجاري الآن
  * (أو الذي بدأ دوامه آخرًا)، ثم إلى شاشاته. التنقّل اليدوي بين الحسابات أعلى الشاشة لا يمرّ من هنا.
  */
-export async function GET(req: Request) {
+export async function GET() {
   const session = await getSession();
-  const to = (p: string) => NextResponse.redirect(new URL(p, req.url));
-  if (!session) return to("/login");
+  // تحويل بمسار نسبي: req.url على Railway هو العنوان الداخلي للخادم (localhost) لا عنوان الموقع
+  if (!session) redirect("/login");
 
   if (session.accounts.length > 1) {
     const ids = [...new Set(session.accounts.flatMap((a) => a.cohortIds))];
@@ -25,5 +25,5 @@ export async function GET(req: Request) {
       await createSession({ userId: session.userId, role: acc.role, name: session.name, track: acc.track });
     }
   }
-  return to("/dashboard");
+  redirect("/dashboard");
 }
