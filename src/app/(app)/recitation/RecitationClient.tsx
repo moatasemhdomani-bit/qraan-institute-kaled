@@ -261,11 +261,8 @@ export default function RecitationClient({
       });
       setJustSaved(s.id);
       onDone?.();
-      // الانتقال إلى أول طالب بعده لم يُحفظ بعد
-      if (!part) {
-        const nextStudent = students.slice(idx + 1).find((x) => !sameEntry(savedEntries[x.id], entries[x.id]));
-        setOpen(nextStudent?.id ?? null);
-      }
+      // بعد الحفظ («حفظ جديد» أو «حفظ الماضي» أو «حفظ») تُغلق بطاقة الطالب — ولا تُفتح بطاقة طالب آخر تلقائيًا
+      setOpen(null);
     });
   }
 

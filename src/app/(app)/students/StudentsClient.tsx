@@ -510,7 +510,7 @@ function StudentForm({
           ) : (
             <Field label="عمل الوالد الحالي" name="job" defaultValue={initial?.job === "متوفى" ? "" : initial?.job} required />
           )}
-          <PhoneField label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} required />
+          <PhoneField label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} />
           <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
         </div>
 

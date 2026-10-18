@@ -396,7 +396,8 @@ function StaffForm({
   // قيمة قديمة مكتوبة نصًّا حرًّا قبل القوائم المنسدلة تبقى خيارًا ظاهرًا كي لا تضيع
   const withExisting = (opts: string[], existing?: string) =>
     (existing && !opts.includes(existing) ? [existing, ...opts] : opts).map((o) => ({ value: o, label: o }));
-  const req = !initial;
+  // كل المعلومات إجبارية (للجديد والسابقين) ما عدا الصورة والرقم الوطني — اسم المستخدم يُطلب عند الإنشاء
+  const req = true;
 
   useEffect(() => {
     if (state.ok && !state.generatedPassword) onClose();
@@ -583,7 +584,7 @@ function StaffForm({
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-          <Field label="اسم المستخدم" name="username" defaultValue={initial?.username} required={req} />
+          <Field label="اسم المستخدم" name="username" defaultValue={initial?.username} required={!initial} />
           {initial ? (
             <PasswordField label="كلمة المرور الحالية" name="currentPasswordView" defaultValue={initial.currentPassword} readOnly />
           ) : (
@@ -614,9 +615,9 @@ function StaffForm({
           <Field label="النسبة (الكنية/العائلة)" name="family" defaultValue={initial?.family} required={req} />
           <PhoneField label={req ? "رقم التواصل *" : "رقم التواصل"} name="phone" defaultValue={initial?.phone} />
           <Field label={req ? "تاريخ الميلاد *" : "تاريخ الميلاد"} name="birth" type="date" defaultValue={initial?.birth} />
-          <Field label="مكان الولادة *" name="birthPlace" defaultValue={initial?.birthPlace || "حلب"} required />
+          <Field label="مكان الولادة" name="birthPlace" defaultValue={initial?.birthPlace || "حلب"} required />
           <div>
-            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الرقم الوطني{req ? " *" : ""}</label>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الرقم الوطني</label>
             {/* أرقام فقط، ويبقى الصفر على اليسار (يُحفظ نصًّا) */}
             <input
               name="nid"

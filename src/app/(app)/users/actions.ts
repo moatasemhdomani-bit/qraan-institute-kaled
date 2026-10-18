@@ -94,16 +94,15 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     return { error: "اختاروا المستوى القرآني من القائمة." };
   }
 
-  // موظف جديد: كل المعلومات إجبارية ما عدا الصورة الشخصية
-  if (!id) {
+  // كل معلومات الموظف إجبارية ما عدا الصورة الشخصية والرقم الوطني — للجديد والسابقين (يُطلب الناقص عند أي تعديل)
+  {
     const required: [unknown, string][] = [
-      [username, "اسم المستخدم"],
+      ...(!id ? ([[username, "اسم المستخدم"]] as [unknown, string][]) : []),
       [data.fatherName, "اسم الأب"],
       [data.motherName, "اسم الأم"],
       [data.familyName, "النسبة"],
       [data.phone, "رقم التواصل"],
       [data.birthDate, "تاريخ الميلاد"],
-      [data.nationalId, "الرقم الوطني"],
       [data.address, "عنوان السكن"],
       [data.currentJob, "العمل الحالي"],
       [data.maritalStatus, "الحالة الاجتماعية"],
@@ -111,7 +110,7 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
       [data.quranLevel, "المستوى القرآني"],
     ];
     const missing = required.filter(([v]) => !v || !String(v).trim()).map(([, label]) => label);
-    if (missing.length) return { error: `كل المعلومات إجبارية ما عدا الصورة الشخصية — ناقص: ${missing.join("، ")}.` };
+    if (missing.length) return { error: `كل المعلومات إجبارية ما عدا الصورة الشخصية والرقم الوطني — ناقص: ${missing.join("، ")}.` };
   }
   // مكان الولادة إلزامي للجديد والسابقين (يُطلب عند أي تعديل لمن لم يُدخل له)
   if (!data.birthPlace) return { error: "مكان الولادة حقل إلزامي." };

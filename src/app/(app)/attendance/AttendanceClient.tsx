@@ -27,6 +27,13 @@ export default function AttendanceClient({
   const [state, formAction, pending] = useActionState(uploadAttendance, initialState);
   const [marks, setMarks] = useState<Record<string, string>>(saved);
   const [onlyMissing, setOnlyMissing] = useState(false);
+  // آخر ما رُفع: يُعرف به تعديل الحضور بعد رفعه — فيصير الزر «إعادة رفع الحضور»
+  const [uploaded, setUploaded] = useState<Record<string, string> | null>(alreadyUploaded ? saved : null);
+  const lastMarks = useRef(marks);
+  lastMarks.current = marks;
+  useEffect(() => {
+    if (state.ok) setUploaded({ ...lastMarks.current });
+  }, [state]);
   const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,6 +44,7 @@ export default function AttendanceClient({
   const done = students.length - missing.length;
   const shown = onlyMissing ? missing : students;
   const complete = missing.length === 0 && students.length > 0;
+  const edited = !!uploaded && students.some((s) => (marks[s.id] ?? "") !== (uploaded[s.id] ?? ""));
 
   return (
     <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -222,7 +230,7 @@ export default function AttendanceClient({
           opacity: pending ? 0.7 : 1,
         }}
       >
-        {pending ? "جارٍ الرفع…" : complete ? "رفع القائمة" : `رفع القائمة (${missing.length} ناقص)`}
+        {pending ? "جارٍ الرفع…" : !complete ? `رفع القائمة (${missing.length} ناقص)` : edited ? "إعادة رفع الحضور" : "رفع القائمة"}
       </button>
     </form>
   );

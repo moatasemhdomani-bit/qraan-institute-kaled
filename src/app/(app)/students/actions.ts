@@ -69,10 +69,9 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     ["birthPlace", "مكان الولادة"],
     ["address", "عنوان السكن"],
     ...(isOrphan ? [] : ([["job", "عمل الوالد الحالي"]] as [string, string][])),
-    ["phone", "رقم هاتف الطالب"],
   ];
   const missing = must.filter(([k]) => !String(formData.get(k) || "").trim()).map(([, l]) => l);
-  if (missing.length) return { error: `كل البيانات إجبارية عدا الصورة — ناقص: ${missing.join("، ")}.` };
+  if (missing.length) return { error: `كل البيانات إجبارية عدا الصورة ورقم هاتف الطالب — ناقص: ${missing.join("، ")}.` };
   if (!isValidMobile(guardianPhone)) return { error: "رقم ولي الأمر بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
   const studentPhone = normalizePhone(String(formData.get("phone") || ""));
   if (studentPhone && !isValidMobile(studentPhone)) return { error: "رقم هاتف الطالب بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
