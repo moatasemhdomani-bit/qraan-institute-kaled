@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { validateExam, passFailLabel, LOCAL_KIND_LABELS, isArabicMarkStage, arabicStageLabel, ARABIC_FINAL_STAGE, isSunnahType, TYPE_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
 import { examFamily } from "@/lib/track";
 import { promoteStudent } from "@/lib/promotion";
+import { awardStars, examStarsNet, withdrawExamStars } from "@/lib/starsServer";
 import { sunnahBranchLabel } from "@/lib/sunnah";
 
 export type FormState = { error?: string; ok?: boolean; examId?: string };
@@ -53,6 +54,14 @@ export async function addPlacementStudent(name: string): Promise<{ error?: strin
   return { studentId: created.id };
 }
 
+/** نجوم النجاح في سبر: 5 للسبر المحلي غيباً، و3 للمحلي حاضراً وعمّ غيباً وسبر القراءة العربية — 0 لغيرها */
+function successStars(type: ExamTypeId, localKind: LocalKindId | null): number {
+  if (type === "LOCAL") return localKind === "GHAYBAN" ? 5 : 3;
+  // سبر ماضٍ غيباً بلا نجوم
+  if (type === "ARABIC") return 3;
+  return 0;
+}
+
 function examLabel(type: ExamTypeId, localKind: LocalKindId | null): string {
   if (type === "LOCAL") return `سبر محلي (${LOCAL_KIND_LABELS[localKind ?? "GHAYBAN"]})`;
   if (type === "WAQF_NOMINATION") return "سبر ترشيح الأوقاف للقرآن";
@@ -76,9 +85,13 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   // السنة النبوية تُحفظ من شاشتها (saveSunnahExam)
   if (isSunnahType(type)) return { error: "سبر السنة النبوية يُسجَّل من شاشته." };
 
+  // نتيجة السبر قبل التعديل — نجوم النجاح تُصرف مرة واحدة عند صيرورته «ناجح»
+  let wasPassed = false;
   if (id) {
     const existing = await prisma.exam.findUnique({ where: { id } });
     if (!existing) return { error: "السبر غير موجود." };
+    wasPassed =
+      passFailLabel({ type: existing.type as ExamTypeId, localKind: existing.localKind as LocalKindId | null, resultMark: existing.resultMark, nominationPresent: existing.nominationPresent, stage: existing.stage, grade: existing.grade, repeat: existing.repeat }) === "ناجح";
     if (!canEdit(session, existing.examinerId)) return { error: "غير مصرَّح لك بتعديل سبر مختبِر آخر." };
   }
 
@@ -215,6 +228,21 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   const resultNote = passFail ? ` — النتيجة: ${passFail}` : "";
   await logAction(session.userId, `${id ? "عدّل" : "سجّل"} ${examLabel(type, localKind)}${type === "ARABIC" && stage ? ` (${arabicStageLabel(stage)})` : ""} للطالب ${await studentRef(finalStudentId as string)}${resultNote}`);
 
+  // مصدر النجوم: المختبِر الذي سبر الطالب (لا من أدخل السبر أو عدّله)
+  // نجوم النجاح التلقائية للطالب: 5 للسبر المحلي غيباً، و3 للمحلي حاضراً وعمّ غيباً وسبر القراءة العربية
+  const stars = passFail === "ناجح" && !wasPassed && finalStudentId ? successStars(type, localKind) : 0;
+  if (stars) {
+    await awardStars(finalStudentId as string, stars, `النجاح في ${examLabel(type, localKind)}${type === "ARABIC" && stage ? ` (${arabicStageLabel(stage)})` : ""}`, exam.examinerId, "EXAMINER", exam.id);
+    revalidatePath("/stars");
+    revalidatePath("/my-stars");
+  }
+  // عُدّل من «ناجح» إلى «إعادة»: تُسحب نجوم النجاح التي أُعطيت (بقدر رصيد الطالب)
+  if (wasPassed && passFail !== "ناجح" && finalStudentId) {
+    await withdrawExamStars(exam.id, finalStudentId, `تعديل ${examLabel(type, localKind)} إلى «إعادة» — سحب نجوم النجاح`, exam.examinerId, "EXAMINER");
+    revalidatePath("/stars");
+    revalidatePath("/my-stars");
+  }
+
   // الترفّع التلقائي عند النجاح في سبر المستوى: يُخرَج الطالب من حلقته ويظهر عند الإدارة «ترفّع» لإعادة فرزه
   if (passFail === "ناجح" && finalStudentId) {
     if (type === "ARABIC" && stage === ARABIC_FINAL_STAGE) {
@@ -246,6 +274,12 @@ export async function deleteExam(id: string): Promise<FormState> {
   if (!isAdmin && !isOwnExam) return { error: "يحذف المختبِر السبر الذي أجراه هو فقط." };
 
   await prisma.exam.delete({ where: { id } });
+  // حذف سبر ناجح: تُسحب نجوم النجاح التي أُعطيت عليه (بقدر رصيد الطالب)
+  if ((await examStarsNet(exam.id)) > 0) {
+    await withdrawExamStars(exam.id, exam.studentId, `حذف ${examLabel(exam.type as ExamTypeId, exam.localKind as LocalKindId | null)} — سحب نجوم النجاح`, exam.examinerId, "EXAMINER");
+    revalidatePath("/stars");
+    revalidatePath("/my-stars");
+  }
   await logAction(
     session.userId,
     `حذف ${examLabel(exam.type as ExamTypeId, exam.localKind as LocalKindId | null)}${exam.type === "ARABIC" && exam.stage ? ` (${arabicStageLabel(exam.stage)})` : ""}${isSunnahType(exam.type) ? ` (${sunnahBranchLabel(exam.sunnahSection, exam.stage, false)})` : ""} للطالب ${await studentRef(exam.studentId)} بتاريخ ${exam.date}`

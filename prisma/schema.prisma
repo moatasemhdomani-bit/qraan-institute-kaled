@@ -585,6 +585,8 @@ model StarTxn {
   byRole    Role
   reason    String?
   /// إعادة نجوم سُحبت بالغلط: تشير إلى عملية السحب الأصلية (تُعاد مرة واحدة فقط)
+  /// نجوم النجاح في سبر القرآن/القراءة العربية: السبر الذي أُعطيت عليه (تُسحب بقدرها عند تعديله إلى «إعادة» أو حذفه)
+  examId    String?
   reversesId String?    @unique
   reverses   StarTxn?   @relation("StarReversal", fields: [reversesId], references: [id], onDelete: SetNull)
   reversedBy StarTxn?   @relation("StarReversal")
@@ -592,6 +594,7 @@ model StarTxn {
   @@index([createdAt])
   @@index([studentId])
   @@index([officerId])
+  @@index([examId])
   @@index([halqaId])
 }
 

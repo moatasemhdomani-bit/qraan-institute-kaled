@@ -75,10 +75,35 @@ export async function zeroStudentStars(studentId: string, byId: string, byRole: 
 }
 
 /** مكافأة نجوم تلقائية (مثل النجاح في مرحلة أو مستوى من السنة النبوية) — لا تمسّ رصيد الحلقة، وتُسجَّل في الأرشيف. */
-export async function awardStars(studentId: string, amount: number, reason: string, byId: string, byRole: Role): Promise<void> {
+export async function awardStars(studentId: string, amount: number, reason: string, byId: string, byRole: Role, examId?: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
     const s = await tx.student.update({ where: { id: studentId }, data: { stars: { increment: amount } }, select: { halqaId: true } });
-    await tx.starTxn.create({ data: { kind: "CHARGE", amount, studentId, halqaId: s.halqaId, byId, byRole, reason } });
+    await tx.starTxn.create({ data: { kind: "CHARGE", amount, studentId, halqaId: s.halqaId, byId, byRole, reason, examId: examId ?? null } });
+  });
+}
+
+/**
+ * نجوم النجاح القائمة على سبر: آخر إيداع عليه ما لم يتبعه سحب — 0 للسبر الذي لم تُعطَ عليه نجوم
+ * (كالسبور الأقدم من هذه الميزة) أو سُحبت نجومه.
+ */
+export async function examStarsNet(examId: string): Promise<number> {
+  const last = await prisma.starTxn.findFirst({ where: { examId }, orderBy: { createdAt: "desc" }, select: { kind: true, amount: true } });
+  return last && last.kind === "CHARGE" ? last.amount : 0;
+}
+
+/** سحب نجوم النجاح المعطاة على سبر (بقدر رصيد الطالب) — عند تعديله إلى «إعادة» أو حذفه */
+export async function withdrawExamStars(examId: string, studentId: string, reason: string, byId: string, byRole: Role): Promise<void> {
+  const net = await examStarsNet(examId);
+  if (net <= 0) return;
+  await prisma.$transaction(async (tx) => {
+    const s = await tx.student.findUnique({ where: { id: studentId }, select: { stars: true, halqaId: true } });
+    if (!s) return;
+    const take = Math.min(s.stars, net);
+    if (take > 0) await tx.student.update({ where: { id: studentId }, data: { stars: { decrement: take } } });
+    // يُسجَّل السحب ولو لم يكفِ الرصيد — فيُغلق نجوم هذا السبر ولا تُسحب مرة أخرى
+    await tx.starTxn.create({
+      data: { kind: "WITHDRAW", amount: take, studentId, halqaId: s.halqaId, byId, byRole, reason: take < net ? `${reason} (الرصيد لم يكفِ — سُحب ${take} من ${net})` : reason, examId },
+    });
   });
 }
 
