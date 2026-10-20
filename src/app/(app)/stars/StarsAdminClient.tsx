@@ -24,12 +24,15 @@ export default function StarsAdminClient({
   halaqat,
   students,
   officers,
+  actors,
   archive,
   archiveLimit,
 }: {
   halaqat: HalqaRow[];
   students: StudentRow[];
   officers: OfficerRow[];
+  /** «الفاعل»: كل حسابات المستخدمين (الموظفين) — من أجرى العملية */
+  actors: { id: string; name: string }[];
   archive: StarTxnRow[];
   archiveLimit: number;
 }) {
@@ -39,8 +42,8 @@ export default function StarsAdminClient({
   const [search, setSearch] = useState("");
   const [pickHalqa, setPickHalqa] = useState("");
   // فلاتر السجل
-  const [fHalqa, setFHalqa] = useState("");
   const [fStudent, setFStudent] = useState("");
+  const fStudentQ = toWesternDigits(fStudent.trim());
   const [fOfficer, setFOfficer] = useState("");
   const [fKind, setFKind] = useState("");
 
@@ -74,18 +77,14 @@ export default function StarsAdminClient({
     () =>
       archive.filter(
         (r) =>
-          (!fHalqa || r.halqaId === fHalqa) &&
-          (!fStudent || r.studentId === fStudent) &&
-          (!fOfficer || r.officerId === fOfficer || r.byId === fOfficer) &&
+          // الطالب يُكتب اسمه أو رقمه — فارغ = الكل
+          (!fStudentQ || (!!r.studentName && (r.studentName.includes(fStudentQ) || String(r.studentNo ?? "") === fStudentQ))) &&
+          // الفاعل: من أجرى العملية
+          (!fOfficer || r.byId === fOfficer) &&
           (!fKind || r.kind === fKind)
       ),
-    [archive, fHalqa, fStudent, fOfficer, fKind]
+    [archive, fStudentQ, fOfficer, fKind]
   );
-  const studentOptions = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const r of archive) if (r.studentId && r.studentName) seen.set(r.studentId, `${r.studentName}${r.studentNo != null ? ` #${r.studentNo}` : ""}`);
-    return [{ value: "", label: "كل الطلاب" }, ...[...seen].sort((a, b) => a[1].localeCompare(b[1], "ar")).map(([value, label]) => ({ value, label }))];
-  }, [archive]);
 
   const allHalaqat = halaqat.length > 0 && picked.length === halaqat.length;
   const allOfficers = officers.length > 0 && picked.length === officers.length;
@@ -114,22 +113,17 @@ export default function StarsAdminClient({
           <Select value={fKind} onChange={setFKind} width={150} options={[{ value: "", label: "الكل" }, { value: "CHARGE", label: "إيداع" }, { value: "WITHDRAW", label: "سحب" }]} />
         </div>
         <div>
-          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الحلقة</div>
-          <Select value={fHalqa} onChange={setFHalqa} width={220} options={[{ value: "", label: "كل الحلقات" }, ...halaqat.map((h) => ({ value: h.id, label: h.name }))]} />
-        </div>
-        <div>
           <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الطالب</div>
-          <Select value={fStudent} onChange={setFStudent} width={240} options={studentOptions} />
+          <input value={fStudent} onChange={(e) => setFStudent(e.target.value)} placeholder="كل الطلاب — اكتبوا الاسم أو الرقم" style={{ ...inputStyle(), width: 240 }} />
         </div>
         <div>
-          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>مسؤول النشاط</div>
-          <Select value={fOfficer} onChange={setFOfficer} width={220} options={[{ value: "", label: "كل مسؤولي النشاط" }, ...officers.map((o) => ({ value: o.id, label: o.name }))]} />
+          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>الفاعل</div>
+          <Select value={fOfficer} onChange={setFOfficer} width={220} options={[{ value: "", label: "الكل" }, ...actors.map((o) => ({ value: o.id, label: o.name }))]} />
         </div>
-        {(fHalqa || fStudent || fOfficer || fKind) && (
+        {(fStudent || fOfficer || fKind) && (
           <button
             type="button"
             onClick={() => {
-              setFHalqa("");
               setFStudent("");
               setFOfficer("");
               setFKind("");

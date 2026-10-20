@@ -72,6 +72,7 @@ export default function ActivityStarsClient({
           subtitle={op.name}
           balance={op.stars}
           defaultKind="WITHDRAW"
+          chargeLimit={balance}
           info={
             <div style={{ padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13.5 }}>
               رصيد الطالب: <StarBadge n={op.stars} /> — {op.halqaName ?? "غير مفروز"}

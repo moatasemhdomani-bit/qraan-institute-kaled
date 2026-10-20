@@ -168,6 +168,8 @@ model Student {
   photoUrl      String?
   studentPhone  String?
   guardianPhone String?
+  /// رقم ولي الأمر 2 — اختياري، بصيغة رقم ولي الأمر نفسها
+  guardianPhone2 String?
   registeredAt  DateTime? @default(now()) // فارغ لطلاب مستوردين بلا تاريخ تسجيل في الجدول القديم
 
   halqaId String?

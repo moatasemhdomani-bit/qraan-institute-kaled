@@ -4,6 +4,7 @@ import { zeroStudentStars } from "@/lib/starsServer";
 import type { FeeStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { toWesternDigits, cleanPhone2 } from "@/lib/numbers";
 import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
@@ -73,6 +74,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
   const missing = must.filter(([k]) => !String(formData.get(k) || "").trim()).map(([, l]) => l);
   if (missing.length) return { error: `كل البيانات إجبارية عدا الصورة ورقم هاتف الطالب — ناقص: ${missing.join("، ")}.` };
   if (!isValidMobile(guardianPhone)) return { error: "رقم ولي الأمر بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
+  // رقم ولي الأمر 2: اختياري وبلا شروط صيغة (أرقام فقط، أي طول — جوال أو أرضي)
+  const guardianPhone2 = cleanPhone2(String(formData.get("guardianPhone2") || ""));
   const studentPhone = normalizePhone(String(formData.get("phone") || ""));
   if (studentPhone && !isValidMobile(studentPhone)) return { error: "رقم هاتف الطالب بصيغة 09XX XXX XXX — عشرة أرقام تبدأ بـ 09." };
 
@@ -96,6 +99,7 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     fatherJob: isOrphan ? "متوفى" : String(formData.get("job") || "") || null,
     studentPhone,
     guardianPhone,
+    guardianPhone2: guardianPhone2 || null,
     halqaId,
     active,
     isOrphan,

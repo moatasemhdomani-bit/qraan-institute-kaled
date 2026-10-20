@@ -51,6 +51,15 @@ export default function RecitationMonitorClient({
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState("all");
+  // الحلقات مطويّة: الاسم والحالة وحدهما — النقر على الحلقة يُظهر تفاصيلها كاملة
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const toggleOpen = (id: string) =>
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   // فلترة الحلقات بالفوج والمدرّس
   const match = (x: Row) => filter === "all" || x.state === filter;
   const { shown: shownBlocks, selects } = useCohortTeacherFilter(blocks);
@@ -147,17 +156,22 @@ export default function RecitationMonitorClient({
             }}
           >
             <div
+              onClick={() => toggleOpen(b.id)}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
                 flexWrap: "wrap",
                 padding: "13px 16px",
-                borderBottom: "1px solid var(--line-2)",
+                borderBottom: openIds.has(b.id) ? "1px solid var(--line-2)" : undefined,
+                cursor: "pointer",
               }}
             >
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700 }}>{b.name}</div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>
+                  <span style={{ display: "inline-block", width: 18, color: "var(--ink-3)", fontSize: 12 }}>{openIds.has(b.id) ? "▾" : "◂"}</span>
+                  {b.name}
+                </div>
                 <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 2 }}>{b.meta}</div>
               </div>
               <div style={{ marginInlineStart: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -189,7 +203,8 @@ export default function RecitationMonitorClient({
                 </span>
                 {canRecord && (
                   <Link
-                    href={`/recitation?halqa=${b.id}&date=${date}`}
+                  onClick={(e) => e.stopPropagation()}
+                  href={`/recitation?halqa=${b.id}&date=${date}`}
                     style={{
                       padding: "6px 13px",
                       borderRadius: 9,
@@ -206,6 +221,8 @@ export default function RecitationMonitorClient({
               </div>
             </div>
 
+            {openIds.has(b.id) && (
+              <>
             {!b.uploaded ? (
               <div style={{ padding: "20px 16px", fontSize: 13, color: "var(--ink-2)" }}>
                 لم يسجّل مدرّس هذه الحلقة تسميع هذا اليوم.
@@ -249,6 +266,8 @@ export default function RecitationMonitorClient({
                   ))}
                 </div>
               ))
+            )}
+              </>
             )}
           </div>
         );

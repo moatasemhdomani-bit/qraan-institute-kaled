@@ -1,5 +1,6 @@
 "use client";
 
+import { toWesternDigits, cleanPhone2 } from "@/lib/numbers";
 import { useEffect, useMemo, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { saveStudent, resetGuardianPassword, deleteStudent, type FormState } from "./actions";
@@ -43,6 +44,7 @@ type StudentRow = {
   job: string;
   phone: string;
   guardianPhone: string;
+  guardianPhone2: string;
   photoUrl: string | null;
   registeredAt: string;
   halqaId: string;
@@ -72,7 +74,7 @@ const BEHAVIOR_COLORS: Record<string, string> = {
 
 const initialState: FormState = {};
 
-type HalqaOption = { id: string; name: string; cohortId: string; cohortName: string; teacherId: string; teacherName: string; track: TrackId };
+type HalqaOption = { id: string; name: string; cohortId: string; cohortName: string; teacherId: string; teacherName: string; track: TrackId; studentCount: number };
 
 export default function StudentsClient({
   students,
@@ -420,9 +422,14 @@ function StudentForm({
   // المتخرّج لا حلقة له
   const graduated = track === "GRADUATED";
   const teachers = useMemo(() => {
-    const byId = new Map<string, string>();
-    for (const h of trackHalaqat) if (!byId.has(h.teacherId)) byId.set(h.teacherId, h.teacherName);
-    return Array.from(byId, ([id, name]) => ({ id, name }));
+    // مع عدد طلاب المدرّس في حلقاته (من مستوى الطالب)
+    const byId = new Map<string, { name: string; count: number }>();
+    for (const h of trackHalaqat) {
+      const cur = byId.get(h.teacherId) ?? { name: h.teacherName, count: 0 };
+      cur.count += h.studentCount;
+      byId.set(h.teacherId, cur);
+    }
+    return Array.from(byId, ([id, v]) => ({ id, name: v.name, count: v.count }));
   }, [trackHalaqat]);
 
   const cohortsForTeacher = useMemo(() => trackHalaqat.filter((h) => h.teacherId === teacherId), [trackHalaqat, teacherId]);
@@ -499,8 +506,9 @@ function StudentForm({
           <ReadOnly label="تاريخ التسجيل" value={initial ? initial.registeredAt : todayLabel} />
           <Field label="اسم الطالب" name="name" defaultValue={initial?.name} required />
           <Field label="النسبة" name="familyName" defaultValue={initial?.familyName} required />
-          <Field label="اسم الوالد" name="father" defaultValue={initial?.father} required />
+          {/* في العرض: الوالدة يمين والوالد يسارها (الحقول نفسها) */}
           <Field label="اسم الوالدة" name="mother" defaultValue={initial?.mother} required />
+          <Field label="اسم الوالد" name="father" defaultValue={initial?.father} required />
           <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} required />
           <Field label="مكان الولادة" name="birthPlace" defaultValue={initial?.birthPlace || "حلب"} required />
           <Field label="عنوان السكن" name="address" defaultValue={initial?.address} required />
@@ -512,6 +520,19 @@ function StudentForm({
           )}
           <PhoneField label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} />
           <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
+          {/* رقم ولي الأمر 2: اختياري وبلا شروط صيغة */}
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>رقم ولي الأمر 2</label>
+            <input
+              name="guardianPhone2"
+              defaultValue={initial?.guardianPhone2}
+              // أرقام وإشارة + فقط
+              onChange={(e) => {
+                const v = cleanPhone2(e.currentTarget.value);
+                if (v !== e.currentTarget.value) e.currentTarget.value = v;
+              }}
+              inputMode="tel" dir="ltr" placeholder="اختياري" style={{ ...inputStyle(), textAlign: "right" }} />
+          </div>
         </div>
 
         {/* مستوى الطالب، ثم حالته، وتحتها «يتيم» */}
@@ -604,7 +625,7 @@ function StudentForm({
                 setTeacherId(v);
                 setCohortId("");
               }}
-              options={teachers.map((t) => ({ value: t.id, label: t.name }))}
+              options={teachers.map((t) => ({ value: t.id, label: `${t.name} — ${t.count} طالبًا` }))}
               placeholder="اختاروا المدرس"
             />
           </div>
@@ -614,7 +635,7 @@ function StudentForm({
               value={cohortId}
               onChange={setCohortId}
               disabled={!teacherId}
-              options={cohortsForTeacher.map((h) => ({ value: h.cohortId, label: h.cohortName }))}
+              options={cohortsForTeacher.map((h) => ({ value: h.cohortId, label: `${h.cohortName} — ${h.studentCount} طالبًا` }))}
               placeholder={teacherId ? "اختاروا الفوج" : "اختاروا المدرس أولًا"}
             />
           </div>

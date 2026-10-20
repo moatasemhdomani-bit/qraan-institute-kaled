@@ -115,7 +115,13 @@ export default function PermitsClient({
         </div>
       )}
 
-      <StudentPermitSearch halaqat={halaqat} onAdd={readOnly ? undefined : (id) => setFormOpen({ existing: null, initialStudentId: id })} />
+      <StudentPermitSearch
+        halaqat={halaqat}
+        onAdd={readOnly ? undefined : (id) => setFormOpen({ existing: null, initialStudentId: id })}
+        onEdit={readOnly ? undefined : (existing) => setFormOpen({ existing })}
+        onDelete={readOnly ? undefined : handleRowDelete}
+        deletingId={deletingId}
+      />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 9, padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -224,7 +230,20 @@ export default function PermitsClient({
 }
 
 /** بحث عن طالب بالاسم أو الرقم — يُظهر فورًا إن كان لديه إذن دخول/خروج أم لا. */
-function StudentPermitSearch({ halaqat, onAdd }: { halaqat: Halqa[]; onAdd?: (studentId: string) => void }) {
+function StudentPermitSearch({
+  halaqat,
+  onAdd,
+  onEdit,
+  onDelete,
+  deletingId,
+}: {
+  halaqat: Halqa[];
+  onAdd?: (studentId: string) => void;
+  /** لديه إذن: تعديله أو حذفه من هنا مباشرة (كما في السجل أسفل الشاشة) */
+  onEdit?: (existing: ExistingPermit) => void;
+  onDelete?: (studentId: string) => void;
+  deletingId?: string | null;
+}) {
   const [q, setQ] = useState("");
   const query = q.trim();
 
@@ -265,7 +284,45 @@ function StudentPermitSearch({ halaqat, onAdd }: { halaqat: Halqa[]; onAdd?: (st
                   {KIND_LABELS[p.kind]} — {KIND_VERBS[p.kind]} {formatTime12(p.time)}
                 </span>
               ))}
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onEdit({
+                      studentId: s.id,
+                      studentName: s.name,
+                      since: s.permits.map((x) => x.since).sort()[0],
+                      entryTime: s.permits.find((x) => x.kind === "ENTRY")?.time ?? null,
+                      exitTime: s.permits.find((x) => x.kind === "EXIT")?.time ?? null,
+                      note: s.permits.find((x) => x.note)?.note ?? null,
+                      days: s.permits[0]?.days ?? [],
+                    })
+                  }
+                  style={{ padding: "5px 12px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}
+                >
+                  تعديل
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(s.id)}
+                  disabled={deletingId === s.id}
+                  style={{ padding: "5px 12px", borderRadius: 9, border: "1px solid rgba(224,138,138,0.45)", background: "transparent", color: "var(--bad-ink)", fontSize: 12, cursor: "pointer", opacity: deletingId === s.id ? 0.6 : 1 }}
+                >
+                  {deletingId === s.id ? "جارٍ الحذف…" : s.permits.length > 1 ? "حذف الإذنين" : "حذف الإذن"}
+                </button>
+              )}
             </span>
+          )}
+          {/* تفاصيل الإذن كما في السجل أسفل الشاشة */}
+          {s.permits.length > 0 && (
+            <div style={{ width: "100%", fontSize: 12, color: "var(--ink-2)", display: "flex", flexDirection: "column", gap: 3 }}>
+              <span>
+                أضافه {s.permits[0].setByName} · قائم منذ {formatDateAr(s.permits.map((x) => x.since).sort()[0])} · الأيام: {s.permits[0].days.length ? s.permits[0].days.join("، ") : "كل أيام الدوام"}
+              </span>
+              {s.permits.find((x) => x.note) && <span>السبب: {s.permits.find((x) => x.note)?.note}</span>}
+            </div>
           )}
         </div>
       ))}

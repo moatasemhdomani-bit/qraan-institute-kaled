@@ -14,7 +14,7 @@ export default async function StarsPage() {
   if (session.role === "TEACHER") redirect("/my-stars");
   if (session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
 
-  const [halaqatRaw, studentsRaw, txns, officersRaw] = await Promise.all([
+  const [halaqatRaw, studentsRaw, txns, officersRaw, actorsRaw] = await Promise.all([
     prisma.halqa.findMany({
       include: {
         teacher: { select: { name: true } },
@@ -38,6 +38,8 @@ export default async function StarsPage() {
       select: { id: true, name: true, activityStars: true },
       orderBy: { name: "asc" },
     }),
+    // «الفاعل»: كل حسابات المستخدمين (الموظفين)
+    prisma.user.findMany({ where: { role: { not: "GUARDIAN" } }, select: { id: true, name: true, username: true }, orderBy: { name: "asc" } }),
   ]);
 
   const halqaNames = Object.fromEntries(halaqatRaw.map((h) => [h.id, h.name]));
@@ -69,6 +71,8 @@ export default async function StarsPage() {
         halaqat={halaqat}
         students={students}
         officers={officersRaw.map((o) => ({ id: o.id, name: o.name, stars: o.activityStars }))}
+        // الاسم المتكرر يُميَّز باسم المستخدم
+        actors={actorsRaw.map((u) => ({ id: u.id, name: actorsRaw.filter((x) => x.name === u.name).length > 1 ? `${u.name} (${u.username})` : u.name }))}
         archive={archive}
         archiveLimit={ARCHIVE_LIMIT}
       />

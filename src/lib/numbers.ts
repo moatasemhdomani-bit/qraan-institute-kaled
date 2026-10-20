@@ -13,5 +13,11 @@ export function parseHalfMark(raw: string): number | null {
   return Number(s);
 }
 
+/** رقم ولي الأمر 2: أرقام فقط، و«+» في أوله وحده إن وُجدت */
+export function cleanPhone2(raw: string): string {
+  const w = toWesternDigits(raw).trim();
+  return (w.startsWith("+") ? "+" : "") + w.replace(/\D/g, "");
+}
+
 /** عدد صحيح أو بربع درجة (.25 / .5 / .75) */
 export const isHalfStep = (n: number) => Number.isFinite(n) && Number.isInteger(n * 4);

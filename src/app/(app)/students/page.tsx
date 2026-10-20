@@ -44,6 +44,7 @@ export default async function StudentsPage() {
     job: s.fatherJob || "",
     phone: s.studentPhone || "",
     guardianPhone: s.guardianPhone || "",
+    guardianPhone2: s.guardianPhone2 || "",
     photoUrl: s.photoUrl,
     registeredAt: s.registeredAt ? formatDateAr(dateOnly(s.registeredAt)) : "—",
     halqaId: s.halqaId || "",
@@ -78,6 +79,8 @@ export default async function StudentsPage() {
     teacherId: h.teacherId,
     teacherName: h.teacher.name,
     track: h.track,
+    // عدد طلاب الحلقة (النشطين) — يظهر عند الفرز بجوار المدرّس والفوج
+    studentCount: studentsRaw.filter((s) => s.halqaId === h.id && s.active).length,
   }));
 
   return (
