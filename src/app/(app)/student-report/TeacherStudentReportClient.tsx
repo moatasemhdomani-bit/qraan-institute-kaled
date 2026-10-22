@@ -3,11 +3,11 @@
 import { useMemo, useState, useTransition } from "react";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
-import Select from "@/components/Select";
 import { today } from "@/lib/daily";
 import type { StudentPreview } from "@/lib/reports";
 import StudentReportPreview from "../reports/student/StudentReportPreview";
 import { previewTeacherStudentReport } from "./actions";
+import { textHas } from "@/lib/search";
 
 type Halqa = { id: string; name: string; students: { id: string; name: string; no: number }[] };
 
@@ -30,13 +30,15 @@ export default function TeacherStudentReportClient({ halaqat }: { halaqat: Halqa
     [halaqat]
   );
 
+  const picked = options.find((o) => o.value === studentId);
+
   // بحث عن الطالب بالاسم (أو رقمه) بين طلابه
   const matches = useMemo(() => {
     const q = search.trim();
     if (!q) return [];
     return halaqat
       .flatMap((h) => h.students.map((s) => ({ ...s, halqaName: h.name })))
-      .filter((s) => s.name.includes(q) || String(s.no) === q)
+      .filter((s) => textHas(s.name, q) || String(s.no) === q)
       .slice(0, 10);
   }, [halaqat, search]);
 
@@ -87,15 +89,9 @@ export default function TeacherStudentReportClient({ halaqat }: { halaqat: Halqa
         </div>
         <div>
           <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>الطالب</label>
-          <Select
-            value={studentId}
-            onChange={(v) => {
-              setStudentId(v);
-              setPreview(null);
-            }}
-            options={options}
-            placeholder="اختاروا أحد طلابكم"
-          />
+          <div style={{ ...inputStyle(), display: "flex", alignItems: "center", color: picked ? "var(--ink)" : "var(--ink-3)", fontWeight: picked ? 600 : 400 }}>
+            {picked ? picked.label : "ابحثوا عنه بالاسم أعلاه"}
+          </div>
         </div>
         <DateField label="بداية التقرير" value={from} onChange={setFrom} />
         <DateField label="نهاية التقرير" value={to} onChange={setTo} />

@@ -1,15 +1,14 @@
 import { redirect } from "next/navigation";
+import { buildRecitationLog } from "@/lib/recitationLog";
 import { defaultHalqa } from "@/lib/cohortNow";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
-import { today, isValidDate, weekdayName, inHoliday, holidayDaysIn } from "@/lib/daily";
+import { today, isValidDate } from "@/lib/daily";
 import { pagesSummary, localSplit, nominationSplit, realAwqafSplit, arabicExamMarks, pastGhaibSplit } from "@/lib/reports";
-import { parsePastItems, pastSummary } from "@/lib/pastRecitation";
 import TeacherReportsClient, { type ReportType } from "./TeacherReportsClient";
 
-const LOG_MAX_DAYS = 62;
 
 /**
  * «مركز التقارير» عند المدرّس — ثلاثة تقارير يختار أحدها:
@@ -94,50 +93,8 @@ export default async function TeacherReportsPage({
 
   // سجل التسميع: أعمدة = أيام الدوام في الفترة، سطور = الطلاب، والخانة = تسميعه يومها (الجديد والماضي بتقديرهما)
   if (type === "log" && from <= to) {
-    const [working, holidays, recs] = await Promise.all([
-      prisma.workingDays.findUnique({ where: { id: 1 } }),
-      prisma.holiday.findMany({ select: { date: true, endDate: true } }),
-      prisma.recitation.findMany({ where: { halqaId: halqa.id, date: { gte: from, lte: to } } }),
-    ]);
-    let workDays: string[] = [];
-    try {
-      workDays = JSON.parse(working?.days || "[]");
-    } catch {
-      workDays = [];
-    }
-    const recDates = new Set(recs.map((r) => r.date));
-    const holidayNames = await holidayDaysIn(from, to);
-    const days: string[] = [];
-    for (let d = new Date(`${from}T12:00:00Z`); days.length < LOG_MAX_DAYS; d = new Date(d.getTime() + 86400000)) {
-      const iso = d.toISOString().slice(0, 10);
-      if (iso > to) break;
-      const isWork = (workDays.length === 0 || workDays.includes(weekdayName(iso))) && !holidays.some((h) => inHoliday(iso, h));
-      if (isWork || recDates.has(iso) || holidayNames.has(iso)) days.push(iso);
-    }
-    const cellOf = (r: (typeof recs)[number]) => {
-      if (r.none) return { none: true, fresh: "لم يسمّع", past: "" };
-      let fresh = "";
-      if (r.noNew) fresh = "لا جديد";
-      else if (r.surahs.length) fresh = r.surahs.map((x) => (r.surahsDone.includes(x) ? `${x} ✓` : x)).join("، ");
-      else if (r.newFrom != null && r.newTo != null)
-        fresh = r.newFrom === r.newTo ? `ص ${r.newFrom}${r.pageDone === false ? " (لم تتم)" : ""}` : `ص ${r.newFrom}–${r.newTo}`;
-      if (fresh && !r.noNew && r.gradeNew) fresh += ` (${r.gradeNew})`;
-      const past = arabic ? "" : r.noPast ? "لم يقرأ" : pastSummary(parsePastItems(r.pastItems));
-      return { none: false, fresh, past };
-    };
-    log = {
-      days: days.map((d) => ({ date: d, label: `${weekdayName(d)} ${d.slice(8, 10)}/${d.slice(5, 7)}`, holiday: holidayNames.get(d) ?? null })),
-      truncated: days.length >= LOG_MAX_DAYS,
-      rows: halqa.students
-        .slice()
-        .sort((x, y) => x.name.localeCompare(y.name, "ar"))
-        .map((st) => ({
-          studentId: st.id,
-          studentName: st.name,
-          studentNo: st.studentNo,
-          cells: Object.fromEntries(recs.filter((r) => r.studentId === st.id).map((r) => [r.date, cellOf(r)])),
-        })),
-    };
+    const [block] = await buildRecitationLog([halqa.id], from, to);
+    log = block ? { days: block.days, truncated: block.truncated, rows: block.rows } : null;
   }
 
   return (

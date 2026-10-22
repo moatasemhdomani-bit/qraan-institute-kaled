@@ -467,6 +467,8 @@ model Recitation {
   none   Boolean @default(false) // لم يسمّع اليوم إطلاقًا
   noNew  Boolean @default(false) // لم يسمّع جديدًا
   noPast Boolean @default(false) // لم يقرأ ماضيًا
+  /// «تحضير للسبر» (طلاب القرآن): مكان الجديد — بلا صفحات ولا تقدير، فلا يتقدّم به العدّاد (noNew = true معه)
+  examPrep Boolean @default(false)
 
   newFrom Int? // صفحات المصحف: ١–٦٠٤
   newTo   Int?
@@ -539,6 +541,7 @@ enum ReportKind {
   STUDENT // تقرير طالب
   AWQAF_MARKS // علامات سبر الأوقاف — لدفعة واحدة
   ORPHANS // الأيتام — قائمة أسماء الطلاب الأيتام
+  RECITATION_LOG // سجل التسميع — أيام الدوام أعمدةً والطلاب سطورًا، لحلقة أو أكثر
 }
 
 // سجل التقارير الصادرة — لا يحمل ملف PDF مخزَّنًا؛ يُعاد توليد التقرير عند الطلب من هذه المعطيات نفسها.

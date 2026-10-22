@@ -9,6 +9,7 @@ import StarOpDrawer from "./StarOpDrawer";
 import StarArchive from "./StarArchive";
 import StarBadge from "./StarBadge";
 import { adminHalqaStars, adminOfficerStars, adminStudentsStars } from "./actions";
+import { textHas } from "@/lib/search";
 
 type StudentRow = { id: string; name: string; no: number; stars: number; active: boolean; halqaId: string | null; halqaName: string | null };
 type HalqaRow = { id: string; name: string; teacherName: string; cohortName: string; stars: number; studentIds: string[] };
@@ -67,7 +68,7 @@ export default function StarsAdminClient({
   // نجوم الطلاب: نتائج البحث أو طلاب الحلقة المختارة
   const studentList = useMemo(() => {
     const q = toWesternDigits(search.trim());
-    if (q) return students.filter((s) => s.name.includes(q) || String(s.no) === q).slice(0, 30);
+    if (q) return students.filter((s) => textHas(s.name, q) || String(s.no) === q).slice(0, 30);
     if (pickHalqa) return (halaqat.find((h) => h.id === pickHalqa)?.studentIds ?? []).map((id) => byId[id]).filter(Boolean);
     return [];
   }, [students, search, pickHalqa, halaqat, byId]);
@@ -78,7 +79,7 @@ export default function StarsAdminClient({
       archive.filter(
         (r) =>
           // الطالب يُكتب اسمه أو رقمه — فارغ = الكل
-          (!fStudentQ || (!!r.studentName && (r.studentName.includes(fStudentQ) || String(r.studentNo ?? "") === fStudentQ))) &&
+          (!fStudentQ || (!!r.studentName && (textHas(r.studentName, fStudentQ) || String(r.studentNo ?? "") === fStudentQ))) &&
           // الفاعل: من أجرى العملية
           (!fOfficer || r.byId === fOfficer) &&
           (!fKind || r.kind === fKind)

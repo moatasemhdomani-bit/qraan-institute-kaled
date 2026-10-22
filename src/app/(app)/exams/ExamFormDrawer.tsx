@@ -4,6 +4,8 @@ import { useActionState, useEffect, useState } from "react";
 import { saveExam, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
 import {
+  PAST_GHAIB_GRADES,
+  PAST_GHAIB_FAIL,
   JUZ,
   NOMINATION_PARTS,
   LOCAL_KINDS,
@@ -174,7 +176,7 @@ export default function ExamFormDrawer({
           nominationPresent,
           stage,
           grade: grade || null,
-          repeat: outcome === "repeat",
+          repeat: type === "PAST_GHAIB" ? grade === PAST_GHAIB_FAIL : outcome === "repeat",
         });
 
   return (
@@ -490,7 +492,38 @@ export default function ExamFormDrawer({
               )}
             </div>
             {pastItems.length > 0 && (
-              <OutcomeMark outcome={outcome} setOutcome={setOutcome} mark={resultMark} setMark={setResultMark} passMark={passThreshold("PAST_GHAIB", null, null)} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>التقدير</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {PAST_GHAIB_GRADES.map((g) => {
+                    const on = grade === g.id;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => setGrade(g.id)}
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          minHeight: 44,
+                          padding: "8px 4px",
+                          borderRadius: 10,
+                          fontSize: 13,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          border: on ? `1px solid ${g.color}` : "1px solid var(--line)",
+                          background: on ? g.color : "var(--btn-soft)",
+                          color: on ? "var(--on-status)" : "var(--ink-2)",
+                          fontWeight: on ? 700 : 400,
+                        }}
+                      >
+                        {g.id}
+                      </button>
+                    );
+                  })}
+                </div>
+                {grade === PAST_GHAIB_FAIL && <div style={{ fontSize: 12, color: "var(--bad-ink)", marginTop: 6 }}>«غير مقبول» = راسب.</div>}
+              </div>
             )}
           </>
         )}

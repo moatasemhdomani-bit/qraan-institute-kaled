@@ -17,6 +17,7 @@ const KIND_LABELS: Record<string, string> = {
   STUDENT: "تقرير طالب",
   AWQAF_MARKS: "علامات سبر الأوقاف",
   ORPHANS: "الأيتام",
+  RECITATION_LOG: "سجل التسميع",
 };
 
 const BASE_STYLE = `
@@ -498,5 +499,40 @@ export function orphansReportHtml(input: { name: string; issuedBy: string; issue
     reportHeader(input.name, "ORPHANS", input.issuedAt, input.issuedAt, input.issuedBy, input.issuedAt) +
     list +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — الأيتام</div></body></html>`
+  );
+}
+
+// ==================== سجل التسميع ====================
+
+export function recitationLogReportHtml(input: {
+  name: string; from: string; to: string; issuedBy: string; issuedAt: string;
+  blocks: import("./recitationLog").LogBlock[];
+}): string {
+  const cell = (c: import("./recitationLog").LogCell | undefined, holiday: string | null, arabic: boolean) => {
+    if (!c) return holiday ? `<span style="color:#2f6db0;font-weight:600">عطلة — ${escapeHtml(holiday)}</span>` : "—";
+    if (c.none) return `<span class="fail">${escapeHtml(c.fresh)}</span>`;
+    return [c.fresh ? `${arabic ? "" : "جديد: "}${escapeHtml(c.fresh)}` : "", c.past ? `ماضٍ: ${escapeHtml(c.past)}` : ""].filter(Boolean).join("<br>");
+  };
+  const blocks = input.blocks
+    .map(
+      (b) => `
+    <section class="halqa-page">
+    <h2 class="block">الحلقة: ${escapeHtml(b.halqaName)} &nbsp;&nbsp; المدرس: ${escapeHtml(b.teacherName)} &nbsp;&nbsp; الفوج: ${escapeHtml(b.cohortName)}</h2>
+    ${b.days.length === 0 ? "<p>لا أيام دوام في هذه الفترة.</p>" : `<table style="font-size:9.5px">
+      <thead><tr><th>الطالب</th>${b.days.map((d) => `<th style="white-space:nowrap">${escapeHtml(d.label)}</th>`).join("")}</tr></thead>
+      <tbody>
+        ${b.rows
+          .map((r) => `<tr><td class="name" style="white-space:nowrap">${escapeHtml(r.studentName)}</td>${b.days.map((d) => `<td style="text-align:start;vertical-align:top">${cell(r.cells[d.date], d.holiday, b.arabic)}</td>`).join("")}</tr>`)
+          .join("")}
+      </tbody>
+    </table>`}
+    </section>`
+    )
+    .join("");
+  return (
+    htmlHead(input.name) +
+    reportHeader(input.name, "RECITATION_LOG", input.from, input.to, input.issuedBy, input.issuedAt) +
+    blocks +
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — سجل التسميع</div></body></html>`
   );
 }

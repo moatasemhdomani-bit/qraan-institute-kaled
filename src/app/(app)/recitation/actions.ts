@@ -20,6 +20,8 @@ export type StudentRecitationInput = {
   studentId: string;
   none: boolean;
   noNew: boolean;
+  /** «تحضير للسبر» مكان الجديد (طلاب القرآن) — معه noNew */
+  examPrep?: boolean;
   noPast: boolean;
   nf: string;
   nt: string;
@@ -75,6 +77,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
     const surahData = {
       none: input.none,
       noNew: false,
+      examPrep: false,
       noPast: !input.none,
       newFrom: null,
       newTo: null,
@@ -101,6 +104,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
     studentId,
     none: input.none,
     noNew: input.noNew,
+    examPrep: !!input.examPrep,
     noPast: input.noPast,
     newFrom: page(input.nf),
     newTo: page(input.nt),
@@ -113,6 +117,9 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
   if (e.gradeNew && !GRADES.includes(e.gradeNew as never)) return { error: "تقدير غير معروف." };
   // القراءة العربية: جديد فقط بلا ماضٍ
   if (!hasPastRecitation(halqa.track)) e.noPast = true;
+  // «تحضير للسبر»: لطلاب القرآن وحدهم، ويحلّ مكان الجديد (بلا صفحات — فلا تنطبق قاعدة 1–604)
+  const examPrep = !!input.examPrep && hasPastRecitation(halqa.track) && !e.none;
+  if (examPrep) e.noNew = true;
 
   // حفظ الجديد وحده أو الماضي وحده (طلاب القرآن) — الجزء الآخر يبقى كما حُفظ من قبل
   if (input.part && hasPastRecitation(halqa.track) && !e.none) {
@@ -126,6 +133,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
       }
       partData = {
         noNew: e.noNew,
+        examPrep,
         newFrom: e.noNew ? null : e.newFrom,
         newTo: e.noNew ? null : e.newTo,
         gradeNew: e.noNew ? null : e.gradeNew,
@@ -146,6 +154,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
               .sort((a, b) => (a.juz ?? 0) - (b.juz ?? 0) || PAST_ORDER.indexOf(a.kind) - PAST_ORDER.indexOf(b.kind))
               .map((p) => ({ kind: p.kind, juz: p.juz as number, grade: p.grade })),
         noNew: keep?.noNew ?? false,
+        examPrep: keep?.examPrep ?? false,
         newFrom: keep?.newFrom ?? null,
         newTo: keep?.newTo ?? null,
         gradeNew: keep?.gradeNew ?? null,
@@ -173,6 +182,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
   const data = {
     none: e.none,
     noNew: e.none ? false : e.noNew,
+    examPrep,
     noPast: e.none ? false : e.noPast,
     newFrom: e.none || e.noNew ? null : e.newFrom,
     newTo: e.none || e.noNew ? null : e.newTo,

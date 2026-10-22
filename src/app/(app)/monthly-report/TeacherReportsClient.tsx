@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { formatJuz } from "@/lib/pastRecitation";
 import { cardStyle, chipStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
+import LogTable from "@/components/RecitationLogTable";
+import type { LogBlock } from "@/lib/recitationLog";
 import TeacherStudentReportClient from "../student-report/TeacherStudentReportClient";
 import { saveTeacherNote, type NoteState } from "./actions";
 
@@ -29,11 +31,7 @@ type MonthlyRow = {
   realPass: number; realFail: number;
   note: string;
 };
-type LogData = {
-  days: { date: string; label: string; holiday: string | null }[];
-  truncated: boolean;
-  rows: { studentId: string; studentName: string; studentNo: number; cells: Record<string, { none: boolean; fresh: string; past: string }> }[];
-};
+type LogData = Pick<LogBlock, "days" | "truncated" | "rows">;
 type Halqa = { id: string; name: string; students: { id: string; name: string; no: number }[] };
 
 function passFailCell(pass: number, fail: number) {
@@ -187,68 +185,6 @@ function MonthlyTable({ arabic, data }: { arabic: boolean; data: { rows: Monthly
                 <td style={{ padding: 6 }}>
                   <NoteCell key={`${r.studentId}-${r.note}`} studentId={r.studentId} initialNote={r.note} />
                 </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
-function LogTable({ arabic, data }: { arabic: boolean; data: LogData }) {
-  if (data.days.length === 0) return <div style={{ padding: 30, textAlign: "center", color: "var(--ink-2)" }}>لا أيام دوام في هذه الفترة.</div>;
-  const sticky = { position: "sticky", insetInlineStart: 0, background: "var(--card)", zIndex: 1 } as const;
-  return (
-    <>
-      {data.truncated && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>يُعرض أول {data.days.length} يوم دوام فقط — قصّروا الفترة لرؤية الباقي.</div>}
-      <div style={{ ...cardStyle, overflow: "auto", padding: 0 }}>
-        <table style={{ borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "var(--head-grad)", color: "var(--ink-2)" }}>
-              <th style={{ ...sticky, background: "var(--card)", padding: 8, textAlign: "start", minWidth: 150 }}>الطالب</th>
-              {data.days.map((d) => (
-                <th key={d.date} style={{ padding: 8, minWidth: arabic ? 110 : 150, whiteSpace: "nowrap", borderInlineStart: "1px solid var(--line-2)" }}>
-                  {d.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((r) => (
-              <tr key={r.studentId} style={{ borderTop: "1px solid var(--line-2)" }}>
-                <td style={{ ...sticky, padding: 8, fontWeight: 600, whiteSpace: "nowrap" }}>
-                  {r.studentName} <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>#{r.studentNo}</span>
-                </td>
-                {data.days.map((d) => {
-                  const c = r.cells[d.date];
-                  return (
-                    <td key={d.date} style={{ padding: 6, verticalAlign: "top", borderInlineStart: "1px solid var(--line-2)", lineHeight: 1.6 }}>
-                      {!c && d.holiday ? (
-                        <span style={{ color: "var(--info)", fontWeight: 600 }}>عطلة — {d.holiday}</span>
-                      ) : !c ? (
-                        <span style={{ color: "var(--ink-3)" }}>—</span>
-                      ) : c.none ? (
-                        <span style={{ color: "var(--bad-ink)" }}>{c.fresh}</span>
-                      ) : (
-                        <>
-                          {c.fresh && (
-                            <div>
-                              {!arabic && <span style={{ color: "var(--ink-3)" }}>جديد: </span>}
-                              {c.fresh}
-                            </div>
-                          )}
-                          {c.past && (
-                            <div>
-                              <span style={{ color: "var(--ink-3)" }}>ماضٍ: </span>
-                              {c.past}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </td>
-                  );
-                })}
               </tr>
             ))}
           </tbody>

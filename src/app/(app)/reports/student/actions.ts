@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { textHas } from "@/lib/search";
 import { buildStudentPreview, type StudentPreview } from "@/lib/reports";
 
 export type { StudentPreview } from "@/lib/reports";
@@ -12,12 +13,13 @@ export async function searchStudentsForReport(q: string): Promise<{ id: string; 
   const session = await getSession();
   if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) return [];
   if (!q.trim()) return [];
-  const students = await prisma.student.findMany({
-    where: { OR: [{ name: { contains: q } }, { studentNo: { equals: Number.isNaN(Number(q)) ? -1 : Number(q) } }] },
-    take: 10,
-    orderBy: { name: "asc" },
-  });
-  return students.map((s) => ({ id: s.id, no: String(s.studentNo), name: s.name }));
+  // الاسم مع توحيد الألف (ا = أ = إ = آ)، أو الرقم بالضبط
+  const query = q.trim();
+  const all = await prisma.student.findMany({ select: { id: true, name: true, studentNo: true }, orderBy: { name: "asc" } });
+  return all
+    .filter((s) => textHas(s.name, query) || String(s.studentNo) === query)
+    .slice(0, 10)
+    .map((s) => ({ id: s.id, no: String(s.studentNo), name: s.name }));
 }
 
 export async function previewStudentReport(studentId: string, from: string, to: string): Promise<{ preview: StudentPreview } | { error: string }> {

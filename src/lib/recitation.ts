@@ -5,6 +5,8 @@ export type RecEntry = {
   studentId: string;
   none: boolean;
   noNew: boolean;
+  /** «تحضير للسبر» مكان الجديد */
+  examPrep?: boolean;
   noPast: boolean;
   newFrom: number | null;
   newTo: number | null;
@@ -31,7 +33,7 @@ export function validateEntry(e: RecEntry, track: TrackId = "QURAN"): string | n
   const T = hasPastRecitation(track) ? "التسميع الجديد" : "التسميع";
   const from = hasPastRecitation(track) ? "من صفحة" : "من الصفحة";
   const to = hasPastRecitation(track) ? "إلى صفحة" : "إلى الصفحة";
-  if (e.noNew && e.noPast) return "لم يسمّع جديدًا ولا ماضيًا — استخدم خيار «لم يسمّع اليوم».";
+  if (e.noNew && e.noPast && !e.examPrep) return "لم يسمّع جديدًا ولا ماضيًا — استخدم خيار «لم يسمّع اليوم».";
 
   if (!e.noNew) {
     if (e.newFrom == null || e.newTo == null) return `لم يتم تحديد صفحات ${T} (${from} / ${to}).`;

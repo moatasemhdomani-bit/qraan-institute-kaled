@@ -46,6 +46,7 @@ import PhoneField from "@/components/PhoneField";
 import { formatMobile } from "@/lib/phone";
 import Select from "@/components/Select";
 import { cleanNationalId, MARITAL_OPTIONS, EDUCATION_OPTIONS, QURAN_LEVEL_OPTIONS } from "@/lib/staff";
+import { textHas } from "@/lib/search";
 
 type StaffRow = {
   id: string;
@@ -100,7 +101,7 @@ export default function UsersClient({
   const filtered = useMemo(
     () =>
       staff
-        .filter((u) => !search.trim() || u.fullName.includes(search.trim()))
+        .filter((u) => !search.trim() || textHas(u.fullName, search.trim()))
         .filter((u) => roleFilter === "ALL" || u.assignments.some((a) => a.kind === roleFilter)),
     [staff, search, roleFilter]
   );

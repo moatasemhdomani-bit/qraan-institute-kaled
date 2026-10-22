@@ -16,6 +16,7 @@ import DateField from "@/components/DateField";
 import Select from "@/components/Select";
 import NumberField from "@/components/NumberField";
 import { today, formatDateAr } from "@/lib/daily";
+import { textHas } from "@/lib/search";
 
 type StudentRow = {
   id: string;
@@ -126,7 +127,7 @@ export default function StudentsClient({
         .filter((s) => !teacherFilter || (!!s.halqaId && s.teacherName === teacherFilter))
         .filter((s) => !cohortFilter || (!!s.halqaId && s.cohortName === cohortFilter))
         .filter((s) => !halqaFilter || (!!s.halqaId && s.halqaName === halqaFilter))
-        .filter((s) => !search.trim() || s.fullName.includes(search.trim()) || s.no.includes(search.trim())),
+        .filter((s) => !search.trim() || textHas(s.fullName, search.trim()) || textHas(s.no, search.trim())),
     [students, search, onlyUnsorted, statusFilter, onlyOrphans, teacherFilter, cohortFilter, halqaFilter, trackFilter]
   );
   const levelCount = (t: TrackId) => students.filter((s) => s.track === t).length;

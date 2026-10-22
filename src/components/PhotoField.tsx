@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { primaryButtonStyle } from "@/lib/ui";
 
 const VIEW = 280; // حجم إطار القص على الشاشة
-const OUT = 640; // حجم الصورة الناتجة (مربّعة) — صغيرة بما يكفي للرفع السريع
+const OUT = 640; // مقاس الصورة الناتجة (مربّعة) — كما هو؛ الدقة تُرفع بجودة الضغط وجودة التصغير
 const MAX_ZOOM = 4;
 
 type Crop = { zoom: number; x: number; y: number }; // x/y: موضع زاوية الصورة العليا بالنسبة لإطار القص
@@ -71,8 +71,11 @@ function CropDialog({ file, onDone, onCancel }: { file: File; onDone: (f: File, 
     canvas.height = OUT;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    // تصغير بأعلى جودة — صورة أوضح بالمقاس نفسه
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(bitmap, -crop.x / s, -crop.y / s, VIEW / s, VIEW / s, 0, 0, OUT, OUT);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.88));
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
     if (!blob) return setError("تعذّر حفظ الصورة المقصوصة.");
     const out = new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
     onDone(out, URL.createObjectURL(blob));

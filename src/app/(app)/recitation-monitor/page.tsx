@@ -27,7 +27,7 @@ export default async function RecitationMonitorPage({
     include: {
       teacher: { select: { name: true } },
       cohort: { select: { name: true } },
-      students: { select: { id: true, name: true, studentNo: true }, orderBy: { studentNo: "asc" } },
+      students: { where: { active: true }, select: { id: true, name: true, studentNo: true }, orderBy: { studentNo: "asc" } },
       recitations: { where: { date } },
     },
     orderBy: { name: "asc" },
@@ -36,6 +36,12 @@ export default async function RecitationMonitorPage({
   const blocks = halaqat.map((h) => {
     const byStudent = Object.fromEntries(h.recitations.map((r) => [r.studentId, r]));
     const uploaded = h.recitations.length > 0;
+    // مرفوع: سُجّل تسميع كل طلاب الحلقة — غير مكتمل: سُجّل ولكن ليس لكل الطلاب — لم يُرفع: لا شيء
+    const status: "full" | "partial" | "none" = !uploaded
+      ? "none"
+      : h.students.every((st) => byStudent[st.id])
+        ? "full"
+        : "partial";
 
     // الجديد بالصفحات، والماضي بالأجزاء (الحزب = نصف جزء)
     const totalPages = h.recitations.reduce((sum, r) => sum + countedNewPages(r), 0);
@@ -48,6 +54,7 @@ export default async function RecitationMonitorPage({
       teacherName: h.teacher.name,
       cohortName: h.cohort.name,
       uploaded,
+      status,
       totalPages,
       totalPastJuz,
       rows: h.students.map((st) => {
@@ -63,7 +70,9 @@ export default async function RecitationMonitorPage({
             // تسميع بالسور (عمَّ غيباً / بينة للناس)
             r.surahs.length > 0
               ? `سور: ${surahsLabel(r.surahs, r.surahsDone)} — ${r.gradeNew ?? ""}`
-              : r.noNew
+              : r.examPrep
+            ? "تحضير للسبر"
+            : r.noNew
                 ? "لم يسمّع جديدًا"
                 : r.newFrom == null
                   ? "الجديد لم يُسجَّل بعد"

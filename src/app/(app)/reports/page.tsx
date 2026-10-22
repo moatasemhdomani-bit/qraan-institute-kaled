@@ -16,6 +16,7 @@ const CARDS = [
   { href: "/reports/teachers-arabic", title: "التقرير الشهري لمدرسي القراءة العربية", note: "صف لكل مدرّس: حلقاته في كل الأفواج، مجموع صفحات طلابه، اختباراتهم الناجحة والمُعادة، عدد طلابه، وملاحظات الإدارة." },
   { href: "/reports/student", title: "تقرير طالب", note: "حضوره وتسميعه واختباراته الثلاثة وسلوكه — يُفتح أيضًا من ملف الطالب." },
   { href: "/reports/awqaf-marks", title: "علامات سبر الأوقاف", note: "لدفعة سُجّلت علاماتها: الطالب ورقمه ونوع سبره ومدرّسه وحلقته وفوجه." },
+  { href: "/reports/recitation-log", title: "سجل التسميع", note: "لحلقة أو أكثر أو الكل: أيام الدوام أعمدةً والطلاب سطورًا، وفي كل خانة تسميع الطالب يومها — الجديد والماضي بتقديرهما." },
   { href: "/reports/orphans", title: "الأيتام", note: "أسماء الطلاب الأيتام ثلاثية ومرقّمة على نصفَي الصفحة." },
 ];
 
@@ -27,6 +28,7 @@ const KIND_LABELS: Record<string, string> = {
   STUDENT: "تقرير طالب",
   AWQAF_MARKS: "علامات سبر الأوقاف",
   ORPHANS: "الأيتام",
+  RECITATION_LOG: "سجل التسميع",
 };
 
 export default async function ReportsHubPage() {

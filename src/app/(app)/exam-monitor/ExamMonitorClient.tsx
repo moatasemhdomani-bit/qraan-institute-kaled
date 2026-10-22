@@ -11,6 +11,7 @@ import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
 import Select from "@/components/Select";
 import { useCohortTeacherFilter } from "@/components/useCohortTeacherFilter";
 import DeleteExamButton from "../exams/DeleteExamButton";
+import { textHas } from "@/lib/search";
 
 type RowType = ExamTypeId | "AWQAF_ACTUAL";
 
@@ -92,7 +93,7 @@ export default function ExamMonitorClient({
   const q = search.trim();
   const byType = (x: Row) => typeFilter === "all" || x.type === typeFilter;
   const byExaminer = (x: Row) => examinerFilter === "all" || x.examinerName === examinerFilter;
-  const bySearch = (x: Row) => !q || x.studentName.includes(q);
+  const bySearch = (x: Row) => !q || textHas(x.studentName, q);
   const { shown: cohortTeacherBlocks, selects } = useCohortTeacherFilter(blocks);
   const filteredBlocks = cohortTeacherBlocks
     .map((b) => ({
@@ -101,7 +102,7 @@ export default function ExamMonitorClient({
         (r) =>
           (typeFilter === "all" || r.type === typeFilter) &&
           (examinerFilter === "all" || r.examinerName === examinerFilter) &&
-          (!q || r.studentName.includes(q))
+          (!q || textHas(r.studentName, q))
       ),
     }))
     // عند البحث باسم طالب تُخفى الحلقات التي لا نتيجة فيها
@@ -113,7 +114,7 @@ export default function ExamMonitorClient({
     const sobred = new Set(
       b.rows.filter((r) => (typeFilter === "all" ? !isSunnahType(r.type) && r.type !== "AWQAF_ACTUAL" : r.type === typeFilter)).map((r) => r.studentId)
     );
-    return b.students.filter((s) => !sobred.has(s.id) && (!q || s.name.includes(q)));
+    return b.students.filter((s) => !sobred.has(s.id) && (!q || textHas(s.name, q)));
   };
   const neverBlocks = status === "never" ? cohortTeacherBlocks.map((b) => ({ b, list: neverOf(b) })).filter((x) => x.list.length > 0) : [];
 

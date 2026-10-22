@@ -6,6 +6,7 @@ import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import TimeField from "@/components/TimeField";
 import { cohortWindows, withinCohort, cohortDefaultPm, cohortWindowsLabel, type CohortTimes } from "@/lib/cohortTime";
+import { textHas } from "@/lib/search";
 
 const initialState: FormState = {};
 
@@ -85,7 +86,7 @@ export default function PermitForm({
   const studentList = useMemo(() => {
     const q = search.trim();
     if (!q) return [];
-    return allStudents.filter((s) => s.name.includes(q) || String(s.no) === q).slice(0, 12);
+    return allStudents.filter((s) => textHas(s.name, q) || String(s.no) === q).slice(0, 12);
   }, [allStudents, search]);
 
   // رسالة الخطأ تظهر داخل النموذج قرب زر الحفظ، ويُمرَّر إليها

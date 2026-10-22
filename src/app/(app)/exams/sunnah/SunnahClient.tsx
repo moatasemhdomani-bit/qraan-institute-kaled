@@ -13,6 +13,7 @@ import DeleteExamButton from "../DeleteExamButton";
 import { saveSunnahExam } from "./actions";
 import SunnahRecitationPanel, { type SunnahRecRow } from "./SunnahRecitationPanel";
 import SunnahStarsField from "./SunnahStarsField";
+import { textHas } from "@/lib/search";
 
 export type SunnahExamRow = {
   id: string;
@@ -86,7 +87,7 @@ export default function SunnahClient({
   const matches = useMemo(() => {
     const q = toWesternDigits(search.trim());
     if (!q) return [];
-    return students.filter((s) => s.name.includes(q) || String(s.no) === q).slice(0, 15);
+    return students.filter((s) => textHas(s.name, q) || String(s.no) === q).slice(0, 15);
   }, [students, search]);
 
   const canEditRow = (e: SunnahExamRow) =>

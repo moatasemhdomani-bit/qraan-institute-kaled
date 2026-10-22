@@ -7,6 +7,7 @@ import { formatDateAr } from "@/lib/daily";
 import { SUNNAH_PASS_MARK, sunnahBranchLabel, type SunnahSectionId } from "@/lib/sunnah";
 import DeleteExamButton from "../../DeleteExamButton";
 import { SunnahExamForm, type SunnahExamRow } from "../SunnahClient";
+import { textHas } from "@/lib/search";
 
 type StudentRow = { id: string; name: string; no: number; stars: number; halqaName: string | null };
 
@@ -45,7 +46,7 @@ export default function NominationClient({
   }, [exams, byId]);
 
   const q = toWesternDigits(search.trim());
-  const shown = q ? eligible.filter((x) => x.student.name.includes(q) || String(x.student.no) === q) : eligible;
+  const shown = q ? eligible.filter((x) => textHas(x.student.name, q) || String(x.student.no) === q) : eligible;
   const recent = exams.filter((e) => e.type === "SUNNAH_NOMINATION").slice(0, 40);
 
   const line = (key: string, title: string, sub: string, action: React.ReactNode) => (

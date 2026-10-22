@@ -145,6 +145,7 @@ async function recitationRows(halqa: Halqa & { cohort: Cohort }, date: string, i
                 ? {
                     none: savedMap[s.id].none,
                     noNew: savedMap[s.id].noNew,
+                    examPrep: savedMap[s.id].examPrep,
                     noPast: savedMap[s.id].noPast,
                     nf: savedMap[s.id].newFrom?.toString() ?? "",
                     nt: savedMap[s.id].newTo?.toString() ?? "",

@@ -8,6 +8,7 @@ import StarOpDrawer from "../stars/StarOpDrawer";
 import StarArchive from "../stars/StarArchive";
 import StarBadge from "../stars/StarBadge";
 import { activityReturnStars, activityStudentStars } from "../stars/actions";
+import { textHas } from "@/lib/search";
 
 type StudentRow = { id: string; name: string; no: number; stars: number; halqaName: string | null };
 
@@ -29,7 +30,7 @@ export default function ActivityStarsClient({
   const matches = useMemo(() => {
     const q = toWesternDigits(search.trim());
     if (!q) return [];
-    return students.filter((s) => s.name.includes(q) || String(s.no) === q).slice(0, 20);
+    return students.filter((s) => textHas(s.name, q) || String(s.no) === q).slice(0, 20);
   }, [students, search]);
 
   return (

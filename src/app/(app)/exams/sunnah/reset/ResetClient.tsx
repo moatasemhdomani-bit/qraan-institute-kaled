@@ -6,6 +6,7 @@ import { cardStyle, inputStyle } from "@/lib/ui";
 import { toWesternDigits } from "@/lib/numbers";
 import type { SunnahSectionId } from "@/lib/sunnah";
 import { SetupForm } from "../SunnahRecitationPanel";
+import { textHas } from "@/lib/search";
 
 type StudentRow = { id: string; name: string; no: number; halqaName: string | null; current: string };
 
@@ -19,7 +20,7 @@ export default function ResetClient({ section, students }: { section: SunnahSect
   const matches = useMemo(() => {
     const q = toWesternDigits(search.trim());
     if (!q) return [];
-    return students.filter((s) => s.name.includes(q) || String(s.no) === q).slice(0, 15);
+    return students.filter((s) => textHas(s.name, q) || String(s.no) === q).slice(0, 15);
   }, [students, search]);
 
   return (

@@ -58,6 +58,7 @@ export default async function PastExamPage({ searchParams }: { searchParams: Pro
       pages: e.pages,
       resultMark: e.resultMark,
       repeat: e.repeat,
+      grade: e.grade,
       nominationPresent: e.nominationPresent,
       nominationParts: e.nominationParts,
       startPage: e.startPage,
@@ -69,7 +70,7 @@ export default async function PastExamPage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PageHeader title="سبر ماضٍ غيباً" subtitle="لطلاب «قرآن غيباً» — بالأجزاء والأحزاب، والنجاح من 80 كالسبر المحلي غيباً." />
+      <PageHeader title="سبر ماضٍ غيباً" subtitle="لطلاب «قرآن غيباً» — بالأجزاء والأحزاب، بتقدير: ممتاز، جيد جدًا، جيد، مقبول — و«غير مقبول» راسب." />
       <ExamBrowseClient
         type="PAST_GHAIB"
         newLabel="سبر ماضٍ جديد"

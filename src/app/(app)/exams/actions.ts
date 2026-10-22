@@ -6,7 +6,7 @@ import { parseHalfMark } from "@/lib/numbers";
 import { examinerTrack, examinerLike } from "@/lib/examinerTrack";
 import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { validateExam, passFailLabel, LOCAL_KIND_LABELS, isArabicMarkStage, arabicStageLabel, ARABIC_FINAL_STAGE, isSunnahType, TYPE_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
+import { validateExam, PAST_GHAIB_FAIL, passFailLabel, LOCAL_KIND_LABELS, isArabicMarkStage, arabicStageLabel, ARABIC_FINAL_STAGE, isSunnahType, TYPE_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
 import { examFamily } from "@/lib/track";
 import { promoteStudent } from "@/lib/promotion";
 import { awardStars, examStarsNet, withdrawExamStars } from "@/lib/starsServer";
@@ -115,10 +115,13 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
   // نتيجة السبر: «ناجح» (بعلامة ضمن علامات النجاح) أو «إعادة» (بلا علامة) — للسبر المحلي وترشيح الأوقاف
   // ومرحلتَي العلامة في القراءة العربية
   const outcome = String(formData.get("outcome") || "");
-  const usesOutcome = type === "LOCAL" || type === "WAQF_NOMINATION" || type === "ARABIC" || type === "PAST_GHAIB";
-  const repeat = !usesOutcome ? null : outcome === "repeat" ? true : outcome === "pass" ? false : null;
+  const usesOutcome = type === "LOCAL" || type === "WAQF_NOMINATION" || type === "ARABIC";
+  const repeat =
+    type === "PAST_GHAIB"
+      ? String(formData.get("grade") || "") === PAST_GHAIB_FAIL // سبر ماضٍ غيباً: «غير مقبول» = رسب
+      : !usesOutcome ? null : outcome === "repeat" ? true : outcome === "pass" ? false : null;
   const resultMarkRaw = String(formData.get("resultMark") || "");
-  const resultMark = repeat ? null : parseHalfMark(resultMarkRaw);
+  const resultMark = repeat || type === "PAST_GHAIB" ? null : parseHalfMark(resultMarkRaw);
 
   const nominationPresentRaw = String(formData.get("nominationPresent") || "");
   const nominationPresent = nominationPresentRaw === "" ? null : nominationPresentRaw === "1";
@@ -198,11 +201,11 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     startPage: arabicPlacement ? startPage : null,
     pages: [],
     resultMark:
-      type === "WAQF_NOMINATION" || type === "LOCAL" || type === "PAST_GHAIB" || (type === "ARABIC" && isArabicMarkStage(stage)) ? resultMark : null,
+      type === "WAQF_NOMINATION" || type === "LOCAL" || (type === "ARABIC" && isArabicMarkStage(stage)) ? resultMark : null,
     pastItems: type === "PAST_GHAIB" ? pastItems : undefined,
     repeat: !!repeat && (type !== "ARABIC" || isArabicMarkStage(stage)),
     stage: type === "ARABIC" ? stage : null,
-    grade: type === "ARABIC" && !isArabicMarkStage(stage) ? grade : null,
+    grade: (type === "ARABIC" && !isArabicMarkStage(stage)) || type === "PAST_GHAIB" ? grade : null,
     // حاضرًا/غيبًا: لترشيح الأوقاف ولتحديد المستوى
     nominationPresent: type === "WAQF_NOMINATION" || (type === "PLACEMENT" && !arabicPlacement) ? nominationPresent : null,
     nominationParts: type === "WAQF_NOMINATION" ? nominationParts : null,

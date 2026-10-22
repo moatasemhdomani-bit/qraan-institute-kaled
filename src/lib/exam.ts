@@ -41,6 +41,16 @@ export const ARABIC_PASS_MARK = 90;
 export const ARABIC_GRADES = ["ممتاز", "جيد جدًا", "جيد", "إعادة"];
 export const ARABIC_FAIL_GRADE = "إعادة";
 
+/** سبر ماضٍ غيباً: بتقدير لا بعلامة — «غير مقبول» = رسب. الألوان كأزرار الحضور. */
+export const PAST_GHAIB_GRADES = [
+  { id: "ممتاز", color: "var(--ok)" },
+  { id: "جيد جدًا", color: "var(--info)" },
+  { id: "جيد", color: "var(--gold)" },
+  { id: "مقبول", color: "color-mix(in srgb, var(--gold) 50%, var(--bad))" },
+  { id: "غير مقبول", color: "var(--bad)" },
+] as const;
+export const PAST_GHAIB_FAIL = "غير مقبول";
+
 /** ملاحظات سبر القراءة العربية الثابتة — يختار المختبِر منها، ويضيف ملاحظة حرّة إن شاء */
 export const ARABIC_NOTE_OPTIONS = ["درج وتشكيل", "حفظ القواعد", "عدم تمطيط الحركات", "ضبط الحركات", "تحضير كامل المرحلة"] as const;
 const ARABIC_NOTE_SEP = "، ";
@@ -93,6 +103,7 @@ export function resultLabel(exam: ExamResultShape): string {
     const mode = exam.nominationPresent == null ? "" : exam.nominationPresent ? " — حاضرًا" : " — غيبًا";
     return `يبدأ من الجزء ${exam.juz}${mode}`;
   }
+  if (exam.type === "PAST_GHAIB" && exam.grade) return exam.grade;
   if (exam.repeat) return "إعادة";
   if (exam.type === "ARABIC" && !isArabicMarkStage(exam.stage)) return exam.grade || "—";
   if (exam.type === "SUNNAH_STAGE" || exam.type === "SUNNAH_PART") return exam.grade || "—";
@@ -120,6 +131,7 @@ type PassFailShape = ExamResultShape & { nominationPresent?: boolean | null };
 
 /** "ناجح" أو "إعادة" — أو null لما لا حدّ نجاح له (تحديد مستوى، أو سبر بلا نتيجة بعد). */
 export function passFailLabel(exam: PassFailShape): "ناجح" | "إعادة" | null {
+  if (exam.type === "PAST_GHAIB" && exam.grade) return exam.grade === PAST_GHAIB_FAIL ? "إعادة" : "ناجح";
   if (exam.repeat && exam.type !== "PLACEMENT") return "إعادة";
   if (exam.type === "SUNNAH_STAGE" || exam.type === "SUNNAH_PART") return !exam.grade ? null : exam.grade === ARABIC_FAIL_GRADE ? "إعادة" : "ناجح";
   if (exam.type === "ARABIC") {
@@ -152,7 +164,8 @@ export function validateExam(input: {
 }): string | null {
   if (input.type === "PAST_GHAIB") {
     if (!input.pastItems || input.pastItems.length === 0) return "اختاروا ما سُبر فيه الطالب من الماضي (جزء أو حزب).";
-    return outcomeProblem(input.repeat, input.resultMark, 80);
+    if (!input.grade || !PAST_GHAIB_GRADES.some((g) => g.id === input.grade)) return "اختاروا التقدير.";
+    return null;
   }
   if (input.type === "ARABIC") {
     if (!input.stage || !ARABIC_STAGES.includes(input.stage)) return "اختاروا المرحلة.";

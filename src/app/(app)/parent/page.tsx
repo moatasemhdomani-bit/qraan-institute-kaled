@@ -104,7 +104,9 @@ export default async function ParentPage({
       recLines.push(
         todayRec.surahs.length > 0
           ? `السور: ${surahsLabel(todayRec.surahs, todayRec.surahsDone)} — ${todayRec.gradeNew}`
-          : todayRec.noNew
+          : todayRec.examPrep
+            ? "تحضير للسبر"
+            : todayRec.noNew
             ? "لم يسمّع جديدًا"
             : todayRec.newFrom == null
               ? "الجديد لم يُسجَّل بعد"
@@ -160,7 +162,9 @@ export default async function ParentPage({
           newLine:
             r.surahs.length > 0
               ? `سور: ${surahsLabel(r.surahs, r.surahsDone)} — ${r.gradeNew ?? ""}`
-              : r.noNew
+              : r.examPrep
+            ? "تحضير للسبر"
+            : r.noNew
                 ? "لم يسمّع جديدًا"
                 : r.newFrom == null
                   ? "الجديد لم يُسجَّل بعد"

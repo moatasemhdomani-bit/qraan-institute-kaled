@@ -7,6 +7,7 @@ import { resultLabel, passFailLabel, examKindLabel, TYPE_LABELS, type ExamTypeId
 import { formatDateAr } from "@/lib/daily";
 import Drawer from "@/components/Drawer";
 import ExamFormDrawer, { type ExistingExam } from "./ExamFormDrawer";
+import { textHas } from "@/lib/search";
 
 type StudentLite = { id: string; no: number; name: string; halqaName?: string };
 type Halqa = { id: string; name: string; teacherName: string; cohortName: string; students: StudentLite[] };
@@ -57,7 +58,7 @@ export default function ExamBrowseClient({
   const [formOpen, setFormOpen] = useState<{ existing: ExamRow | null } | null>(null);
 
   const allStudents = useMemo(() => halaqat.flatMap((h) => h.students.map((s) => ({ ...s, halqaName: h.name }))), [halaqat]);
-  const hits = search.trim() ? allStudents.filter((s) => s.name.includes(search.trim()) || String(s.no).includes(search.trim())) : [];
+  const hits = search.trim() ? allStudents.filter((s) => textHas(s.name, search.trim()) || textHas(String(s.no), search.trim())) : [];
 
   const activeHalqa = cohortHalaqat.find((h) => h.id === openHalqa) ?? null;
   const label = TYPE_LABELS[type];

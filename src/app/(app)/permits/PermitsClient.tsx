@@ -6,6 +6,7 @@ import { formatTime12, formatDateAr } from "@/lib/daily";
 import PermitForm, { type ExistingPermit } from "./PermitForm";
 import type { CohortTimes } from "@/lib/cohortTime";
 import { deleteStudentPermits } from "./actions";
+import { textHas } from "@/lib/search";
 
 const KIND_LABELS: Record<string, string> = { ENTRY: "إذن دخول", EXIT: "إذن خروج" };
 const KIND_COLORS: Record<string, string> = { ENTRY: "var(--ok)", EXIT: "var(--gold)" };
@@ -252,7 +253,7 @@ function StudentPermitSearch({
     const out: { id: string; no: number; name: string; halqaName: string; permits: Permit[] }[] = [];
     for (const h of halaqat) {
       for (const s of h.students) {
-        if (s.name.includes(query) || String(s.no) === query) {
+        if (textHas(s.name, query) || String(s.no) === query) {
           out.push({ ...s, halqaName: h.name, permits: h.permits.filter((p) => p.studentId === s.id) });
         }
       }

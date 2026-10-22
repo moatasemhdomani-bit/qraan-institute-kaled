@@ -15,6 +15,8 @@ type PastRow = { kind: PastKind; juz: string; grade: string };
 type Entry = {
   none: boolean;
   noNew: boolean;
+  /** «تحضير للسبر» مكان الجديد (طلاب القرآن) — معه noNew، بلا صفحات ولا تقدير */
+  examPrep: boolean;
   noPast: boolean;
   nf: string;
   nt: string;
@@ -56,6 +58,7 @@ type Student = {
 const blank = (s: Student, track: TrackId): Entry => ({
   none: false,
   noNew: false,
+  examPrep: false,
   // القراءة العربية والسور: جديد فقط بلا ماضٍ، ويبدأ طالب القراءة العربية الجديد من أول صفحة في الكتاب
   noPast: s.mode !== "quran",
   nf:
@@ -107,6 +110,7 @@ function entryProblem(s: Student, e: Entry, track: TrackId): string | null {
       studentId: s.id,
       none: e.none,
       noNew: e.noNew,
+      examPrep: e.examPrep,
       noPast: e.noPast,
       newFrom: pageNum(e.nf),
       newTo: pageNum(e.nt),
@@ -133,7 +137,7 @@ function partProblem(e: Entry, part: "new" | "past", track: TrackId): string | n
 function summaryOf(e: Entry, mode: RecitationMode): string {
   if (e.none) return "لم يسمّع اليوم";
   if (mode === "surah") return `سور: ${surahsLabel(surahList(e), doneList(e))} (${e.gradeNew})`;
-  const newPart = e.noNew ? "لم يسمّع جديدًا" : !e.nf ? "الجديد لم يُحفظ بعد" : `تسميع جديد ${e.nf}←${e.nt} (${e.gradeNew})`;
+  const newPart = e.examPrep ? "تحضير للسبر" : e.noNew ? "لم يسمّع جديدًا" : !e.nf ? "الجديد لم يُحفظ بعد" : `تسميع جديد ${e.nf}←${e.nt} (${e.gradeNew})`;
   if (mode === "arabic") return `من الصفحة ${e.nf} إلى ${e.nt} (${e.gradeNew})`;
   const pastPart = e.noPast
     ? "لم يقرأ ماضي"
@@ -218,6 +222,17 @@ export default function RecitationClient({
   };
   const isComplete = (st: Student) => isSaved(st.id) && bothParts(st);
   const savedCount = students.filter((st) => isComplete(st)).length;
+  // ما حُفظ تسميعه (الأخضر) في الأعلى، وما لم يُسمَّع بعد في الأسفل — مع بقاء طلاب كل حلقة معًا في «كل الحلقات»
+  const groupOrder = [...new Set(students.map((st) => st.group ?? ""))];
+  const ordered = students
+    .map((st, i) => ({ st, i }))
+    .sort(
+      (x, y) =>
+        groupOrder.indexOf(x.st.group ?? "") - groupOrder.indexOf(y.st.group ?? "") ||
+        Number(isComplete(x.st)) * -1 - Number(isComplete(y.st)) * -1 ||
+        x.i - y.i
+    )
+    .map((x) => x.st);
 
   function fail(id: string, message: string) {
     setErrors((prev) => ({ ...prev, [id]: message }));
@@ -252,10 +267,10 @@ export default function RecitationClient({
       setSavedEntries((prev) => {
         if (!part) return { ...prev, [s.id]: e };
         // حُفظ جزء واحد: الجزء الآخر يبقى كما كان محفوظًا (أو فارغًا)
-        const base: Entry = prev[s.id] && !prev[s.id].none ? prev[s.id] : { ...e, noNew: false, nf: "", nt: "", gradeNew: "", pageDone: false, noPast: false, past: [] };
+        const base: Entry = prev[s.id] && !prev[s.id].none ? prev[s.id] : { ...e, noNew: false, examPrep: false, nf: "", nt: "", gradeNew: "", pageDone: false, noPast: false, past: [] };
         const merged: Entry =
           part === "new"
-            ? { ...base, none: false, noNew: e.noNew, nf: e.nf, nt: e.nt, gradeNew: e.gradeNew, pageDone: e.pageDone }
+            ? { ...base, none: false, noNew: e.noNew, examPrep: e.examPrep, nf: e.nf, nt: e.nt, gradeNew: e.gradeNew, pageDone: e.pageDone }
             : { ...base, none: false, noPast: e.noPast, past: e.past };
         return { ...prev, [s.id]: merged };
       });
@@ -416,7 +431,7 @@ export default function RecitationClient({
           </div>
         )}
 
-        {students.map((s, idx) => {
+        {ordered.map((s, idx) => {
           const e = entries[s.id];
           const withPast = s.mode === "quran";
           const isSurah = s.mode === "surah";
@@ -437,7 +452,7 @@ export default function RecitationClient({
                 : "لم يُحفظ بعد";
 
           // «كل الحلقات»: اسم الحلقة قبل أول طالب منها
-          const heading = s.group && s.group !== students[idx - 1]?.group ? s.group : null;
+          const heading = s.group && s.group !== ordered[idx - 1]?.group ? s.group : null;
           return (
             <div key={s.id}>
               {heading && (
@@ -509,7 +524,7 @@ export default function RecitationClient({
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       type="button"
-                      onClick={() => set(s.id, { none: !e.none, noNew: false, noPast: false })}
+                      onClick={() => set(s.id, { none: !e.none, noNew: false, examPrep: false, noPast: false })}
                       style={{ ...chipStyle(e.none), minHeight: 40 }}
                     >
                       لم يسمّع اليوم
@@ -518,13 +533,25 @@ export default function RecitationClient({
                     <button
                       type="button"
                       disabled={e.none}
-                      onClick={() => set(s.id, { noNew: !e.noNew })}
-                      style={{ ...chipStyle(e.noNew), minHeight: 40, opacity: e.none ? 0.45 : 1 }}
+                      onClick={() => set(s.id, e.examPrep ? { examPrep: false, noNew: true } : { noNew: !e.noNew })}
+                      style={{ ...chipStyle(e.noNew && !e.examPrep), minHeight: 40, opacity: e.none ? 0.45 : 1 }}
                     >
                       لم يسمّع جديدًا اليوم
                     </button>
                     )}
                   </div>
+                  {withPast && (
+                    <div style={{ display: "flex" }}>
+                      <button
+                        type="button"
+                        disabled={e.none}
+                        onClick={() => set(s.id, { examPrep: !e.examPrep, noNew: !e.examPrep })}
+                        style={{ ...chipStyle(e.examPrep), minHeight: 40, opacity: e.none ? 0.45 : 1 }}
+                      >
+                        {e.examPrep ? "✓ " : ""}تحضير للسبر
+                      </button>
+                    </div>
+                  )}
 
                   {!e.none && isSurah && (
                     <div>
@@ -593,7 +620,12 @@ export default function RecitationClient({
 
                   {!e.none && (
                     <>
-                      {!isSurah && (
+                      {e.examPrep && (
+                        <div style={{ padding: "14px 12px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-grad)", textAlign: "center", fontSize: 15, fontWeight: 700 }}>
+                          تحضير للسبر
+                        </div>
+                      )}
+                      {!isSurah && !e.examPrep && (
                       <>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                         {(

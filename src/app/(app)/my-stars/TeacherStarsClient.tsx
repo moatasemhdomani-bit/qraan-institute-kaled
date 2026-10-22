@@ -8,6 +8,7 @@ import StarOpDrawer from "../stars/StarOpDrawer";
 import StarArchive from "../stars/StarArchive";
 import StarBadge from "../stars/StarBadge";
 import { teacherStudentStars } from "../stars/actions";
+import { textHas } from "@/lib/search";
 
 type StudentRow = { id: string; name: string; no: number; stars: number };
 type HalqaRow = { id: string; name: string; cohortName: string; stars: number; students: StudentRow[] };
@@ -34,7 +35,7 @@ export default function TeacherStarsClient({
 
   const filterStudents = (list: StudentRow[]) => {
     const q = toWesternDigits(search.trim());
-    return q ? list.filter((st) => st.name.includes(q) || String(st.no) === q) : list;
+    return q ? list.filter((st) => textHas(st.name, q) || String(st.no) === q) : list;
   };
 
   if (selected.length === 0) {

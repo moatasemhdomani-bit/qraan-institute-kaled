@@ -23,11 +23,26 @@ type Block = {
   teacherName: string;
   cohortName: string;
   uploaded: boolean;
+  /** مرفوع (لكل الطلاب) / غير مكتمل (سُجّل لبعضهم) / لم يُرفع */
+  status: "full" | "partial" | "none";
   totalPages: number;
   /** مجموع الماضي بالأجزاء */
   totalPastJuz: number;
   rows: Row[];
 };
+
+const STATUS_FILTERS = [
+  { value: "all", label: "كل الحلقات" },
+  { value: "full", label: "مرفوع" },
+  { value: "partial", label: "غير مكتمل" },
+  { value: "none", label: "لم يُرفع بعد" },
+];
+
+const STATUS_STYLE = {
+  full: { label: "مرفوع", border: "1px solid rgba(111,191,139,0.5)", color: "var(--ok-ink)", background: "rgba(111,191,139,0.12)" },
+  partial: { label: "غير مكتمل", border: "1px solid var(--warn-line)", color: "var(--gold)", background: "var(--warn-soft)" },
+  none: { label: "لم يُرفع بعد", border: "1px solid rgba(224,138,138,0.6)", color: "var(--bad-ink)", background: "rgba(224,138,138,0.12)" },
+} as const;
 
 const FILTERS = [
   { value: "all", label: "كل الطلاب" },
@@ -51,6 +66,7 @@ export default function RecitationMonitorClient({
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   // الحلقات مطويّة: الاسم والحالة وحدهما — النقر على الحلقة يُظهر تفاصيلها كاملة
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const toggleOpen = (id: string) =>
@@ -62,14 +78,16 @@ export default function RecitationMonitorClient({
     });
   // فلترة الحلقات بالفوج والمدرّس
   const match = (x: Row) => filter === "all" || x.state === filter;
-  const { shown: shownBlocks, selects } = useCohortTeacherFilter(blocks);
+  const { shown: cohortBlocks, selects } = useCohortTeacherFilter(blocks);
+  const shownBlocks = statusFilter === "all" ? cohortBlocks : cohortBlocks.filter((b) => b.status === statusFilter);
+  const partialCount = blocks.filter((b) => b.status === "partial").length;
   const shownRows = shownBlocks.flatMap((b) => b.rows);
   const filterOptions = FILTERS;
   const resultCount = shownRows.filter(match).length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {pendingCount > 0 ? (
+      {pendingCount > 0 || partialCount > 0 ? (
         <div
           style={{
             display: "flex",
@@ -84,8 +102,9 @@ export default function RecitationMonitorClient({
           <span style={{ width: 9, height: 9, borderRadius: 99, background: "var(--bad)", flex: "none", marginTop: 6 }} />
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 3 }}>
-              {pendingCount} من {totalCount} حلقة لم ترفع التسميع بعد
+              {pendingCount > 0 ? `${pendingCount} من ${totalCount} حلقة لم ترفع التسميع بعد` : `${partialCount} من ${totalCount} حلقة تسميعها غير مكتمل`}
             </div>
+            {pendingCount > 0 && partialCount > 0 && <div style={{ fontSize: 13, marginBottom: 3 }}>و{partialCount} حلقة تسميعها غير مكتمل</div>}
             <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>
               التسميع غير المسجَّل لا يظهر لأولياء الأمور — تحقّق من مدرّس الحلقة.
             </div>
@@ -120,6 +139,7 @@ export default function RecitationMonitorClient({
         }}
       >
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, flex: "1 1 460px" }}>
+          <Select value={statusFilter} onChange={setStatusFilter} options={STATUS_FILTERS} />
           <Select value={filter} onChange={setFilter} options={filterOptions} />
           {selects}
         </div>
@@ -194,12 +214,12 @@ export default function RecitationMonitorClient({
                     padding: "4px 12px",
                     borderRadius: 999,
                     fontSize: 12,
-                    border: b.uploaded ? "1px solid rgba(111,191,139,0.5)" : "1px solid rgba(224,138,138,0.6)",
-                    color: b.uploaded ? "var(--ok-ink)" : "var(--bad-ink)",
-                    background: b.uploaded ? "rgba(111,191,139,0.12)" : "rgba(224,138,138,0.12)",
+                    border: STATUS_STYLE[b.status].border,
+                    color: STATUS_STYLE[b.status].color,
+                    background: STATUS_STYLE[b.status].background,
                   }}
                 >
-                  {b.uploaded ? "مرفوع" : "لم يُرفع بعد"}
+                  {STATUS_STYLE[b.status].label}
                 </span>
                 {canRecord && (
                   <Link

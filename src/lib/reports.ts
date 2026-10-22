@@ -63,13 +63,13 @@ export function nominationSplit(exams: NominationExamRow[]): { pass: number; fai
   return { pass, fail };
 }
 
-type PastGhaibRow = { resultMark: number | null; repeat?: boolean };
+type PastGhaibRow = { resultMark: number | null; repeat?: boolean; grade?: string | null };
 
 /** عدد سبور «سبر ماضٍ غيباً» الناجحة/المُعادة — النجاح من 80 كالسبر المحلي غيباً. */
 export function pastGhaibSplit(exams: PastGhaibRow[]): { pass: number; fail: number } {
   let pass = 0, fail = 0;
   for (const e of exams) {
-    const label = passFailLabel({ type: "PAST_GHAIB", resultMark: e.resultMark, repeat: e.repeat });
+    const label = passFailLabel({ type: "PAST_GHAIB", resultMark: e.resultMark, repeat: e.repeat, grade: e.grade });
     if (label === "ناجح") pass++;
     else if (label === "إعادة") fail++;
   }
@@ -494,12 +494,14 @@ export type ReviewInputs = {
   batchId: string;
   names: string[] | null; // الأيتام: القائمة المحفوظة يوم الإصدار
   status: OrphanStatus; // الأيتام: فلتر حالة الطالب المختار عند الإصدار
+  /** سجل التسميع: الحلقات المختارة — «all» للكل */
+  halqaIds: string[] | "all";
 };
 
 /** معطيات تقرير صادر سابقًا من السجل — لإعادة إعداده بنفس المدخلات («مراجعة التقرير»). */
 export async function loadReviewInputs(
   id: string | undefined,
-  kind: "HALAQAT" | "TEACHERS" | "HALAQAT_AR" | "TEACHERS_AR" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS"
+  kind: "HALAQAT" | "TEACHERS" | "HALAQAT_AR" | "TEACHERS_AR" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS" | "RECITATION_LOG"
 ): Promise<ReviewInputs | null> {
   if (!id) return null;
   const r = await prisma.issuedReport.findUnique({ where: { id } });
@@ -521,6 +523,7 @@ export async function loadReviewInputs(
     batchId: typeof p.batchId === "string" ? p.batchId : "",
     names: Array.isArray(p.names) ? (p.names as string[]) : null,
     status: p.status === "all" || p.status === "inactive" ? p.status : "active",
+    halqaIds: Array.isArray(p.halqaIds) ? (p.halqaIds as string[]) : "all",
   };
 }
 

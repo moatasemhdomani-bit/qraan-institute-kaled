@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cardStyle } from "@/lib/ui";
+import { cardStyle, inputStyle } from "@/lib/ui";
 import Select from "@/components/Select";
 import DateField from "@/components/DateField";
+import { textHas } from "@/lib/search";
 
 type Row = { id: string; who: string; what: string; when: string; /** YYYY-MM-DD بتوقيت دمشق */ day: string };
 type StudentRow = { id: string; name: string; no: number };
@@ -22,27 +23,31 @@ const opOf = (t: string) => OPS.find((o) => o.test(t))?.id ?? "other";
 
 export default function AuditClient({ rows, students, limit }: { rows: Row[]; students: StudentRow[]; limit: number }) {
   const [who, setWho] = useState("all");
-  const [student, setStudent] = useState("all");
+  const [student, setStudent] = useState("");
   const [op, setOp] = useState("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
   // الطالب يُعرف في السجل برقمه (#1002) أو باسمه في الأسطر القديمة
-  const studentById = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
+  // البحث بالكتابة: اسم الطالب (أو جزء منه) أو رقمه
+  const q = student.trim().replace(/^#/, "");
+  const matched = useMemo(
+    () => (q ? students.filter((s) => textHas(s.name, q) || String(s.no) === q) : []),
+    [students, q]
+  );
   const mentions = (r: Row, s: StudentRow) => r.what.includes(`#${s.no}`) || r.what.includes(`«${s.name}»`);
 
   const byWho = (r: Row) => who === "all" || r.who === who;
   const byStudent = (r: Row) => {
-    if (student === "all") return true;
-    const s = studentById.get(student);
-    return !!s && mentions(r, s);
+    if (!q) return true;
+    return textHas(r.what, q) || matched.some((s) => mentions(r, s));
   };
   const byOp = (r: Row) => op === "all" || opOf(r.what) === op;
   const byDate = (r: Row) => (!from || r.day >= from) && (!to || r.day <= to);
 
   const filtered = useMemo(() => rows.filter((r) => byWho(r) && byStudent(r) && byOp(r) && byDate(r)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, who, student, op, from, to]);
+    [rows, who, q, matched, op, from, to]);
 
   // خيارات كل قائمة بعدد ما ينطبق عليه (ضمن بقية الفلاتر)
   const whoOptions = useMemo(() => {
@@ -54,17 +59,7 @@ export default function AuditClient({ rows, students, limit }: { rows: Row[]; st
       ...[...counts].sort((a, b) => a[0].localeCompare(b[0], "ar")).map(([n]) => ({ value: n, label: n })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, student, op, from, to]);
-
-  const studentOptions = useMemo(() => {
-    const base = rows.filter((r) => byWho(r) && byOp(r) && byDate(r));
-    const opts = students
-      .map((s) => ({ s, c: base.filter((r) => mentions(r, s)).length }))
-      .filter((x) => x.c > 0)
-      .map((x) => ({ value: x.s.id, label: `${x.s.name} #${x.s.no}` }));
-    return [{ value: "all", label: "كل الطلاب" }, ...opts];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, students, who, op, from, to]);
+  }, [rows, q, matched, op, from, to]);
 
   const opOptions = useMemo(() => {
     const base = rows.filter((r) => byWho(r) && byStudent(r) && byDate(r));
@@ -74,25 +69,25 @@ export default function AuditClient({ rows, students, limit }: { rows: Row[]; st
       { value: "other", label: "أخرى" },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, who, student, from, to]);
+  }, [rows, who, q, matched, from, to]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ ...cardStyle, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
           <Select value={who} onChange={setWho} options={whoOptions} />
-          <Select value={student} onChange={setStudent} options={studentOptions} />
+          <input value={student} onChange={(e) => setStudent(e.target.value)} placeholder="ابحث باسم الطالب أو رقمه…" style={inputStyle()} />
           <Select value={op} onChange={setOp} options={opOptions} />
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           <DateField label="من تاريخ" value={from} onChange={setFrom} width={160} />
           <DateField label="إلى تاريخ" value={to} onChange={setTo} width={160} />
-          {(who !== "all" || student !== "all" || op !== "all" || from || to) && (
+          {(who !== "all" || q || op !== "all" || from || to) && (
             <button
               type="button"
               onClick={() => {
                 setWho("all");
-                setStudent("all");
+                setStudent("");
                 setOp("all");
                 setFrom("");
                 setTo("");

@@ -8,6 +8,7 @@ import Drawer from "@/components/Drawer";
 import DateField from "@/components/DateField";
 import { createAwqafBatch, deleteAwqafBatch, type FormState } from "./actions";
 import { today } from "@/lib/daily";
+import { textHas } from "@/lib/search";
 
 type Candidate = { id: string; no: number; name: string; nominationDate: string; nominationPresent: boolean; priorFailNote: string | null };
 type SunnahCandidate = { key: string; studentId: string; section: string; level: number; no: number; name: string; label: string; note: string };
@@ -56,7 +57,7 @@ export default function AwqafBatchesClient({
   const [search, setSearch] = useState("");
   const [fileStudent, setFileStudent] = useState<SearchStudent | null>(null);
 
-  const hits = search.trim() ? searchStudents.filter((s) => s.name.includes(search.trim()) || String(s.no).includes(search.trim())) : [];
+  const hits = search.trim() ? searchStudents.filter((s) => textHas(s.name, search.trim()) || textHas(String(s.no), search.trim())) : [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
