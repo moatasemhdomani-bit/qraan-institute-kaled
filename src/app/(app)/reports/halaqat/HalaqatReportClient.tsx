@@ -7,7 +7,7 @@ import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
-import { today } from "@/lib/daily";
+import { today, monthStart } from "@/lib/daily";
 import type { ReviewInputs } from "@/lib/reports";
 import IssuedNotice from "../IssuedNotice";
 import { previewHalaqatReport, issueHalaqatReport, type FormState, type PreviewBlock } from "./actions";
@@ -29,7 +29,7 @@ export default function HalaqatReportClient({
   halaqat: { id: string; name: string }[];
   initial: ReviewInputs | null;
 }) {
-  const [from, setFrom] = useState(initial?.from ?? today());
+  const [from, setFrom] = useState(initial?.from ?? monthStart());
   const [to, setTo] = useState(initial?.to ?? today());
   const [halqaScope, setHalqaScope] = useState(initial?.halqaScope ?? "all");
   const [name, setName] = useState(initial?.name ?? "");

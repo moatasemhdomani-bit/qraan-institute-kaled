@@ -20,8 +20,8 @@ export default async function RecitationLogReportPage({ searchParams }: { search
   return (
     <>
       <PageHeader
-        title="سجل التسميع"
-        subtitle="اختاروا حلقة أو أكثر (أو الكل) والفترة: أيام الدوام أعمدةً والطلاب سطورًا، وفي كل خانة تسميع الطالب يومها — الجديد والماضي بتقديرهما."
+        title="سجل التسميع والحضور"
+        subtitle="اختاروا حلقة أو أكثر (أو الكل) والفترة: أيام الدوام أعمدةً والطلاب سطورًا، وفي كل خانة حضور الطالب يومها ثم تسميعه — الجديد والماضي بتقديرهما."
       />
       <RecitationLogReportClient
         key={review ?? "new"}

@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
-import { today } from "@/lib/daily";
+import { today, monthStart } from "@/lib/daily";
 import type { StudentPreview } from "@/lib/reports";
 import StudentReportPreview from "../reports/student/StudentReportPreview";
 import { previewTeacherStudentReport } from "./actions";
@@ -15,7 +15,7 @@ type Halqa = { id: string; name: string; students: { id: string; name: string; n
 export default function TeacherStudentReportClient({ halaqat }: { halaqat: Halqa[] }) {
   const [studentId, setStudentId] = useState("");
   const [search, setSearch] = useState("");
-  const [from, setFrom] = useState(today());
+  const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(today());
   const [preview, setPreview] = useState<StudentPreview | null>(null);
   const [error, setError] = useState("");
@@ -30,17 +30,18 @@ export default function TeacherStudentReportClient({ halaqat }: { halaqat: Halqa
     [halaqat]
   );
 
-  const picked = options.find((o) => o.value === studentId);
+  // الطالب المختار يُكتب اسمه في خانة البحث نفسها — وتغيير النص يلغي الاختيار
+  const pickedName = halaqat.flatMap((h) => h.students).find((s) => s.id === studentId)?.name ?? null;
 
   // بحث عن الطالب بالاسم (أو رقمه) بين طلابه
   const matches = useMemo(() => {
     const q = search.trim();
-    if (!q) return [];
+    if (!q || q === pickedName) return [];
     return halaqat
       .flatMap((h) => h.students.map((s) => ({ ...s, halqaName: h.name })))
       .filter((s) => textHas(s.name, q) || String(s.no) === q)
       .slice(0, 10);
-  }, [halaqat, search]);
+  }, [halaqat, search, pickedName]);
 
   function show() {
     setError("");
@@ -64,8 +65,19 @@ export default function TeacherStudentReportClient({ halaqat }: { halaqat: Halqa
       <div style={{ ...cardStyle, padding: 18, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>بحث بالاسم</label>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="اكتبوا اسم الطالب أو رقمه" style={inputStyle()} />
-          {search.trim() && matches.length === 0 && (
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              if (studentId) {
+                setStudentId("");
+                setPreview(null);
+              }
+            }}
+            placeholder="اكتبوا اسم الطالب أو رقمه"
+            style={{ ...inputStyle(), fontWeight: studentId ? 600 : 400 }}
+          />
+          {search.trim() && !studentId && matches.length === 0 && (
             <div style={{ fontSize: 12.5, color: "var(--ink-3)", marginTop: 6 }}>لا طالب بهذا الاسم بين طلابكم.</div>
           )}
           {matches.length > 0 && (
@@ -77,7 +89,7 @@ export default function TeacherStudentReportClient({ halaqat }: { halaqat: Halqa
                   onClick={() => {
                     setStudentId(s.id);
                     setPreview(null);
-                    setSearch("");
+                    setSearch(s.name);
                   }}
                   style={{ padding: "7px 12px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--card-grad)", color: "var(--ink)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
                 >
@@ -86,12 +98,6 @@ export default function TeacherStudentReportClient({ halaqat }: { halaqat: Halqa
               ))}
             </div>
           )}
-        </div>
-        <div>
-          <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>الطالب</label>
-          <div style={{ ...inputStyle(), display: "flex", alignItems: "center", color: picked ? "var(--ink)" : "var(--ink-3)", fontWeight: picked ? 600 : 400 }}>
-            {picked ? picked.label : "ابحثوا عنه بالاسم أعلاه"}
-          </div>
         </div>
         <DateField label="بداية التقرير" value={from} onChange={setFrom} />
         <DateField label="نهاية التقرير" value={to} onChange={setTo} />

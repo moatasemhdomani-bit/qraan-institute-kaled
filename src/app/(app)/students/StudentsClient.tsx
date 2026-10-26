@@ -507,9 +507,8 @@ function StudentForm({
           <ReadOnly label="تاريخ التسجيل" value={initial ? initial.registeredAt : todayLabel} />
           <Field label="اسم الطالب" name="name" defaultValue={initial?.name} required />
           <Field label="النسبة" name="familyName" defaultValue={initial?.familyName} required />
-          {/* في العرض: الوالدة يمين والوالد يسارها (الحقول نفسها) */}
-          <Field label="اسم الوالدة" name="mother" defaultValue={initial?.mother} required />
           <Field label="اسم الوالد" name="father" defaultValue={initial?.father} required />
+          <Field label="اسم الوالدة" name="mother" defaultValue={initial?.mother} required />
           <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} required />
           <Field label="مكان الولادة" name="birthPlace" defaultValue={initial?.birthPlace || "حلب"} required />
           <Field label="عنوان السكن" name="address" defaultValue={initial?.address} required />

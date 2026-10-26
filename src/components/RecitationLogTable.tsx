@@ -2,8 +2,9 @@
 
 import { cardStyle } from "@/lib/ui";
 import type { LogBlock } from "@/lib/recitationLog";
+import { ATT_STATES } from "@/lib/daily";
 
-/** جدول سجل التسميع: أيام الدوام أعمدةً والطلاب سطورًا — لمدرّس الحلقة وللإدارة */
+/** جدول «سجل التسميع والحضور»: أيام الدوام أعمدةً والطلاب سطورًا — في كل خانة حضور الطالب ثم تسميعه */
 export default function RecitationLogTable({ arabic, data }: { arabic: boolean; data: Pick<LogBlock, "days" | "truncated" | "rows"> }) {
   if (data.days.length === 0) return <div style={{ padding: 30, textAlign: "center", color: "var(--ink-2)" }}>لا أيام دوام في هذه الفترة.</div>;
   // عمود اسم الطالب ثابت عند التمرير، بخلفية مصمتة لا يشفّ ما وراءها
@@ -12,12 +13,12 @@ export default function RecitationLogTable({ arabic, data }: { arabic: boolean; 
     <>
       {data.truncated && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>يُعرض أول {data.days.length} يوم دوام فقط — قصّروا الفترة لرؤية الباقي.</div>}
       <div style={{ ...cardStyle, overflow: "auto", padding: 0 }}>
-        <table style={{ borderCollapse: "collapse", fontSize: 12 }}>
+        <table style={{ borderCollapse: "collapse", fontSize: 11.5 }}>
           <thead>
             <tr style={{ background: "var(--head-grad)", color: "var(--ink-2)" }}>
-              <th style={{ ...sticky, padding: 8, textAlign: "start", minWidth: 150 }}>الطالب</th>
+              <th style={{ ...sticky, padding: 7, textAlign: "start", minWidth: 140 }}>الطالب</th>
               {data.days.map((d) => (
-                <th key={d.date} style={{ padding: 8, minWidth: arabic ? 110 : 150, whiteSpace: "nowrap", borderInlineStart: "1px solid var(--line-2)" }}>
+                <th key={d.date} style={{ padding: 6, minWidth: arabic ? 90 : 120, whiteSpace: "nowrap", borderInlineStart: "1px solid var(--line-2)" }}>
                   {d.label}
                 </th>
               ))}
@@ -26,17 +27,22 @@ export default function RecitationLogTable({ arabic, data }: { arabic: boolean; 
           <tbody>
             {data.rows.map((r) => (
               <tr key={r.studentId} style={{ borderTop: "1px solid var(--line-2)" }}>
-                <td style={{ ...sticky, padding: 8, fontWeight: 600, whiteSpace: "nowrap" }}>
+                <td style={{ ...sticky, padding: 7, fontWeight: 600, whiteSpace: "nowrap" }}>
                   {r.studentName}
                 </td>
                 {data.days.map((d) => {
                   const c = r.cells[d.date];
                   return (
-                    <td key={d.date} style={{ padding: 6, verticalAlign: "top", borderInlineStart: "1px solid var(--line-2)", lineHeight: 1.6 }}>
+                    <td key={d.date} style={{ padding: 4, verticalAlign: "top", borderInlineStart: "1px solid var(--line-2)", lineHeight: 1.5 }}>
+                      {c?.att && (
+                        <div style={{ fontWeight: 700, color: ATT_STATES.find((a) => a.id === c.att)?.color }}>{ATT_STATES.find((a) => a.id === c.att)?.label}</div>
+                      )}
                       {!c && d.holiday ? (
                         <span style={{ color: "var(--info)", fontWeight: 600 }}>عطلة — {d.holiday}</span>
                       ) : !c ? (
                         <span style={{ color: "var(--ink-3)" }}>—</span>
+                      ) : !c.rec ? (
+                        <span style={{ color: "var(--ink-3)" }}>لم يُسجَّل تسميع</span>
                       ) : c.none ? (
                         <span style={{ color: "var(--bad-ink)" }}>{c.fresh}</span>
                       ) : (

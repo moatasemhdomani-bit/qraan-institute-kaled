@@ -17,7 +17,7 @@ const KIND_LABELS: Record<string, string> = {
   STUDENT: "تقرير طالب",
   AWQAF_MARKS: "علامات سبر الأوقاف",
   ORPHANS: "الأيتام",
-  RECITATION_LOG: "سجل التسميع",
+  RECITATION_LOG: "سجل التسميع والحضور",
 };
 
 const BASE_STYLE = `
@@ -502,7 +502,14 @@ export function orphansReportHtml(input: { name: string; issuedBy: string; issue
   );
 }
 
-// ==================== سجل التسميع ====================
+// ==================== سجل التسميع والحضور ====================
+
+const ATT_PDF: Record<string, { label: string; color: string }> = {
+  PRESENT: { label: "حاضر", color: "#2e7d4f" },
+  LATE: { label: "متأخر", color: "#a07a1c" },
+  EXCUSED: { label: "إذن", color: "#2f6db0" },
+  ABSENT: { label: "غائب", color: "#b23b3b" },
+};
 
 export function recitationLogReportHtml(input: {
   name: string; from: string; to: string; issuedBy: string; issuedAt: string;
@@ -510,15 +517,18 @@ export function recitationLogReportHtml(input: {
 }): string {
   const cell = (c: import("./recitationLog").LogCell | undefined, holiday: string | null, arabic: boolean) => {
     if (!c) return holiday ? `<span style="color:#2f6db0;font-weight:600">عطلة — ${escapeHtml(holiday)}</span>` : "—";
-    if (c.none) return `<span class="fail">${escapeHtml(c.fresh)}</span>`;
-    return [c.fresh ? `${arabic ? "" : "جديد: "}${escapeHtml(c.fresh)}` : "", c.past ? `ماضٍ: ${escapeHtml(c.past)}` : ""].filter(Boolean).join("<br>");
+    // أول سطر: حالة الحضور، ثم التسميع
+    const att = c.att ? `<b style="color:${ATT_PDF[c.att].color}">${ATT_PDF[c.att].label}</b><br>` : "";
+    if (!c.rec) return att + `<span style="color:#888">لم يُسجَّل تسميع</span>`;
+    if (c.none) return att + `<span class="fail">${escapeHtml(c.fresh)}</span>`;
+    return att + [c.fresh ? `${arabic ? "" : "جديد: "}${escapeHtml(c.fresh)}` : "", c.past ? `ماضٍ: ${escapeHtml(c.past)}` : ""].filter(Boolean).join("<br>");
   };
   const blocks = input.blocks
     .map(
       (b) => `
     <section class="halqa-page">
     <h2 class="block">الحلقة: ${escapeHtml(b.halqaName)} &nbsp;&nbsp; المدرس: ${escapeHtml(b.teacherName)} &nbsp;&nbsp; الفوج: ${escapeHtml(b.cohortName)}</h2>
-    ${b.days.length === 0 ? "<p>لا أيام دوام في هذه الفترة.</p>" : `<table style="font-size:9.5px">
+    ${b.days.length === 0 ? "<p>لا أيام دوام في هذه الفترة.</p>" : `<table style="font-size:9px">
       <thead><tr><th>الطالب</th>${b.days.map((d) => `<th style="white-space:nowrap">${escapeHtml(d.label)}</th>`).join("")}</tr></thead>
       <tbody>
         ${b.rows
@@ -533,6 +543,6 @@ export function recitationLogReportHtml(input: {
     htmlHead(input.name) +
     reportHeader(input.name, "RECITATION_LOG", input.from, input.to, input.issuedBy, input.issuedAt) +
     blocks +
-    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — سجل التسميع</div></body></html>`
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — سجل التسميع والحضور</div></body></html>`
   );
 }

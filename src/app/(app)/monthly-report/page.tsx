@@ -5,7 +5,7 @@ import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
-import { today, isValidDate } from "@/lib/daily";
+import { today, monthStart, isValidDate } from "@/lib/daily";
 import { pagesSummary, localSplit, nominationSplit, realAwqafSplit, arabicExamMarks, pastGhaibSplit } from "@/lib/reports";
 import TeacherReportsClient, { type ReportType } from "./TeacherReportsClient";
 
@@ -26,7 +26,7 @@ export default async function TeacherReportsPage({
   const sp = await searchParams;
   const type: ReportType | null = sp.type === "monthly" || sp.type === "student" || sp.type === "log" ? sp.type : null;
   const t = today();
-  const from = sp.from && isValidDate(sp.from) ? sp.from : `${t.slice(0, 7)}-01`;
+  const from = sp.from && isValidDate(sp.from) ? sp.from : monthStart();
   const to = sp.to && isValidDate(sp.to) ? sp.to : t;
 
   const halaqat = await prisma.halqa.findMany({
@@ -34,7 +34,7 @@ export default async function TeacherReportsPage({
     orderBy: { name: "asc" },
     include: { cohort: true, students: { orderBy: { studentNo: "asc" }, select: { id: true, name: true, studentNo: true } } },
   });
-  const header = <PageHeader title="مركز التقارير" subtitle="اختاروا نوع التقرير: التقرير الشهري، تقرير طالب، أو سجل التسميع." />;
+  const header = <PageHeader title="مركز التقارير" subtitle="اختاروا نوع التقرير: التقرير الشهري، تقرير طالب، أو سجل التسميع والحضور." />;
 
   if (halaqat.length === 0) {
     return (

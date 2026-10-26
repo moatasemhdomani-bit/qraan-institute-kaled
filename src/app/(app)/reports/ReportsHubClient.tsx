@@ -41,7 +41,7 @@ const FILTERS = [
   { id: "STUDENT", label: "تقرير طالب" },
   { id: "AWQAF_MARKS", label: "علامات سبر الأوقاف" },
   { id: "ORPHANS", label: "الأيتام" },
-  { id: "RECITATION_LOG", label: "سجل التسميع" },
+  { id: "RECITATION_LOG", label: "سجل التسميع والحضور" },
 ];
 
 function DeleteButton({ id }: { id: string }) {

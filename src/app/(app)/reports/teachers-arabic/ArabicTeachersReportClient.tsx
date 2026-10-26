@@ -5,7 +5,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
-import { today } from "@/lib/daily";
+import { today, monthStart } from "@/lib/daily";
 import type { ReviewInputs, ArabicTeachersRow } from "@/lib/reports";
 import IssuedNotice from "../IssuedNotice";
 import { previewArabicTeachersReport, issueArabicTeachersReport, type FormState } from "./actions";
@@ -13,7 +13,7 @@ import { previewArabicTeachersReport, issueArabicTeachersReport, type FormState 
 const initialState: FormState = {};
 
 export default function ArabicTeachersReportClient({ initial }: { initial: ReviewInputs | null }) {
-  const [from, setFrom] = useState(initial?.from ?? today());
+  const [from, setFrom] = useState(initial?.from ?? monthStart());
   const [to, setTo] = useState(initial?.to ?? today());
   const [name, setName] = useState(initial?.name ?? "");
   const [rows, setRows] = useState<ArabicTeachersRow[] | null>(null);

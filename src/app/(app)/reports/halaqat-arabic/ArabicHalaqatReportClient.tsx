@@ -6,7 +6,7 @@ import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
-import { today } from "@/lib/daily";
+import { today, monthStart } from "@/lib/daily";
 import type { ReviewInputs, ArabicHalaqatBlock, ArabicExamMark } from "@/lib/reports";
 import IssuedNotice from "../IssuedNotice";
 import { previewArabicHalaqatReport, issueArabicHalaqatReport, type FormState } from "./actions";
@@ -28,7 +28,7 @@ function ExamStages({ exams }: { exams: ArabicExamMark[] }) {
 }
 
 export default function ArabicHalaqatReportClient({ halaqat, initial }: { halaqat: { id: string; name: string }[]; initial: ReviewInputs | null }) {
-  const [from, setFrom] = useState(initial?.from ?? today());
+  const [from, setFrom] = useState(initial?.from ?? monthStart());
   const [to, setTo] = useState(initial?.to ?? today());
   const [halqaScope, setHalqaScope] = useState(initial?.halqaScope ?? "all");
   const [name, setName] = useState(initial?.name ?? "");

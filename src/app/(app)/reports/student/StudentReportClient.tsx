@@ -5,7 +5,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
-import { today } from "@/lib/daily";
+import { today, monthStart } from "@/lib/daily";
 import type { ReviewInputs } from "@/lib/reports";
 import IssuedNotice from "../IssuedNotice";
 import StudentReportPreview from "./StudentReportPreview";
@@ -25,7 +25,7 @@ export default function StudentReportClient({
   const [picked, setPicked] = useState<PickedStudent | null>(preselected);
   const [search, setSearch] = useState("");
   const [hits, setHits] = useState<PickedStudent[]>([]);
-  const [from, setFrom] = useState(initial?.from ?? today());
+  const [from, setFrom] = useState(initial?.from ?? monthStart());
   const [to, setTo] = useState(initial?.to ?? today());
   const [name, setName] = useState(initial?.name ?? (preselected ? `تقرير ${preselected.name}` : ""));
   const [preview, setPreview] = useState<StudentPreview | null>(null);

@@ -24,6 +24,7 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[]; tr
   // مختبر الحديث: «سبر محلي» (المناهج الثلاثة: تسميع، مراحل، سبر المستوى) و«سبر ترشيح الأوقاف»
   { id: "sunnah-staged", href: "/exams/sunnah", label: "سبر محلي", roles: ["SUNNAH_EXAMINER"] },
   { id: "sunnah-nomination", href: "/exams/sunnah/nomination", label: "سبر ترشيح الأوقاف", roles: ["SUNNAH_EXAMINER"] },
+  { id: "sunnah-reset", href: "/exams/sunnah/reset", label: "إعادة ضبط مستوى", roles: ["SUNNAH_EXAMINER"] },
   { id: "exam-monitor", href: "/exam-monitor", label: "متابعة السبر", roles: ["DIRECTOR", "ADMIN", "TEACHER", "EXAM_SUPERVISOR"] },
   { id: "parent", href: "/parent", label: "متابعة الابن", roles: ["GUARDIAN"] },
   { id: "users", href: "/users", label: "إدارة المستخدمين", roles: ["DIRECTOR"] },

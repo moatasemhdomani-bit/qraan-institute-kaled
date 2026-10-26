@@ -33,6 +33,11 @@ export function today(): string {
   return dateOnly(new Date());
 }
 
+/** أول يوم في الشهر الحالي — بداية التقارير الافتراضية (وتنتهي باليوم) */
+export function monthStart(): string {
+  return `${today().slice(0, 7)}-01`;
+}
+
 export function isValidDate(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s + "T00:00:00").getTime());
 }

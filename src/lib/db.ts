@@ -7,6 +7,19 @@ export function nameWithNasab(name: string, familyName: string | null | undefine
   return f && !name.trim().endsWith(f) ? `${name} ${f}` : name;
 }
 
+/**
+ * اسم الطالب الثلاثي: «الاسم الأب النسبة». لا يتكرّر الأب إن كان مكتوبًا في الاسم أصلًا،
+ * ولا النسبة إن كان الاسم منتهيًا بها.
+ */
+export function studentFullName(name: string, fatherName: string | null | undefined, familyName: string | null | undefined): string {
+  const family = familyName?.trim() || "";
+  let base = name.trim();
+  if (family && base.endsWith(family)) base = base.slice(0, -family.length).trim();
+  const father = fatherName?.trim();
+  if (father && !base.split(/\s+/).slice(1).join(" ").includes(father)) base = `${base} ${father}`;
+  return [base, family].filter(Boolean).join(" ");
+}
+
 function extend(raw: PrismaClient) {
   // اسم العامل يظهر دومًا مع نسبته في كل الموقع وكل التقارير: كل قراءة لـ user.name (مباشرة أو عبر علاقة
   // كـ teacher/examiner/issuedBy) تُرجع «الاسم النسبة». حقل الاسم المخزَّن نفسه لا يتغيّر.
@@ -25,11 +38,11 @@ function extend(raw: PrismaClient) {
           compute: (h) => halqaWithTrack(h.name, h.track),
         },
       },
-      // واسم الطالب كذلك يظهر دومًا مع نسبته في كل الشاشات والتقارير
+      // واسم الطالب يظهر دومًا ثلاثيًا (الاسم الأب النسبة) في كل الشاشات والتقارير
       student: {
         name: {
-          needs: { name: true, familyName: true },
-          compute: (s) => nameWithNasab(s.name, s.familyName),
+          needs: { name: true, fatherName: true, familyName: true },
+          compute: (s) => studentFullName(s.name, s.fatherName, s.familyName),
         },
       },
     },

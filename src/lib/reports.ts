@@ -1,4 +1,4 @@
-import { prisma, rawPrisma } from "./db";
+import { prisma, rawPrisma, studentFullName } from "./db";
 import { countedNewPages } from "./daily";
 import { passFailLabel } from "./exam";
 import { sunnahBranchLabel, stageName, type SunnahSectionId } from "./sunnah";
@@ -533,11 +533,7 @@ export async function loadReviewInputs(
  * «الاسم اسم الأب النسبة». s.name يصل هنا مع النسبة ملحقة (امتداد العميل في db.ts)، فتُنزع أولًا
  * كي لا تتكرر، ثم يُدرج اسم الأب قبلها.
  */
-function fullStudentName(s: { name: string; fatherName: string | null; familyName: string | null }): string {
-  const family = s.familyName?.trim() || "";
-  const base = family && s.name.endsWith(family) ? s.name.slice(0, -family.length).trim() : s.name;
-  return [base, s.fatherName?.trim(), family].filter(Boolean).join(" ");
-}
+const fullStudentName = (s: { name: string; fatherName: string | null; familyName: string | null }) => studentFullName(s.name, s.fatherName, s.familyName);
 
 /** دفعات سبر الأوقاف التي سُجّلت فيها علامة واحدة على الأقل — مرشّحة لتقرير العلامات. */
 export async function listMarkedAwqafBatches(): Promise<{ id: string; date: string; marked: number; total: number }[]> {

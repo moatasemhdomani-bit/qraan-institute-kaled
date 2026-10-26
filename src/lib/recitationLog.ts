@@ -1,11 +1,12 @@
 import { prisma } from "./db";
-import { weekdayName, inHoliday, holidayDaysIn } from "./daily";
+import { weekdayName, inHoliday, holidayDaysIn, type AttStatusId } from "./daily";
 import { parsePastItems, pastSummary } from "./pastRecitation";
 
 /** أكبر عدد أيام في سجل التسميع */
 export const LOG_MAX_DAYS = 62;
 
-export type LogCell = { none: boolean; fresh: string; past: string };
+/** خانة يوم الطالب: حالة حضوره (إن سُجّلت)، ثم تسميعه — rec = false إن لم يُسجَّل تسميع */
+export type LogCell = { att: AttStatusId | null; rec: boolean; none: boolean; fresh: string; past: string };
 export type LogDay = { date: string; label: string; holiday: string | null };
 export type LogBlock = {
   halqaId: string;
@@ -35,11 +36,15 @@ export async function buildRecitationLog(halqaIds: string[] | "all", from: strin
   });
   if (halaqat.length === 0 || from > to) return [];
 
-  const [working, holidays, recs, holidayNames] = await Promise.all([
+  const [working, holidays, recs, holidayNames, atts] = await Promise.all([
     prisma.workingDays.findUnique({ where: { id: 1 } }),
     prisma.holiday.findMany({ select: { date: true, endDate: true } }),
     prisma.recitation.findMany({ where: { halqaId: { in: halaqat.map((h) => h.id) }, date: { gte: from, lte: to } } }),
     holidayDaysIn(from, to),
+    prisma.attendance.findMany({
+      where: { halqaId: { in: halaqat.map((h) => h.id) }, date: { gte: from, lte: to } },
+      select: { halqaId: true, studentId: true, date: true, status: true },
+    }),
   ]);
   let workDays: string[] = [];
   try {
@@ -51,7 +56,8 @@ export async function buildRecitationLog(halqaIds: string[] | "all", from: strin
   return halaqat.map((h) => {
     const arabic = h.track === "ARABIC";
     const mine = recs.filter((r) => r.halqaId === h.id);
-    const recDates = new Set(mine.map((r) => r.date));
+    const myAtt = atts.filter((a) => a.halqaId === h.id);
+    const recDates = new Set([...mine.map((r) => r.date), ...myAtt.map((a) => a.date)]);
     const days: string[] = [];
     for (let d = new Date(`${from}T12:00:00Z`); days.length < LOG_MAX_DAYS; d = new Date(d.getTime() + 86400000)) {
       const iso = d.toISOString().slice(0, 10);
@@ -59,7 +65,7 @@ export async function buildRecitationLog(halqaIds: string[] | "all", from: strin
       const isWork = (workDays.length === 0 || workDays.includes(weekdayName(iso))) && !holidays.some((x) => inHoliday(iso, x));
       if (isWork || recDates.has(iso) || holidayNames.has(iso)) days.push(iso);
     }
-    const cellOf = (r: (typeof mine)[number]): LogCell => {
+    const recOf = (r: (typeof mine)[number]): Omit<LogCell, "att" | "rec"> => {
       if (r.none) return { none: true, fresh: "لم يسمّع", past: "" };
       let fresh = "";
       if (r.examPrep) fresh = "تحضير للسبر";
@@ -85,7 +91,12 @@ export async function buildRecitationLog(halqaIds: string[] | "all", from: strin
         .map((st) => ({
           studentId: st.id,
           studentName: st.name,
-          cells: Object.fromEntries(mine.filter((r) => r.studentId === st.id).map((r) => [r.date, cellOf(r)])),
+          cells: (() => {
+            const cells: Record<string, LogCell> = {};
+            for (const a of myAtt) if (a.studentId === st.id) cells[a.date] = { att: a.status as AttStatusId, rec: false, none: false, fresh: "", past: "" };
+            for (const r of mine) if (r.studentId === st.id) cells[r.date] = { att: cells[r.date]?.att ?? null, rec: true, ...recOf(r) };
+            return cells;
+          })(),
         })),
     };
   });

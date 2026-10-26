@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { prisma, rawPrisma, nameWithNasab } from "@/lib/db";
+import { prisma, rawPrisma, nameWithNasab, studentFullName } from "@/lib/db";
 import { halqaWithTrack } from "@/lib/track";
 import PageHeader from "@/components/PageHeader";
 import StudentsClient from "./StudentsClient";
@@ -34,7 +34,7 @@ export default async function StudentsPage() {
     id: s.id,
     no: String(s.studentNo),
     name: s.name,
-    fullName: nameWithNasab(s.name, s.familyName),
+    fullName: studentFullName(s.name, s.fatherName, s.familyName),
     father: s.fatherName || "",
     mother: s.motherName || "",
     familyName: s.familyName || "",

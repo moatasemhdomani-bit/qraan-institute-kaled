@@ -162,9 +162,18 @@ export default function StarsAdminClient({
                   <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6 }}>فوج {cohortName}</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {list.map((h) => (
-                      <button key={h.id} type="button" onClick={() => toggle(h.id)} style={{ ...chipStyle(picked.includes(h.id)), padding: "8px 12px" }}>
-                        {picked.includes(h.id) ? "✓ " : ""}
-                        {h.name} <span style={{ opacity: 0.75 }}>★ {h.stars}</span>
+                      // اسم المدرّس، وتحته اسم الحلقة
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() => toggle(h.id)}
+                        style={{ ...chipStyle(picked.includes(h.id)), padding: "8px 12px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, textAlign: "start" }}
+                      >
+                        <span style={{ fontWeight: 700 }}>
+                          {picked.includes(h.id) ? "✓ " : ""}
+                          {h.teacherName} <span style={{ opacity: 0.75, fontWeight: 400 }}>★ {h.stars}</span>
+                        </span>
+                        <span style={{ fontSize: 11.5, opacity: 0.8 }}>{h.name}</span>
                       </button>
                     ))}
                   </div>

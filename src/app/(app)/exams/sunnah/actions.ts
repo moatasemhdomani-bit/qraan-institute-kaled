@@ -339,7 +339,8 @@ export async function saveSunnahStart(input: {
   const session = await getSession();
   const reset = !!input.reset;
   if (reset) {
-    if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) return { error: "إعادة ضبط مستوى الطالب من صلاحية الإدارة." };
+    if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN" && session.role !== "SUNNAH_EXAMINER"))
+      return { error: "إعادة ضبط مستوى الطالب من صلاحية الإدارة ومختبر الحديث." };
   } else if (!session || (session.role !== "SUNNAH_EXAMINER" && session.role !== "DIRECTOR")) return { error: "الإعداد الأول من صلاحية مختبر الحديث." };
   const sec = sunnahSection(input.section);
   if (!sec) return { error: "المنهج غير معروف." };
