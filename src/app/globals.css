@@ -415,8 +415,3 @@ html[data-noselect] [data-allow-select] {
   -webkit-user-select: text;
   user-select: text;
 }
-
-/* خط «Amiri» (نسخي) لأسماء الشاشات في القائمة ولعناوين الشاشات */
-:root {
-  --font-titles: "Amiri", "IBM Plex Sans Arabic", serif;
-}

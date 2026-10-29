@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { stretchWithKashida } from "@/lib/kashida";
 import { usePathname } from "next/navigation";
 import { logout } from "./actions";
 import type { RoleId } from "@/lib/ui";
@@ -29,32 +27,6 @@ export default function Sidebar({
   const items = navItemsFor(role, track);
   const activeId = activeNavId(pathname, items);
 
-  // أسماء الشاشات تنتهي كلها عند الحافة نفسها: كل اسم يُطال بالتطويل «ـ» حتى عرض أطول اسم
-  const navRef = useRef<HTMLElement>(null);
-  const [stretched, setStretched] = useState<Record<string, string>>({});
-  const labelsKey = items.map((n) => n.id).join(",");
-  useEffect(() => {
-    let alive = true;
-    document.fonts.ready.then(() => {
-      const el = navRef.current;
-      const ctx = document.createElement("canvas").getContext("2d");
-      if (!alive || !el || !ctx) return;
-      const family = getComputedStyle(el).fontFamily;
-      const measure = (weight: number) => (t: string) => {
-        ctx.font = `${weight} 16px ${family}`;
-        return ctx.measureText(t).width;
-      };
-      const target = Math.max(...items.map((n) => measure(700)(n.label)));
-      const out: Record<string, string> = {};
-      for (const n of items) for (const w of [400, 700]) out[`${n.id}|${w}`] = stretchWithKashida(n.label, target, measure(w));
-      setStretched(out);
-    });
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [labelsKey]);
-
   return (
     <aside
       className="app-sidebar"
@@ -79,7 +51,7 @@ export default function Sidebar({
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 14px 20px", display: "flex", flexDirection: "column", gap: 18 }}>
-      <nav ref={navRef} style={{ display: "flex", flexDirection: "column", gap: 4, fontFamily: "var(--font-titles)" }}>
+      <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {items.map((n) => {
           const on = n.id === activeId;
           return (
@@ -93,12 +65,12 @@ export default function Sidebar({
                 textAlign: "start",
                 padding: "9px 11px",
                 borderRadius: 10,
-                fontSize: 16,
-                fontFamily: "var(--font-titles)",
+                fontSize: 13.5,
+                fontFamily: "inherit",
                 border: on ? "1px solid var(--accent-line)" : "1px solid transparent",
                 background: on ? "var(--chip)" : "transparent",
                 color: on ? "var(--ink)" : "var(--ink-2)",
-                fontWeight: on ? 700 : 400,
+                fontWeight: on ? 600 : 400,
               }}
             >
               <span
@@ -110,7 +82,7 @@ export default function Sidebar({
                   background: on ? "var(--btn-grad)" : "transparent",
                 }}
               />
-              <span style={{ whiteSpace: "nowrap" }}>{stretched[`${n.id}|${on ? 700 : 400}`] ?? n.label}</span>
+              <span>{n.label}</span>
             </Link>
           );
         })}

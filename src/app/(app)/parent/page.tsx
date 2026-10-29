@@ -1,214 +1,82 @@
-import { surahsLabel } from "@/lib/recitation";
-import { parsePastItems, pastSummary } from "@/lib/pastRecitation";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { today, isValidDate, formatDateAr, ATT_LABELS, ATT_STATES, pageSpan, holidayDaysIn } from "@/lib/daily";
+import { formatDateAr } from "@/lib/daily";
+import { cardStyle } from "@/lib/ui";
 import { resultLabel, examKindLabel, TYPE_LABELS } from "@/lib/exam";
 import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
-import { hasPastRecitation } from "@/lib/track";
+import { buildStudentPreview } from "@/lib/reports";
 import PageHeader from "@/components/PageHeader";
-import ParentClient from "./ParentClient";
+import StudentReportPreview from "../reports/student/StudentReportPreview";
+import ParentFilters from "./ParentFilters";
+import { loadParentContext, type ParentSearch } from "./data";
+import NoStudent from "./NoStudent";
 
-function daysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  const p = (x: number) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
+/** «نظرة عامة» لولي الأمر: تقرير الطالب في الفترة (كتقرير الطالب عند الإدارة)، وجدول اختباراته */
+export default async function ParentOverviewPage({ searchParams }: { searchParams: Promise<ParentSearch> }) {
+  const ctx = await loadParentContext(searchParams);
+  if (!ctx) return <NoStudent title="نظرة عامة" />;
+  const { family, activeId, child, from, to } = ctx;
 
-export default async function ParentPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ child?: string; from?: string; to?: string }>;
-}) {
-  const session = await getSession();
-  if (!session) redirect("/login");
-  if (session.role !== "GUARDIAN") redirect("/dashboard");
-
-  const sp = await searchParams;
-  const from = sp.from && isValidDate(sp.from) ? sp.from : daysAgo(7);
-  const to = sp.to && isValidDate(sp.to) ? sp.to : today();
-
-  // الطالب صاحب هذا الحساب، ثم إخوته عبر رقم ولي الأمر المشترك
-  const own = await prisma.student.findFirst({
-    where: { guardianUserId: session.userId },
-    include: { halqa: { include: { cohort: true } } },
-  });
-
-  if (!own) {
-    return (
-      <>
-        <PageHeader title="متابعة الابن" subtitle="لا يوجد طالب مرتبط بهذا الحساب." />
-        <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>
-          راجع إدارة المعهد — حسابك غير مرتبط بطالب.
-        </div>
-      </>
-    );
-  }
-
-  const family = own.guardianPhone
-    ? await prisma.student.findMany({
-        where: { guardianPhone: own.guardianPhone },
-        orderBy: { studentNo: "asc" },
-        select: { id: true, studentNo: true, name: true },
-      })
-    : [{ id: own.id, studentNo: own.studentNo, name: own.name }];
-
-  const activeId = family.find((f) => f.id === sp.child)?.id ?? own.id;
-
-  const child =
-    activeId === own.id
-      ? own
-      : await prisma.student.findUnique({
-          where: { id: activeId },
-          include: { halqa: { include: { cohort: true } } },
-        });
-
-  if (!child) redirect("/parent");
-
-  const [attHistory, recHistory, todayAtt, todayRec, exams, awqafResults] = await Promise.all([
-    prisma.attendance.findMany({
-      where: { studentId: child.id, date: { gte: from, lte: to } },
-      orderBy: { date: "desc" },
-    }),
-    prisma.recitation.findMany({
-      where: { studentId: child.id, date: { gte: from, lte: to } },
-      orderBy: { date: "desc" },
-    }),
-    prisma.attendance.findFirst({ where: { studentId: child.id }, orderBy: { date: "desc" } }),
-    prisma.recitation.findFirst({ where: { studentId: child.id }, orderBy: { date: "desc" } }),
-    prisma.exam.findMany({
-      where: { studentId: child.id },
-      include: { examiner: { select: { name: true } } },
-      orderBy: { date: "desc" },
-    }),
-    prisma.awqafResult.findMany({
-      where: { studentId: child.id, sunnahSection: null },
-      include: { batch: { select: { date: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
+  const [preview, exams, awqafResults] = await Promise.all([
+    buildStudentPreview(child.id, from, to),
+    prisma.exam.findMany({ where: { studentId: child.id }, include: { examiner: { select: { name: true } } }, orderBy: { date: "desc" } }),
+    prisma.awqafResult.findMany({ where: { studentId: child.id, sunnahSection: null }, include: { batch: { select: { date: true } } }, orderBy: { createdAt: "desc" } }),
   ]);
 
-  const stateColor = ATT_STATES.find((s) => s.id === todayAtt?.status)?.color ?? "var(--info)";
-  // أيام العطل في الفترة: «عطلة — الاسم» في جدولي الحضور والتسميع
-  const holidayNames = await holidayDaysIn(from, to);
-  const holidayRows = [...holidayNames].filter(([d]) => !attHistory.some((a) => a.date === d));
-  const holidayRecRows = [...holidayNames].filter(([d]) => !recHistory.some((r) => r.date === d));
-
-  const recLines: string[] = [];
-  if (todayRec) {
-    if (todayRec.none) {
-      recLines.push("لم يسمّع في هذا اليوم");
-    } else {
-      recLines.push(
-        todayRec.surahs.length > 0
-          ? `السور: ${surahsLabel(todayRec.surahs, todayRec.surahsDone)} — ${todayRec.gradeNew}`
-          : todayRec.examPrep
-            ? "تحضير للسبر"
-            : todayRec.noNew
-            ? "لم يسمّع جديدًا"
-            : todayRec.newFrom == null
-              ? "الجديد لم يُسجَّل بعد"
-              : `تسميع جديد: من ${todayRec.newFrom} إلى ${todayRec.newTo} (${pageSpan(todayRec.newFrom, todayRec.newTo)} صفحة) — ${todayRec.gradeNew}${todayRec.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`
-      );
-      // الماضي لمستويَي القرآن حاضراً وغيباً وحدهما
-      if (hasPastRecitation(child.track) && todayRec.surahs.length === 0)
-        recLines.push(
-          todayRec.noPast
-            ? "لم يقرأ ماضيًا"
-            : `الماضي: ${pastSummary(parsePastItems(todayRec.pastItems)) || "لم يُسجَّل بعد"}`
-        );
-    }
-  } else {
-    recLines.push("لا يوجد تسميع مسجَّل بعد");
-  }
+  const examRows = [
+    ...exams.map((e) => ({
+      type: [TYPE_LABELS[e.type], examKindLabel(e)].filter(Boolean).join(" — "),
+      result: resultLabel(e),
+      rawDate: e.date,
+      examinerName: e.examiner.name,
+      notes: e.notes as string | null,
+      certStatus: undefined as string | undefined,
+    })),
+    ...awqafResults.map((r) => {
+      const passed = awqafPassed(r.score, r.nominationPresent);
+      return {
+        type: [
+          "سبر الأوقاف",
+          examKindLabel({
+            type: "AWQAF_ACTUAL",
+            nominationPresent: r.nominationPresent,
+            nominationParts: exams.find((e) => e.type === "WAQF_NOMINATION" && e.nominationPresent === r.nominationPresent && e.date <= r.batch.date)?.nominationParts ?? null,
+          }),
+        ].join(" — "),
+        result: r.score != null ? `${r.score} / 100${passed != null ? ` — ${passed ? "ناجح" : "إعادة"}` : ""}` : "بانتظار العلامة",
+        rawDate: r.batch.date,
+        examinerName: "",
+        notes: null as string | null,
+        certStatus: passed ? certCycleLabel(r) : undefined,
+      };
+    }),
+  ].sort((a, b) => b.rawDate.localeCompare(a.rawDate));
 
   return (
     <>
-      <PageHeader title="متابعة الابن" subtitle="حضوره وتسميعه كما سجّلهما مدرّسه." />
-      <ParentClient
-        family={family.map((f) => ({ id: f.id, label: f.name }))}
-        activeId={activeId}
-        from={from}
-        to={to}
-        child={{
-          name: child.name,
-          stars: child.stars,
-          meta: child.halqa ? `${child.halqa.name} · ${child.halqa.cohort.name} · رقم ${child.studentNo}` : `رقم ${child.studentNo} — بلا حلقة بعد`,
-        }}
-        todayLabel={todayAtt ? `آخر يوم مسجَّل: ${formatDateAr(todayAtt.date)}` : "لا يوجد حضور مسجَّل بعد"}
-        todayState={{ label: todayAtt ? ATT_LABELS[todayAtt.status] : "—", color: stateColor }}
-        recLines={recLines}
-        recDateLabel={todayRec ? formatDateAr(todayRec.date) : ""}
-        attHistory={[
-          ...attHistory.map((a) => ({
-            raw: a.date,
-            date: formatDateAr(a.date),
-            label: ATT_LABELS[a.status],
-            color: ATT_STATES.find((s) => s.id === a.status)?.color ?? "var(--info)",
-          })),
-          ...holidayRows.map(([d, name]) => ({ raw: d, date: formatDateAr(d), label: `عطلة — ${name}`, color: "var(--info)" })),
-        ]
-          .sort((x, y) => y.raw.localeCompare(x.raw))
-          .map(({ raw: _raw, ...rest }) => rest)}
-        recHistory={[
-          ...holidayRecRows.map(([d, name]) => ({ raw: d, date: formatDateAr(d), blank: false, holiday: `عطلة — ${name}`, newLine: "", pastLine: "" })),
-          ...recHistory.map((r) => ({
-          raw: r.date,
-          holiday: null as string | null,
-          date: formatDateAr(r.date),
-          blank: r.none,
-          newLine:
-            r.surahs.length > 0
-              ? `سور: ${surahsLabel(r.surahs, r.surahsDone)} — ${r.gradeNew ?? ""}`
-              : r.examPrep
-            ? "تحضير للسبر"
-            : r.noNew
-                ? "لم يسمّع جديدًا"
-                : r.newFrom == null
-                  ? "الجديد لم يُسجَّل بعد"
-                  : `جديد: ${r.newFrom}←${r.newTo} (${pageSpan(r.newFrom, r.newTo)} صفحة) — ${r.gradeNew ?? ""}${r.pageDone === false ? " — لم يُنهِ الصفحة" : ""}`,
-          pastLine: !hasPastRecitation(child.track) || r.surahs.length > 0
-            ? ""
-            : r.noPast
-            ? "لم يقرأ ماضيًا"
-            : `ماضي: ${pastSummary(parsePastItems(r.pastItems)) || "لم يُسجَّل بعد"}`,
-          })),
-        ]
-          .sort((x, y) => y.raw.localeCompare(x.raw))
-          .map(({ raw: _raw, ...rest }) => rest)}
-        examRows={[
-          ...exams.map((e) => ({
-            type: [TYPE_LABELS[e.type], examKindLabel(e)].filter(Boolean).join(" — "),
-            result: resultLabel(e),
-            rawDate: e.date,
-            examinerName: e.examiner.name,
-            notes: e.notes as string | null,
-          })),
-          ...awqafResults.map((r) => {
-            const passed = awqafPassed(r.score, r.nominationPresent);
-            return {
-              type: [
-                "سبر الأوقاف",
-                examKindLabel({
-                  type: "AWQAF_ACTUAL",
-                  nominationPresent: r.nominationPresent,
-                  nominationParts:
-                    exams.find((e) => e.type === "WAQF_NOMINATION" && e.nominationPresent === r.nominationPresent && e.date <= r.batch.date)?.nominationParts ?? null,
-                }),
-              ].join(" — "),
-              result: r.score != null ? `${r.score} / 100${passed != null ? ` — ${passed ? "ناجح" : "إعادة"}` : ""}` : "بانتظار العلامة",
-              rawDate: r.batch.date,
-              examinerName: "",
-              notes: null as string | null,
-              certStatus: passed ? certCycleLabel(r) : undefined,
-            };
-          }),
-        ]
-          .sort((a, b) => b.rawDate.localeCompare(a.rawDate))
-          .map(({ rawDate, ...rest }) => ({ ...rest, date: formatDateAr(rawDate) }))}
-      />
+      <PageHeader title="نظرة عامة" subtitle="تقرير الابن في الفترة المختارة: حضوره وتسميعه وسلوكه واختباراته." />
+      <ParentFilters basePath="/parent" family={family} activeId={activeId} from={from} to={to} />
+      {preview && <StudentReportPreview preview={preview} />}
+
+      <div style={{ ...cardStyle, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line-2)", fontSize: 14, fontWeight: 700 }}>جدول الاختبارات</div>
+        {examRows.length === 0 ? (
+          <div style={{ padding: "26px 18px", textAlign: "center", fontSize: 13, color: "var(--ink-2)" }}>لا توجد نتائج سبر بعد — تظهر هنا نتائج السبر والشهادات.</div>
+        ) : (
+          examRows.map((e, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 5, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+                <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: "var(--ink-2)" }}>{e.type}</span>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{e.result}</span>
+                <span style={{ marginInlineStart: "auto", fontSize: 12, color: "var(--ink-3)", direction: "ltr" }}>{formatDateAr(e.rawDate)}</span>
+              </div>
+              {e.examinerName && <div style={{ fontSize: 12, color: "var(--ink-2)" }}>المختبِر: {e.examinerName}</div>}
+              {e.certStatus && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{e.certStatus}</div>}
+              {e.notes && <div style={{ fontSize: 12.5, color: "var(--ink-2)", whiteSpace: "pre-line" }}>ملاحظات: {e.notes}</div>}
+            </div>
+          ))
+        )}
+      </div>
     </>
   );
 }
+
