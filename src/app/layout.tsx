@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   applicationName: "معهد خالد بن الوليد",
   // التثبيت كتطبيق على آيفون (إضافة إلى الشاشة الرئيسية) — البيان نفسه في app/manifest.ts
   appleWebApp: { capable: true, title: "معهد خالد", statusBarStyle: "default" },
-  icons: { apple: "/icons/apple-touch-icon.png?v=5" },
+  icons: { apple: "/icons/apple-touch-icon.png?v=6" },
 };
 
 /** لون شريط المتصفح وحواف السحب على الجوال — بلون وضع العرض المختار بدل الأبيض */
@@ -39,7 +39,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap"
         />
         <script dangerouslySetInnerHTML={{ __html: PWA_BOOT_SCRIPT }} />
       </head>

@@ -20,7 +20,8 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[]; tr
   // «متابعة السبر» لكل مختبري القرآن — اطلاع
   { id: "exam-monitor-examiner", href: "/exam-monitor", label: "متابعة السبر", roles: ["EXAMINER"], track: "QURAN" },
   { id: "exams-arabic", href: "/exams/arabic", label: "سبر القراءة العربية", roles: ["EXAMINER"], track: "ARABIC" },
-  { id: "exams-sunnah", href: "/exams/sunnah", label: "سبر السنة النبوية", roles: ["ADMIN"] },
+  // «السنة النبوية» للمدير والإداري: المناهج الثلاثة، وترشيح الأوقاف (للمدير)، وإعادة ضبط المستوى
+  { id: "exams-sunnah", href: "/exams/sunnah", label: "السنة النبوية", roles: ["DIRECTOR", "ADMIN"] },
   // مختبر الحديث: «سبر محلي» (المناهج الثلاثة: تسميع، مراحل، سبر المستوى) و«سبر ترشيح الأوقاف»
   { id: "sunnah-staged", href: "/exams/sunnah", label: "سبر محلي", roles: ["SUNNAH_EXAMINER"] },
   { id: "sunnah-nomination", href: "/exams/sunnah/nomination", label: "سبر ترشيح الأوقاف", roles: ["SUNNAH_EXAMINER"] },
@@ -46,13 +47,14 @@ const STAFF_ORDER = [
   "recitation-monitor",
   "exam-monitor",
   "exams-sunnah",
-  "users",
+  "permits",
   "halaqat",
   "cohorts",
+  // «إدارة النجوم» تحت الإدارات (الحلقات، الأفواج)
+  "stars",
+  "users",
   "reports-hub",
   "awqaf-batches",
-  "permits",
-  "stars",
   "schedule",
   "audit",
   "dashboard",

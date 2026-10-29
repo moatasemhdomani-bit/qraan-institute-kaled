@@ -100,6 +100,7 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     studentPhone,
     guardianPhone,
     guardianPhone2: guardianPhone2 || null,
+    adminNotes: String(formData.get("adminNotes") || "").trim().slice(0, 2000) || null,
     halqaId,
     active,
     isOrphan,

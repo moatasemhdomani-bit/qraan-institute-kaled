@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
+import { cardStyle, chipStyle, inputStyle } from "@/lib/ui";
 import { toWesternDigits } from "@/lib/numbers";
 import type { StarTxnRow } from "@/lib/stars";
 import Select from "@/components/Select";
@@ -91,20 +91,57 @@ export default function StarsAdminClient({
   const allOfficers = officers.length > 0 && picked.length === officers.length;
   const one = op === "student" && picked.length === 1 ? byId[picked[0]] : null;
 
-  const bigBtn = { ...primaryButtonStyle, padding: "14px 22px", fontSize: 15 } as const;
+  const opBtn = {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "12px 22px",
+    borderRadius: 12,
+    border: "1px solid var(--line)",
+    background: "var(--card-grad)",
+    color: "var(--ink)",
+    fontSize: 15,
+    fontWeight: 700,
+    fontFamily: "inherit",
+    cursor: "pointer",
+    boxShadow: "var(--glow)",
+  } as const;
+
+  // أرصدة النجوم الآن: لدى الطلاب، ولدى الحلقات، ولدى مسؤولي النشاط، ومجموعها
+  const studentsTotal = students.reduce((sum, s) => sum + s.stars, 0);
+  const halaqatTotal = halaqat.reduce((sum, h) => sum + h.stars, 0);
+  const officersTotal = officers.reduce((sum, o) => sum + o.stars, 0);
+  const tile = (label: string, value: number, big = false) => (
+    <div style={{ ...cardStyle, padding: big ? "14px 18px" : "12px 16px", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+      <span style={{ fontSize: big ? 14.5 : 13.5, color: "var(--ink-2)", fontWeight: big ? 700 : 400 }}>{label}</span>
+      <span style={{ fontSize: big ? 24 : 20, fontWeight: 700, color: "var(--gold)" }}>★ {value.toLocaleString("en-US")}</span>
+    </div>
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+          {tile("إجمالي النجوم لدى الطلاب", studentsTotal)}
+          {tile("إجمالي النجوم لدى الحلقات", halaqatTotal)}
+          {tile("إجمالي النجوم لدى مسؤولي النشاط", officersTotal)}
+        </div>
+        {tile("العدد الكلي", studentsTotal + halaqatTotal + officersTotal, true)}
+      </div>
+      {/* خيارات الشحن: أزرار عادية (لا تبدو مختارة) بنجمة كبيرة */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button type="button" onClick={() => open("halqa")} style={bigBtn}>
-          ★ نجوم الحلقات
-        </button>
-        <button type="button" onClick={() => open("officer")} style={bigBtn}>
-          ★ نجوم النشاط
-        </button>
-        <button type="button" onClick={() => open("student")} style={bigBtn}>
-          ★ نجوم الطلاب
-        </button>
+        {(
+          [
+            ["halqa", "نجوم الحلقات"],
+            ["officer", "نجوم النشاط"],
+            ["student", "نجوم الطلاب"],
+          ] as const
+        ).map(([id, label]) => (
+          <button key={id} type="button" onClick={() => open(id)} style={opBtn}>
+            <span style={{ fontSize: 26, lineHeight: 1, color: "var(--gold)" }}>★</span>
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* فلاتر السجل */}

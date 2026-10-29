@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, useActionState, useTransition } from "react";
-import { updateCohortTiming, addTeacherToCohort, removeTeacherFromCohort, type FormState } from "./actions";
-import { cardStyle, primaryButtonStyle } from "@/lib/ui";
+import { updateCohortTiming, addTeacherToCohort, removeTeacherFromCohort, renameCohort, type FormState } from "./actions";
+import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import TimeField from "@/components/TimeField";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
@@ -76,10 +76,65 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
 
   const availableTeachers = allTeachers.filter((t) => !cohort.teachers.some((ct) => ct.id === t.id));
 
+  // تعديل اسم الفوج
+  const [renaming, setRenaming] = useState(false);
+  const [newName, setNewName] = useState(cohort.name);
+  const [renameError, setRenameError] = useState("");
+  const [renamePending, startRename] = useTransition();
+  const saveName = () =>
+    startRename(async () => {
+      const res = await renameCohort(cohort.id, newName);
+      if (res.error) return setRenameError(res.error);
+      setRenameError("");
+      setRenaming(false);
+    });
+  const smallBtn = { padding: "5px 11px", borderRadius: 8, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" } as const;
+
   return (
     <div style={{ ...cardStyle, padding: "16px 18px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 17, fontWeight: 600 }}>{cohort.name}</div>
+        {renaming ? (
+          <>
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+                if (e.key === "Escape") setRenaming(false);
+              }}
+              autoFocus
+              style={{ ...inputStyle(), width: 160, padding: "6px 10px" }}
+            />
+            <button type="button" onClick={saveName} disabled={renamePending} style={{ ...smallBtn, background: "var(--btn-grad)", color: "var(--on-accent)", border: "1px solid var(--btn-border)" }}>
+              {renamePending ? "…" : "حفظ"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRenaming(false);
+                setNewName(cohort.name);
+                setRenameError("");
+              }}
+              style={smallBtn}
+            >
+              إلغاء
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 17, fontWeight: 600 }}>{cohort.name}</div>
+            <button
+              type="button"
+              onClick={() => {
+                setNewName(cohort.name);
+                setRenaming(true);
+              }}
+              style={smallBtn}
+            >
+              تعديل الاسم
+            </button>
+          </>
+        )}
         <span style={{ padding: "3px 9px", borderRadius: 999, fontSize: 11, border: "1px solid var(--line)", background: "var(--chip)", color: "var(--ink-2)" }}>
           {cohort.isRotating ? "قلّاب" : "ثابت"}
         </span>
@@ -88,6 +143,7 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
         </div>
       </div>
 
+      {renameError && <div style={{ fontSize: 12.5, color: "var(--bad-ink)", marginTop: -6, marginBottom: 10 }}>{renameError}</div>}
       <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <input type="hidden" name="id" value={cohort.id} />
         <div>

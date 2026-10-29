@@ -28,7 +28,7 @@ export default async function SunnahNominationPage({ searchParams }: { searchPar
           action={
             session.role === "DIRECTOR" ? (
               <Link href="/exams/sunnah" style={{ fontSize: 13, color: "var(--ink-2)" }}>
-                ← رجوع إلى سبر السنة النبوية
+                ← رجوع إلى السنة النبوية
               </Link>
             ) : undefined
           }

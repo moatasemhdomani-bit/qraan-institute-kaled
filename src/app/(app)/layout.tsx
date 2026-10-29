@@ -6,6 +6,7 @@ import { ROLE_LABELS } from "@/lib/ui";
 import { staffRoleLabel } from "@/lib/track";
 import { getTheme, isNavCollapsed } from "@/lib/themeServer";
 import NavToggle from "@/components/NavToggle";
+import DragScroll from "@/components/DragScroll";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import AccountSwitcher from "./AccountSwitcher";
@@ -24,6 +25,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     // أعمدة الشبكة في globals.css (.app-shell) كي يطويها زر ☰ — الشريط الجانبي ينسحب وتتسع الشاشة
     <div className={`app-shell role-${session.role.toLowerCase()} track-${session.track.toLowerCase()}${navCollapsed ? " nav-collapsed" : ""}`}>
       <NavToggle initialCollapsed={navCollapsed} />
+      {/* لا تحديد للنص، والسحب بالماوس يحرّك الشاشة — عدا شاشتي بيانات الطلاب والموظفين */}
+      <DragScroll />
       <Sidebar role={session.role} name={displayName} roleLabel={staffRoleLabel(session.role, session.track, ROLE_LABELS)} track={session.track} theme={theme} />
       <MobileNav role={session.role} name={displayName} track={session.track} theme={theme} />
       <main style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>

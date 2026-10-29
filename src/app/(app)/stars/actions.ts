@@ -32,8 +32,9 @@ export async function adminStudentStars(input: { studentId: string; kind: StarKi
   const bad = checkInput(input.kind, input.amount);
   if (bad) return { error: bad };
 
-  const student = await prisma.student.findUnique({ where: { id: input.studentId }, select: { name: true, halqaId: true } });
+  const student = await prisma.student.findUnique({ where: { id: input.studentId }, select: { name: true, halqaId: true, active: true } });
   if (!student) return { error: "الطالب غير موجود." };
+  if (input.kind === "CHARGE" && !student.active) return { error: "الطالب منقطع — رصيده صفر ولا تُودَع له نجوم." };
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -76,8 +77,12 @@ export async function adminStudentsStars(input: { studentIds: string[]; kind: St
   if (bad) return { error: bad };
   const ids = [...new Set(input.studentIds)];
   if (ids.length === 0) return { error: "اختاروا طالبًا واحدًا على الأقل." };
-  const students = await prisma.student.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, stars: true, halqaId: true } });
+  const students = await prisma.student.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, stars: true, halqaId: true, active: true } });
   if (students.length !== ids.length) return { error: "أحد الطلاب المختارين غير موجود." };
+  if (input.kind === "CHARGE") {
+    const off = students.filter((s) => !s.active);
+    if (off.length) return { error: `طلاب منقطعون — رصيدهم صفر ولا تُودَع لهم نجوم: ${off.map((s) => s.name).join("، ")}.` };
+  }
   if (input.kind === "WITHDRAW") {
     const short = students.filter((s) => s.stars < input.amount);
     if (short.length) return { error: `نجوم الطالب أقل من ذلك: ${short.map((s) => `${s.name} (${s.stars})`).join("، ")}.` };
@@ -306,12 +311,13 @@ export async function activityReturnStars(txnId: string): Promise<StarResult> {
 
   const txn = await prisma.starTxn.findUnique({
     where: { id: txnId },
-    include: { reversedBy: { select: { id: true } }, student: { select: { name: true, halqaId: true } } },
+    include: { reversedBy: { select: { id: true } }, student: { select: { name: true, halqaId: true, active: true } } },
   });
   if (!txn || txn.byId !== session.userId || txn.byRole !== "ACTIVITY_OFFICER" || txn.kind !== "WITHDRAW" || !txn.studentId || !txn.student) {
     return { error: "لا يمكن إعادة هذه العملية." };
   }
   if (txn.reversedBy) return { error: "أُعيدت نجوم هذه العملية من قبل." };
+  if (!txn.student.active) return { error: "الطالب منقطع — رصيده صفر ولا تُودَع له نجوم." };
 
   try {
     await prisma.$transaction(async (tx) => {

@@ -22,7 +22,7 @@ const EXAM_SCREENS = [
   { href: "/exams/placement", label: "تحديد مستوى" },
   { href: "/exams/past", label: "سبر ماضٍ غيباً" },
   { href: "/exams/arabic", label: "سبر القراءة العربية" },
-  { href: "/exams/sunnah", label: "سبر السنة النبوية" },
+  // السنة النبوية لها شاشتها في القائمة («السنة النبوية»)
 ];
 
 const examBtnStyle = {

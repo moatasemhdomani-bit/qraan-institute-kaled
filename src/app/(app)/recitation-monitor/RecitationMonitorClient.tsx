@@ -57,12 +57,15 @@ export default function RecitationMonitorClient({
   pendingCount,
   totalCount,
   canRecord,
+  offDay,
 }: {
   date: string;
   blocks: Block[];
   pendingCount: number;
   totalCount: number;
   canRecord: boolean;
+  /** عطلة رسمية أو يوم ليس من أيام الدوام — نصّ التنبيه */
+  offDay?: string | null;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState("all");
@@ -87,7 +90,23 @@ export default function RecitationMonitorClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {pendingCount > 0 || partialCount > 0 ? (
+      {offDay ? (
+        // يوم عطلة أو يوم ليس من أيام الدوام: تنبيه بدل «لم ترفع بعد»
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 11,
+            padding: "15px 16px",
+            borderRadius: 13,
+            border: "1px solid var(--line)",
+            background: "linear-gradient(135deg, color-mix(in srgb, var(--info) 16%, transparent), transparent)",
+          }}
+        >
+          <span style={{ width: 9, height: 9, borderRadius: 99, background: "var(--info)", flex: "none" }} />
+          <div style={{ fontSize: 15, fontWeight: 700 }}>{offDay}</div>
+        </div>
+      ) : pendingCount > 0 || partialCount > 0 ? (
         <div
           style={{
             display: "flex",

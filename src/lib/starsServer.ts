@@ -74,11 +74,15 @@ export async function zeroStudentStars(studentId: string, byId: string, byRole: 
   });
 }
 
-/** مكافأة نجوم تلقائية (مثل النجاح في مرحلة أو مستوى من السنة النبوية) — لا تمسّ رصيد الحلقة، وتُسجَّل في الأرشيف. */
-export async function awardStars(studentId: string, amount: number, reason: string, byId: string, byRole: Role, examId?: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
+/** مكافأة نجوم تلقائية (مثل النجاح في مرحلة أو مستوى من السنة النبوية) — لا تمسّ رصيد الحلقة، وتُسجَّل في الأرشيف. لا شيء للطالب المنقطع. */
+export async function awardStars(studentId: string, amount: number, reason: string, byId: string, byRole: Role, examId?: string): Promise<number> {
+  return prisma.$transaction(async (tx) => {
+    // الطالب المنقطع رصيده صفر دائمًا — لا مكافآت له
+    const cur = await tx.student.findUnique({ where: { id: studentId }, select: { active: true } });
+    if (!cur?.active) return 0;
     const s = await tx.student.update({ where: { id: studentId }, data: { stars: { increment: amount } }, select: { halqaId: true } });
     await tx.starTxn.create({ data: { kind: "CHARGE", amount, studentId, halqaId: s.halqaId, byId, byRole, reason, examId: examId ?? null } });
+    return amount;
   });
 }
 
@@ -114,8 +118,7 @@ export async function withdrawExamStars(examId: string, studentId: string, reaso
 export async function applyStars(studentId: string, n: number, reason: string, byId: string, byRole: Role): Promise<number> {
   if (!n) return 0;
   if (n > 0) {
-    await awardStars(studentId, n, reason, byId, byRole);
-    return n;
+    return awardStars(studentId, n, reason, byId, byRole);
   }
   return prisma.$transaction(async (tx) => {
     const s = await tx.student.findUnique({ where: { id: studentId }, select: { stars: true, halqaId: true } });

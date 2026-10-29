@@ -1,10 +1,11 @@
 "use client";
 
 import { toWesternDigits, cleanPhone2 } from "@/lib/numbers";
-import { useEffect, useMemo, useState, useActionState } from "react";
+import { useEffect, useMemo, useState, useActionState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveStudent, resetGuardianPassword, deleteStudent, type FormState } from "./actions";
-import { saveBehavior, type BehaviorState } from "./behaviorActions";
+import { saveBehavior, editBehaviorLog, deleteBehaviorLog, type BehaviorState, type BehaviorEditResult } from "./behaviorActions";
+import { arrowNav } from "@/lib/arrowNav";
 import Link from "next/link";
 import { copyToClipboard } from "@/lib/clipboard";
 import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
@@ -46,6 +47,8 @@ type StudentRow = {
   phone: string;
   guardianPhone: string;
   guardianPhone2: string;
+  /** ملاحظات الإدارة عن الطالب */
+  adminNotes: string;
   photoUrl: string | null;
   registeredAt: string;
   halqaId: string;
@@ -55,7 +58,7 @@ type StudentRow = {
   guardianUsername: string;
   guardianPassword: string;
   behavior: string;
-  behaviorLog: { previousValue: string; newValue: string; note: string; by: string; date: string }[];
+  behaviorLog: { id: string; previousValue: string; newValue: string; note: string; by: string; date: string }[];
 };
 
 const BEHAVIOR = ["ممتاز", "جيد جدًا", "جيد", "ضعيف"] as const;
@@ -462,7 +465,7 @@ function StudentForm({
         </div>
       )}
 
-      <form id="student-form" action={formAction} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <form id="student-form" action={formAction} onKeyDown={arrowNav} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <input type="hidden" name="id" value={initial?.id ?? ""} />
         <input type="hidden" name="halqaId" value={active && !graduated ? resolvedHalqa?.id ?? "" : ""} />
         <input type="hidden" name="status" value={active ? "active" : "inactive"} />
@@ -533,6 +536,19 @@ function StudentForm({
               }}
               inputMode="tel" dir="ltr" placeholder="اختياري" style={{ ...inputStyle(), textAlign: "right" }} />
           </div>
+        </div>
+
+        {/* ملاحظات الإدارة عن الطالب — اختيارية، تُعدَّل في أي وقت */}
+        <div>
+          <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>ملاحظات</label>
+          <textarea
+            name="adminNotes"
+            defaultValue={initial?.adminNotes}
+            rows={3}
+            maxLength={2000}
+            placeholder="اختيارية — ملاحظات الإدارة عن الطالب (لا تظهر للمدرّس ولا لولي الأمر)"
+            style={{ ...inputStyle(), height: "auto", minHeight: 80, lineHeight: 1.7, resize: "vertical", fontFamily: "inherit" }}
+          />
         </div>
 
         {/* مستوى الطالب، ثم حالته، وتحتها «يتيم» */}
@@ -704,6 +720,22 @@ function BehaviorSection({ student }: { student: StudentRow }) {
   const [note, setNote] = useState("");
   const [state, formAction, pending] = useActionState(saveBehavior, {} as BehaviorState);
 
+  // تعديل تغيير سابق أو حذفه
+  const [logEdit, setLogEdit] = useState<{ id: string; value: string; note: string } | null>(null);
+  const [logDeleting, setLogDeleting] = useState<string | null>(null);
+  const [logError, setLogError] = useState("");
+  const [logPending, startLog] = useTransition();
+  const applyLog = (res: BehaviorEditResult) => {
+    if (res.error) return setLogError(res.error);
+    setLogError("");
+    if (res.behavior) setBehavior(res.behavior);
+    if (res.log) setLog(res.log);
+    setLogEdit(null);
+    setLogDeleting(null);
+    router.refresh();
+  };
+  const logBtn = { padding: "4px 10px", borderRadius: 7, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" } as const;
+
   useEffect(() => {
     if (state.ok && state.behavior && state.logEntry) {
       setBehavior(state.behavior);
@@ -794,17 +826,89 @@ function BehaviorSection({ student }: { student: StudentRow }) {
           <div style={{ fontSize: 12, color: "var(--ink-3)" }}>لم تُغيَّر الدرجة بعد — القيمة الافتراضية «ممتاز».</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {log.map((l, i) => (
-              <div key={i} style={{ padding: "8px 10px", borderRadius: 9, border: "1px solid var(--line-2)", fontSize: 12 }}>
-                <div>
-                  <span style={{ color: BEHAVIOR_COLORS[l.previousValue] ?? "var(--ink-2)" }}>{l.previousValue}</span>
-                  {" ← "}
-                  <span style={{ color: BEHAVIOR_COLORS[l.newValue] ?? "var(--ink-2)", fontWeight: 600 }}>{l.newValue}</span>
+            {logError && <div style={{ fontSize: 12, color: "var(--bad-ink)" }}>{logError}</div>}
+            {log.map((l) =>
+              logEdit?.id === l.id ? (
+                <div key={l.id} style={{ padding: "8px 10px", borderRadius: 9, border: "1px solid var(--line)", fontSize: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ color: "var(--ink-3)" }}>
+                    تعديل تغيير {l.date} — من «{l.previousValue}» إلى:
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {BEHAVIOR.map((b) => (
+                      <button
+                        key={b}
+                        type="button"
+                        onClick={() => setLogEdit({ ...logEdit, value: b })}
+                        style={{
+                          padding: "5px 12px", borderRadius: 999, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+                          border: `1px solid ${logEdit.value === b ? BEHAVIOR_COLORS[b] : "var(--line)"}`,
+                          background: logEdit.value === b ? `color-mix(in srgb, ${BEHAVIOR_COLORS[b]} 13%, transparent)` : "transparent",
+                          color: logEdit.value === b ? BEHAVIOR_COLORS[b] : "var(--ink-2)",
+                          fontWeight: logEdit.value === b ? 600 : 400,
+                        }}
+                      >
+                        {b}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={logEdit.note}
+                    onChange={(e) => setLogEdit({ ...logEdit, note: e.target.value })}
+                    rows={2}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 12.5, resize: "vertical", fontFamily: "inherit" }}
+                  />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      type="button"
+                      disabled={logPending}
+                      onClick={() => startLog(async () => applyLog(await editBehaviorLog(l.id, logEdit.value, logEdit.note)))}
+                      style={{ ...logBtn, background: "var(--btn-grad)", color: "var(--on-accent)", border: "1px solid var(--btn-border)" }}
+                    >
+                      {logPending ? "…" : "حفظ التعديل"}
+                    </button>
+                    <button type="button" onClick={() => { setLogEdit(null); setLogError(""); }} style={logBtn}>
+                      إلغاء
+                    </button>
+                  </div>
                 </div>
-                <div style={{ color: "var(--ink-2)", marginTop: 2 }}>{l.note}</div>
-                <div style={{ color: "var(--ink-3)", fontSize: 11, marginTop: 2 }}>{l.by} · {l.date}</div>
-              </div>
-            ))}
+              ) : (
+                <div key={l.id} style={{ padding: "8px 10px", borderRadius: 9, border: "1px solid var(--line-2)", fontSize: 12 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ color: BEHAVIOR_COLORS[l.previousValue] ?? "var(--ink-2)" }}>{l.previousValue}</span>
+                      {" ← "}
+                      <span style={{ color: BEHAVIOR_COLORS[l.newValue] ?? "var(--ink-2)", fontWeight: 600 }}>{l.newValue}</span>
+                    </div>
+                    {logDeleting === l.id ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={logPending}
+                          onClick={() => startLog(async () => applyLog(await deleteBehaviorLog(l.id)))}
+                          style={{ ...logBtn, border: "1px solid var(--danger-line)", color: "var(--danger)" }}
+                        >
+                          {logPending ? "…" : "تأكيد الحذف"}
+                        </button>
+                        <button type="button" onClick={() => setLogDeleting(null)} style={logBtn}>
+                          تراجع
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" onClick={() => { setLogEdit({ id: l.id, value: l.newValue, note: l.note }); setLogDeleting(null); setLogError(""); }} style={logBtn}>
+                          تعديل
+                        </button>
+                        <button type="button" onClick={() => { setLogDeleting(l.id); setLogEdit(null); setLogError(""); }} style={logBtn}>
+                          حذف
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <div style={{ color: "var(--ink-2)", marginTop: 2 }}>{l.note}</div>
+                  <div style={{ color: "var(--ink-3)", fontSize: 11, marginTop: 2 }}>{l.by} · {l.date}</div>
+                </div>
+              )
+            )}
           </div>
         )}
       </div>

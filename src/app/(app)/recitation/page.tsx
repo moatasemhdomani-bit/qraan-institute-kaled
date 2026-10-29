@@ -126,9 +126,13 @@ async function recitationRows(halqa: Halqa & { cohort: Cohort }, date: string, i
   // طلاب القراءة العربية الناجحون في المرحلة 6 يسمّعون «بينة للناس» بالسور
   const stage6 = halqa?.track === "ARABIC" ? await passedArabicStage6(studentIds) : new Set<string>();
   const maxNewToMap = Object.fromEntries(maxNewToRows.map((r) => [r.studentId, r._max.newTo]));
-  // التسميع بالسور: السور التي أنهاها الطالب قبل هذا اليوم — تظهر بلون باهت ويجوز إعادة تسميعها
+  // التسميع بالسور: السور التي أنهاها الطالب قبل هذا اليوم — تظهر بلون باهت ويجوز إعادة تسميعها.
+  // ما سمّعه في مستوى آخر لا يُحسب: المنتقل من القراءة العربية إلى عمّ غيباً يعيد «البينة إلى الناس» من جديد
   const surahRows = halqa && (halqa.track === "AMMA" || stage6.size > 0)
-    ? await prisma.recitation.findMany({ where: { studentId: { in: studentIds }, date: { lt: date }, none: false }, select: { studentId: true, surahsDone: true } })
+    ? await prisma.recitation.findMany({
+        where: { studentId: { in: studentIds }, date: { lt: date }, none: false, halqa: { track: halqa.track } },
+        select: { studentId: true, surahsDone: true },
+      })
     : [];
   const surahsBefore: Record<string, string[]> = {};
   for (const r of surahRows) surahsBefore[r.studentId] = [...new Set([...(surahsBefore[r.studentId] ?? []), ...r.surahsDone])];

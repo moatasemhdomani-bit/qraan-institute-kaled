@@ -70,19 +70,21 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
   // التسميع بالسور: عمَّ غيباً، وطالب القراءة العربية بعد نجاحه في المرحلة 6 («بينة للناس»)
   const stage6 = halqa.track === "ARABIC" ? await passedArabicStage6([studentId]) : new Set<string>();
   if (recitationMode(halqa.track, stage6.has(studentId)) === "surah") {
-    const surahs = input.surahs ? input.surahs.split("|").filter(Boolean) : [];
+    // «تحضير للسبر»: يُغلق تسميع السور — بلا سور ولا تقدير
+    const prep = !!input.examPrep && !input.none;
+    const surahs = input.surahs && !prep ? input.surahs.split("|").filter(Boolean) : [];
     if (input.gradeNew && !GRADES.includes(input.gradeNew as never)) return { error: "تقدير غير معروف." };
-    const bad = validateSurahEntry({ none: input.none, surahs, gradeNew: input.gradeNew || null }, halqa.track);
+    const bad = validateSurahEntry({ none: input.none, examPrep: prep, surahs, gradeNew: input.gradeNew || null }, halqa.track);
     if (bad) return { error: bad };
     const surahData = {
       none: input.none,
-      noNew: false,
-      examPrep: false,
+      noNew: prep,
+      examPrep: prep,
       noPast: !input.none,
       newFrom: null,
       newTo: null,
       pastItems: [],
-      gradeNew: input.none ? null : input.gradeNew,
+      gradeNew: input.none || prep ? null : input.gradeNew,
       surahs: input.none ? [] : surahs,
       surahsDone: input.none ? [] : (input.surahsDone ?? "").split("|").filter((x) => surahs.includes(x)),
       halqaId,
@@ -117,8 +119,8 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
   if (e.gradeNew && !GRADES.includes(e.gradeNew as never)) return { error: "تقدير غير معروف." };
   // القراءة العربية: جديد فقط بلا ماضٍ
   if (!hasPastRecitation(halqa.track)) e.noPast = true;
-  // «تحضير للسبر»: لطلاب القرآن وحدهم، ويحلّ مكان الجديد (بلا صفحات — فلا تنطبق قاعدة 1–604)
-  const examPrep = !!input.examPrep && hasPastRecitation(halqa.track) && !e.none;
+  // «تحضير للسبر»: يحلّ مكان الجديد (بلا صفحات — فلا تنطبق قاعدة الصفحات)؛ وفي القراءة العربية مكان التسميع كله
+  const examPrep = !!input.examPrep && !e.none;
   if (examPrep) e.noNew = true;
 
   // حفظ الجديد وحده أو الماضي وحده (طلاب القرآن) — الجزء الآخر يبقى كما حُفظ من قبل

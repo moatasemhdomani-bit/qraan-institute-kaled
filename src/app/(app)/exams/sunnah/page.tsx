@@ -5,7 +5,7 @@ import { cardStyle } from "@/lib/ui";
 import { SUNNAH_SECTIONS, sunnahSlug } from "@/lib/sunnah";
 import PageHeader from "@/components/PageHeader";
 
-/** سبر السنة النبوية عند الإدارة: يختار أحد المناهج الثلاثة. مختبر الحديث يرى كل منهج في واجهة مستقلة من القائمة. */
+/** «السنة النبوية» عند الإدارة (شاشة في القائمة): يختار أحد المناهج الثلاثة. مختبر الحديث يرى كل منهج في واجهة مستقلة من القائمة. */
 export default async function SunnahHubPage() {
   const session = await getSession();
   if (!session) redirect("/login");
@@ -15,7 +15,7 @@ export default async function SunnahHubPage() {
   return (
     <>
       <PageHeader
-        title={examiner ? "سبر محلي" : "سبر السنة النبوية"}
+        title={examiner ? "سبر محلي" : "السنة النبوية"}
         subtitle={
           examiner
             ? "اختاروا المنهج: تسميع الأحاديث، وسبر المراحل، وسبر المستوى المحلي."

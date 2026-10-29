@@ -34,6 +34,23 @@ export async function updateCohortTiming(_prev: FormState, formData: FormData): 
   return { ok: true };
 }
 
+/** تعديل اسم الفوج — الاسم لا يتكرر بين الأفواج */
+export async function renameCohort(id: string, rawName: string): Promise<FormState> {
+  const session = await getSession();
+  if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) return { error: "غير مصرَّح لك بهذا الإجراء." };
+  const name = rawName.trim();
+  if (!name) return { error: "اكتبوا اسم الفوج." };
+  const cohort = await prisma.cohort.findUnique({ where: { id } });
+  if (!cohort) return { error: "الفوج غير موجود." };
+  if (name === cohort.name) return { ok: true };
+  const duplicate = await prisma.cohort.findUnique({ where: { name } });
+  if (duplicate) return { error: "يوجد بالفعل فوج بهذا الاسم." };
+  await prisma.cohort.update({ where: { id }, data: { name } });
+  await logAction(session.userId, `غيّر اسم الفوج «${cohort.name}» إلى «${name}»`);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function addTeacherToCohort(cohortId: string, userId: string) {
   const session = await assertStaff();
   await prisma.cohortTeacher.upsert({

@@ -45,6 +45,7 @@ export default async function StudentsPage() {
     phone: s.studentPhone || "",
     guardianPhone: s.guardianPhone || "",
     guardianPhone2: s.guardianPhone2 || "",
+    adminNotes: s.adminNotes || "",
     photoUrl: s.photoUrl,
     registeredAt: s.registeredAt ? formatDateAr(dateOnly(s.registeredAt)) : "—",
     halqaId: s.halqaId || "",
@@ -63,6 +64,7 @@ export default async function StudentsPage() {
     stars: s.stars,
     sunnahLevels: sunnahLevels[s.id] ?? [],
     behaviorLog: s.behaviorLog.map((l) => ({
+      id: l.id,
       previousValue: l.previousValue,
       newValue: l.newValue,
       note: l.note,

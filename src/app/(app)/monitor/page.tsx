@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
-import { today, isValidDate, formatDateAr, ATT_STATES, ATT_LABELS, holidayDaysIn } from "@/lib/daily";
+import { today, isValidDate, formatDateAr, ATT_STATES, ATT_LABELS, holidayDaysIn, dayLockReason } from "@/lib/daily";
 import PageHeader from "@/components/PageHeader";
 import MonitorClient from "./MonitorClient";
 
@@ -60,6 +60,7 @@ export default async function MonitorPage({
 
   // يوم عطلة رسمية: «عطلة — الاسم» كما حفظته الإدارة
   const holidayName = (await holidayDaysIn(date, date)).get(date) ?? null;
+  const offDay = date > today() ? null : await dayLockReason(date);
 
   return (
     <>
@@ -72,6 +73,7 @@ export default async function MonitorPage({
         }
       />
       <MonitorClient
+        offDay={offDay}
         date={date}
         blocks={blocks}
         pendingCount={pending.length}

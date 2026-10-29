@@ -58,6 +58,15 @@ export async function uploadAttendance(_prev: FormState, formData: FormData): Pr
 
   const existing = await prisma.attendance.count({ where: { halqaId: { in: halqaIds }, date } });
 
+  // من عُدّل من «غائب» أو «إذن» إلى «حاضر» أو «متأخر»: يُلغى «لم يسمّع اليوم» المحفوظ له تلقائيًا، فيُسجَّل تسميعه عاديًا
+  const wasAway = await prisma.attendance.findMany({
+    where: { date, studentId: { in: entries.map((e) => e.studentId) }, status: { in: ["ABSENT", "EXCUSED"] } },
+    select: { studentId: true },
+  });
+  const nowHere = new Set(entries.filter((e) => e.status === "PRESENT" || e.status === "LATE").map((e) => e.studentId));
+  const backIds = wasAway.map((a) => a.studentId).filter((id) => nowHere.has(id));
+  if (backIds.length) await prisma.recitation.deleteMany({ where: { date, studentId: { in: backIds }, none: true } });
+
   await prisma.$transaction(
     entries.map((e) =>
       prisma.attendance.upsert({

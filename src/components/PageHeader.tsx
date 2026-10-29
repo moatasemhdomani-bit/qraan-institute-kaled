@@ -12,7 +12,7 @@ export default function PageHeader({
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
       <div style={{ minWidth: 0 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.01em" }}>{title}</h1>
+        <h1 style={{ fontSize: 30, fontWeight: 700, margin: "0 0 4px", fontFamily: "var(--font-titles)", lineHeight: 1.4 }}>{title}</h1>
         <div style={{ color: "var(--ink-2)", fontSize: 14 }}>{subtitle}</div>
       </div>
       {action && <div style={{ marginInlineStart: "auto" }}>{action}</div>}

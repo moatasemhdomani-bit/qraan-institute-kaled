@@ -19,11 +19,11 @@ export default async function SunnahResetPage({ searchParams }: { searchParams: 
   if (!examiner && session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
 
   const sec = sunnahSection((await searchParams).section);
-  // مختبر الحديث يصلها من القائمة مباشرة — فلا رجوع إلى «سبر السنة النبوية» من صفحة اختيار المنهج
+  // مختبر الحديث يصلها من القائمة مباشرة — فلا رجوع إلى «السنة النبوية» من صفحة اختيار المنهج
   const back =
     sec || !examiner ? (
       <Link href={sec ? "/exams/sunnah/reset" : "/exams/sunnah"} style={{ fontSize: 13, color: "var(--ink-2)" }}>
-        {sec ? "← اختيار منهج آخر" : "← رجوع إلى سبر السنة النبوية"}
+        {sec ? "← اختيار منهج آخر" : "← رجوع إلى السنة النبوية"}
       </Link>
     ) : undefined;
 

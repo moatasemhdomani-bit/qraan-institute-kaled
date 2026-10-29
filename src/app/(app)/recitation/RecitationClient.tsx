@@ -104,7 +104,7 @@ const pastRowsToItems = (rows: PastRow[]) =>
 
 /** سبب رفض سطر الطالب (نفس قواعد الخادم تمامًا)، أو null إن كان جاهزًا للحفظ. */
 function entryProblem(s: Student, e: Entry, track: TrackId): string | null {
-  if (s.mode === "surah") return validateSurahEntry({ none: e.none, surahs: surahList(e), gradeNew: e.gradeNew || null }, track);
+  if (s.mode === "surah") return validateSurahEntry({ none: e.none, examPrep: e.examPrep, surahs: surahList(e), gradeNew: e.gradeNew || null }, track);
   return validateEntry(
     {
       studentId: s.id,
@@ -136,6 +136,8 @@ function partProblem(e: Entry, part: "new" | "past", track: TrackId): string | n
 
 function summaryOf(e: Entry, mode: RecitationMode): string {
   if (e.none) return "لم يسمّع اليوم";
+  // عمّ غيباً والقراءة العربية: «تحضير للسبر» مكان التسميع كله
+  if (mode !== "quran" && e.examPrep) return "تحضير للسبر";
   if (mode === "surah") return `سور: ${surahsLabel(surahList(e), doneList(e))} (${e.gradeNew})`;
   const newPart = e.examPrep ? "تحضير للسبر" : e.noNew ? "لم يسمّع جديدًا" : !e.nf ? "الجديد لم يُحفظ بعد" : `تسميع جديد ${e.nf}←${e.nt} (${e.gradeNew})`;
   if (mode === "arabic") return `من الصفحة ${e.nf} إلى ${e.nt} (${e.gradeNew})`;
@@ -276,8 +278,12 @@ export default function RecitationClient({
       });
       setJustSaved(s.id);
       onDone?.();
-      // «حفظ جديد» و«حفظ الماضي»: تبقى بطاقة الطالب مفتوحة لإكمال الجزء الآخر — و«حفظ» (السطر كاملًا) يغلقها
-      if (!part) setOpen(null);
+      // «حفظ جديد» أو «حفظ الماضي»: تبقى البطاقة مفتوحة لإكمال الجزء الآخر، وتُغلق متى حُفظ الجزآن كلاهما
+      // — و«حفظ» (السطر كاملًا) يغلقها
+      const prevSaved = savedEntries[s.id] && !savedEntries[s.id].none ? savedEntries[s.id] : null;
+      const otherSaved =
+        part === "new" ? !!prevSaved && (prevSaved.noPast || prevSaved.past.length > 0) : part === "past" ? !!prevSaved && (prevSaved.noNew || !!prevSaved.nf) : true;
+      if (otherSaved) setOpen(null);
     });
   }
 
@@ -529,6 +535,17 @@ export default function RecitationClient({
                     >
                       لم يسمّع اليوم
                     </button>
+                    {/* عمّ غيباً والقراءة العربية: «تحضير للسبر» يُغلق التسميع */}
+                    {!withPast && (
+                      <button
+                        type="button"
+                        disabled={e.none}
+                        onClick={() => set(s.id, { examPrep: !e.examPrep, noNew: !e.examPrep })}
+                        style={{ ...chipStyle(e.examPrep && !e.none), minHeight: 40, opacity: e.none ? 0.45 : 1 }}
+                      >
+                        {e.examPrep && !e.none ? "✓ " : ""}تحضير للسبر
+                      </button>
+                    )}
                     {withPast && (
                     <button
                       type="button"
@@ -541,7 +558,7 @@ export default function RecitationClient({
                     )}
                   </div>
                   {withPast && (
-                    <div style={{ display: "flex" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
                       <button
                         type="button"
                         disabled={e.none}
@@ -550,10 +567,19 @@ export default function RecitationClient({
                       >
                         {e.examPrep ? "✓ " : ""}تحضير للسبر
                       </button>
+                      {/* يُغلق تسميع الماضي — ويُحفظ مع الجديد بزر «حفظ» */}
+                      <button
+                        type="button"
+                        disabled={e.none}
+                        onClick={() => set(s.id, { noPast: !e.noPast })}
+                        style={{ ...chipStyle(e.noPast && !e.none), minHeight: 40, opacity: e.none ? 0.45 : 1 }}
+                      >
+                        {e.noPast && !e.none ? "✓ " : ""}لم يسمّع ماضيًا اليوم
+                      </button>
                     </div>
                   )}
 
-                  {!e.none && isSurah && (
+                  {!e.none && isSurah && !e.examPrep && (
                     <div>
                       <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 7 }}>
                         {s.mode === "surah" && tr(s) === "ARABIC" ? "بينة للناس — السور المسمَّعة" : "السور المسمَّعة"} (سورة أو أكثر)
@@ -684,7 +710,12 @@ export default function RecitationClient({
                       )}
 
                       {/* الماضي في نافذة مستقلة: «تسميع الماضي» */}
-                      {withPast && (
+                      {withPast && e.noPast && (
+                        <div style={{ padding: "14px 12px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-grad)", textAlign: "center", fontSize: 15, fontWeight: 700 }}>
+                          لم يسمّع ماضيًا اليوم
+                        </div>
+                      )}
+                      {withPast && !e.noPast && (
                         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
                           <button
                             type="button"
@@ -694,9 +725,7 @@ export default function RecitationClient({
                             تسميع الماضي
                           </button>
                           <span style={{ fontSize: 13, color: "var(--ink-2)", flex: 1, minWidth: 160 }}>
-                            {e.noPast
-                              ? "لم يقرأ ماضي اليوم"
-                              : e.past.length
+                            {e.past.length
                                 ? `الماضي: ${e.past.map((x) => `${pastItemLabel({ kind: x.kind, juz: parseInt(x.juz, 10) })}${x.grade ? ` (${x.grade})` : ""}`).join("، ")}`
                                 : "لم يُختر الماضي بعد"}
                           </span>
@@ -735,9 +764,9 @@ export default function RecitationClient({
                         </span>
                       )}
                     </div>
-                    {/* طلاب القرآن: «حفظ جديد» و«حفظ الماضي» كلٌّ وحده — و«لم يسمّع اليوم» والقراءة العربية والسور بزر واحد */}
+                    {/* طلاب القرآن: «حفظ جديد» و«حفظ الماضي» كلٌّ وحده — و«لم يسمّع اليوم» و«لم يسمّع ماضيًا اليوم» والقراءة العربية والسور بزر واحد */}
                     <div style={{ marginInlineStart: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {(withPast && !e.none ? (["new"] as const) : ([undefined] as const)).map((part) => {
+                      {(withPast && !e.none && !e.noPast ? (["new"] as const) : ([undefined] as const)).map((part) => {
                         const key = `${s.id}|${part ?? ""}`;
                         const label = part === "new" ? "حفظ جديد" : part === "past" ? "حفظ الماضي" : "حفظ";
                         return (

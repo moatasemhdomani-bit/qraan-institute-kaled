@@ -26,7 +26,7 @@ export function validateEntry(e: RecEntry, track: TrackId = "QURAN"): string | n
   const { min: MIN_PAGE, max: MAX_PAGE } = pageRange(track);
   const inRange = (n: number | null) => n != null && n >= MIN_PAGE && n <= MAX_PAGE;
   if (!hasPastRecitation(track)) {
-    if (e.noNew) return "لم يسمّع جديدًا — استخدم خيار «لم يسمّع اليوم».";
+    if (e.noNew && !e.examPrep) return "لم يسمّع جديدًا — استخدم خيار «لم يسمّع اليوم».";
     e = { ...e, noPast: true };
   }
   // القراءة العربية: «التسميع» وحده بلا وصف «الجديد»
@@ -54,8 +54,8 @@ export function validateEntry(e: RecEntry, track: TrackId = "QURAN"): string | n
  * تسميع بالسور (عمَّ غيباً، و«بينة للناس» لطالب القراءة العربية بعد المرحلة 6): سورة أو أكثر من القائمة،
  * مع تقدير التسميع. يُرجع سبب الرفض أو null.
  */
-export function validateSurahEntry(e: { none: boolean; surahs: string[]; gradeNew: string | null }, track: TrackId): string | null {
-  if (e.none) return null;
+export function validateSurahEntry(e: { none: boolean; examPrep?: boolean; surahs: string[]; gradeNew: string | null }, track: TrackId): string | null {
+  if (e.none || e.examPrep) return null;
   if (e.surahs.length === 0) return "اختاروا سورة واحدة على الأقل.";
   if (e.surahs.some((s) => !surahsFor(track).includes(s))) return "سورة غير معروفة.";
   if (!e.gradeNew) return "لم يتم تحديد تقدير التسميع.";

@@ -1,5 +1,6 @@
 "use client";
 
+import { arrowNav } from "@/lib/arrowNav";
 import { useMemo, useState, useActionState, useEffect, startTransition } from "react";
 import { saveStaff, deleteStaff, setStaffSuspended, type FormState } from "./actions";
 import { chipStyle, inputStyle, primaryButtonStyle, cardStyle, ROLE_LABELS, type RoleId } from "@/lib/ui";
@@ -518,6 +519,7 @@ function StaffForm({
       {/* إرسال بلا تفريغ تلقائي للحقول: إن رُفض الحفظ (معلومة ناقصة) يبقى كل ما كُتب كما هو */}
       <form
         id="staff-form"
+        onKeyDown={arrowNav}
         onSubmit={(e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);

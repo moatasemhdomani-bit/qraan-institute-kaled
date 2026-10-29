@@ -402,3 +402,21 @@ button {
     padding-top: 50px !important;
   }
 }
+
+/* لا تحديد للنص في الموقع — عدا خانات الكتابة، وشاشتي بيانات الطلاب والموظفين (DragScroll يزيل data-noselect فيهما) */
+html[data-noselect] body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+html[data-noselect] input,
+html[data-noselect] textarea,
+html[data-noselect] [contenteditable],
+html[data-noselect] [data-allow-select] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* خط «Amiri» (نسخي) لأسماء الشاشات في القائمة ولعناوين الشاشات */
+:root {
+  --font-titles: "Amiri", "IBM Plex Sans Arabic", serif;
+}

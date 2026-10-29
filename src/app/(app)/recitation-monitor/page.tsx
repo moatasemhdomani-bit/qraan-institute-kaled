@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
-import { today, isValidDate, formatDateAr, pageSpan, countedNewPages, holidayDaysIn } from "@/lib/daily";
+import { today, isValidDate, formatDateAr, pageSpan, countedNewPages, holidayDaysIn, dayLockReason } from "@/lib/daily";
 import { hasPastRecitation } from "@/lib/track";
 import PageHeader from "@/components/PageHeader";
 import RecitationMonitorClient from "./RecitationMonitorClient";
@@ -96,6 +96,7 @@ export default async function RecitationMonitorPage({
 
   // يوم عطلة رسمية: «عطلة — الاسم» كما حفظته الإدارة
   const holidayName = (await holidayDaysIn(date, date)).get(date) ?? null;
+  const offDay = date > today() ? null : await dayLockReason(date);
 
   return (
     <>
@@ -108,6 +109,7 @@ export default async function RecitationMonitorPage({
         }
       />
       <RecitationMonitorClient
+        offDay={offDay}
         date={date}
         blocks={blocks}
         pendingCount={pending.length}
