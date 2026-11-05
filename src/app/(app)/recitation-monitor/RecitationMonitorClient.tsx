@@ -32,7 +32,7 @@ type Block = {
 };
 
 const STATUS_FILTERS = [
-  { value: "all", label: "كل الحلقات" },
+  { value: "all", label: "حالة التسميع" },
   { value: "full", label: "مرفوع" },
   { value: "partial", label: "غير مكتمل" },
   { value: "none", label: "لم يُرفع بعد" },

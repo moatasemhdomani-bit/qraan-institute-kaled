@@ -18,6 +18,7 @@ const KIND_LABELS: Record<string, string> = {
   AWQAF_MARKS: "علامات سبر الأوقاف",
   ORPHANS: "الأيتام",
   RECITATION_LOG: "سجل التسميع والحضور",
+  HADITH: "تقرير الحديث الشريف",
 };
 
 const BASE_STYLE = `
@@ -214,6 +215,47 @@ export function arabicHalaqatReportHtml(input: {
     blocksHtml +
     `<div style="margin-top:10px;font-size:10.5px;color:#666">الاختبارات بأرقام مراحلها: <span class="pass">الأخضر ناجح</span>، <span class="fail">الأحمر إعادة</span>.</div>` +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير تسميع حلقات القراءة العربية</div></body></html>`
+  );
+}
+
+export type HadithReportRow = { teacherName: string; halqaNames: string; count: number; participants: number; nonParticipants: number; exams: number; hadiths: number };
+
+export function hadithReportHtml(input: {
+  name: string; from: string; to: string; issuedBy: string; issuedAt: string;
+  rows: HadithReportRow[];
+}): string {
+  const sum = (k: "count" | "participants" | "nonParticipants" | "exams" | "hadiths") => input.rows.reduce((n, r) => n + r[k], 0);
+  const table = `
+    <table>
+      <thead><tr>
+        <th>المدرس</th><th>حلقاته</th><th>عدد الطلاب</th><th>المشاركون</th><th>غير المشاركين</th>
+        <th>السبر (مرحلة وقسم ومستوى)</th><th>إجمالي الأحاديث</th>
+      </tr></thead>
+      <tbody>
+        ${input.rows
+          .map(
+            (r) => `<tr>
+              <td class="name">${escapeHtml(r.teacherName)}</td>
+              <td>${escapeHtml(r.halqaNames)}</td>
+              <td>${r.count}</td>
+              <td>${r.participants}</td>
+              <td>${r.nonParticipants}</td>
+              <td>${r.exams}</td>
+              <td>${r.hadiths}</td>
+            </tr>`
+          )
+          .join("")}
+        <tr style="font-weight:700;background:#f6f1e1">
+          <td class="name" colspan="2">المجموع</td>
+          <td>${sum("count")}</td><td>${sum("participants")}</td><td>${sum("nonParticipants")}</td><td>${sum("exams")}</td><td>${sum("hadiths")}</td>
+        </tr>
+      </tbody>
+    </table>`;
+  return (
+    htmlHead(input.name) +
+    reportHeader(input.name, "HADITH", input.from, input.to, input.issuedBy, input.issuedAt) +
+    table +
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير الحديث الشريف</div></body></html>`
   );
 }
 

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { listMarkedAwqafBatches, loadReviewInputs } from "@/lib/reports";
-import { formatDateAr } from "@/lib/daily";
+import { formatDateAr, monthNoOf } from "@/lib/daily";
 import PageHeader from "@/components/PageHeader";
 import AwqafMarksClient from "./AwqafMarksClient";
 
@@ -18,7 +18,7 @@ export default async function AwqafMarksReportPage({ searchParams }: { searchPar
       <PageHeader title="علامات سبر الأوقاف" subtitle="اختر دفعة سُجّلت علاماتها — يظهر كل طالب فيها بنوع سبره ومدرّسه وحلقته وفوجه." />
       <AwqafMarksClient
         key={review ?? "new"}
-        batches={batches.map((b) => ({ id: b.id, label: `دفعة ${formatDateAr(b.date)} — ${b.marked} من ${b.total} بعلامة` }))}
+        batches={batches.map((b) => ({ id: b.id, month: monthNoOf(b.date), label: `دفعة ${formatDateAr(b.date)} — ${b.marked} من ${b.total} بعلامة` }))}
         initial={initial}
       />
     </>

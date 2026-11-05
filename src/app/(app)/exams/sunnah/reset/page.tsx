@@ -9,7 +9,7 @@ import { loadSunnahStudents } from "../data";
 import ResetClient from "./ResetClient";
 
 /**
- * «إعادة ضبط مستوى طالب» (الإدارة، ومختبر الحديث من شاشة «إعادة ضبط مستوى»): يختار المنهج ثم الطالب، فتُفتح له خيارات الإعداد الأول —
+ * «إعادة ضبط مستوى طالب» (الإدارة، ومختبر السنة من شاشة «إعادة ضبط مستوى»): يختار المنهج ثم الطالب، فتُفتح له خيارات الإعداد الأول —
  * الكتاب والمستوى والمرحلة ورقم البداية. سبور الطالب وتسميعه السابقة تبقى في السجل ولا تُحتسب في موقعه.
  */
 export default async function SunnahResetPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
@@ -19,7 +19,7 @@ export default async function SunnahResetPage({ searchParams }: { searchParams: 
   if (!examiner && session.role !== "DIRECTOR" && session.role !== "ADMIN") redirect("/dashboard");
 
   const sec = sunnahSection((await searchParams).section);
-  // مختبر الحديث يصلها من القائمة مباشرة — فلا رجوع إلى «السنة النبوية» من صفحة اختيار المنهج
+  // مختبر السنة يصلها من القائمة مباشرة — فلا رجوع إلى «السنة النبوية» من صفحة اختيار المنهج
   const back =
     sec || !examiner ? (
       <Link href={sec ? "/exams/sunnah/reset" : "/exams/sunnah"} style={{ fontSize: 13, color: "var(--ink-2)" }}>

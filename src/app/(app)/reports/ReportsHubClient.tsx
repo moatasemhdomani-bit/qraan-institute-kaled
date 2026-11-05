@@ -30,6 +30,7 @@ const REVIEW_PATHS: Record<string, string> = {
   AWQAF_MARKS: "/reports/awqaf-marks",
   ORPHANS: "/reports/orphans",
   RECITATION_LOG: "/reports/recitation-log",
+  HADITH: "/reports/hadith",
 };
 
 const FILTERS = [
@@ -42,6 +43,7 @@ const FILTERS = [
   { id: "AWQAF_MARKS", label: "علامات سبر الأوقاف" },
   { id: "ORPHANS", label: "الأيتام" },
   { id: "RECITATION_LOG", label: "سجل التسميع والحضور" },
+  { id: "HADITH", label: "تقرير الحديث الشريف" },
 ];
 
 function DeleteButton({ id }: { id: string }) {

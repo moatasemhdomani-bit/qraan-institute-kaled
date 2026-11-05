@@ -37,6 +37,8 @@ export default function MonitorClient({
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<string>("all");
+  // حالة الحضور: الكل / مرفوع / لم يرفع بعد
+  const [upload, setUpload] = useState<string>("all");
   // الحلقات مطويّة: الاسم والحالة وحدهما — النقر على الحلقة يُظهر تفاصيلها كاملة
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const toggleOpen = (id: string) =>
@@ -48,7 +50,8 @@ export default function MonitorClient({
     });
 
   const match = (r: Block["rows"][number]) => filter === "all" || r.status === filter;
-  const { shown, selects } = useCohortTeacherFilter(blocks);
+  const { shown: byCohortTeacher, selects } = useCohortTeacherFilter(blocks);
+  const shown = byCohortTeacher.filter((b) => upload === "all" || (upload === "uploaded") === b.uploaded);
   const shownRows = shown.flatMap((b) => b.rows);
   const filters = [{ value: "all", label: "كل الطلاب" }, ...ATT_STATES.map((s) => ({ value: s.id, label: s.label }))];
   const resultCount = shownRows.filter(match).length;
@@ -123,6 +126,15 @@ export default function MonitorClient({
       >
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, flex: "1 1 460px" }}>
           <Select value={filter} onChange={setFilter} options={filters} />
+          <Select
+            value={upload}
+            onChange={setUpload}
+            options={[
+              { value: "all", label: "حالة الحضور" },
+              { value: "uploaded", label: "مرفوع" },
+              { value: "pending", label: "لم يُرفع بعد" },
+            ]}
+          />
           {selects}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginInlineStart: "auto" }}>

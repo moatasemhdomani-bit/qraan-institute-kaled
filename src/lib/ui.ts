@@ -67,7 +67,7 @@ export const ROLE_LABELS: Record<string, string> = {
   EXAMINER: "مختبِر",
   GUARDIAN: "ولي أمر",
   EXAM_SUPERVISOR: "مشرف مختبرين القرآن",
-  SUNNAH_EXAMINER: "مختبر حديث",
+  SUNNAH_EXAMINER: "مختبر سنة",
   ACTIVITY_OFFICER: "مسؤول النشاط",
 };
 

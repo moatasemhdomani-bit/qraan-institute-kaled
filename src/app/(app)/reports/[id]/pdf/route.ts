@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dateOnly } from "@/lib/daily";
-import { buildHalaqatBlocks, buildTeachersRows, buildArabicHalaqatBlocks, buildArabicTeachersRows, buildStudentPreview, buildAwqafMarks, buildOrphans, ORPHAN_STATUS_LABELS, type OrphanStatus } from "@/lib/reports";
+import { buildHalaqatBlocks, buildTeachersRows, buildArabicHalaqatBlocks, buildArabicTeachersRows, buildStudentPreview, buildAwqafMarks, buildOrphans, buildHadithTeachersRows, ORPHAN_STATUS_LABELS, type OrphanStatus } from "@/lib/reports";
 import { renderPdf } from "@/lib/pdf";
 import { buildRecitationLog } from "@/lib/recitationLog";
-import { halaqatReportHtml, teachersReportHtml, arabicHalaqatReportHtml, arabicTeachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml, recitationLogReportHtml } from "@/lib/reportHtml";
+import { halaqatReportHtml, teachersReportHtml, arabicHalaqatReportHtml, arabicTeachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml, recitationLogReportHtml, hadithReportHtml } from "@/lib/reportHtml";
 
 /** يُعيد توليد PDF تقرير سابق من معطياته المحفوظة عند الطلب — لا يُخزَّن أي ملف. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -55,6 +55,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const notes = (params_.notes as Record<string, string>) ?? {};
     const rows = await buildArabicTeachersRows(report.fromDate, report.toDate);
     html = arabicTeachersReportHtml({ ...common, rows: rows.map((r) => ({ ...r, note: notes[r.teacherId] || "" })) });
+  } else if (report.kind === "HADITH") {
+    html = hadithReportHtml({ ...common, rows: await buildHadithTeachersRows(report.fromDate, report.toDate) });
   } else if (report.kind === "ORPHANS") {
     // القائمة المحفوظة يوم الإصدار (تقارير قديمة بلا قائمة محفوظة تُعرض بالأسماء الحالية)
     const names = Array.isArray(params_.names) ? (params_.names as string[]) : await buildOrphans();

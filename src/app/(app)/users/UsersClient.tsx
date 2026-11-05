@@ -196,8 +196,8 @@ export default function UsersClient({
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                     <span
                       style={{
-                        width: 30,
-                        height: 30,
+                        width: 44,
+                        height: 44,
                         borderRadius: 99,
                         flex: "none",
                         background: "var(--chip)",
@@ -205,7 +205,7 @@ export default function UsersClient({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 12,
+                        fontSize: 16,
                         color: "var(--ink-2)",
                         overflow: "hidden",
                       }}
@@ -270,8 +270,8 @@ export default function UsersClient({
                 <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "13px 14px", borderTop: "1px solid var(--line-2)" }}>
                   <span
                     style={{
-                      width: 38,
-                      height: 38,
+                      width: 52,
+                      height: 52,
                       borderRadius: 99,
                       flex: "none",
                       background: "var(--chip)",
@@ -279,7 +279,7 @@ export default function UsersClient({
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 14,
+                      fontSize: 18,
                       color: "var(--ink-2)",
                       overflow: "hidden",
                     }}

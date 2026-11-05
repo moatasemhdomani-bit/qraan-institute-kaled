@@ -6,7 +6,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
-import { today, monthStart } from "@/lib/daily";
+import { today, monthStart, currentMonthNo } from "@/lib/daily";
 import type { ReviewInputs } from "@/lib/reports";
 import IssuedNotice from "../IssuedNotice";
 import { previewTeachersReport, issueTeachersReport, type FormState, type PreviewRow } from "./actions";
@@ -24,7 +24,7 @@ function passFailCell(pass: number, fail: number) {
 export default function TeachersReportClient({ initial }: { initial: ReviewInputs | null }) {
   const [from, setFrom] = useState(initial?.from ?? monthStart());
   const [to, setTo] = useState(initial?.to ?? today());
-  const [name, setName] = useState(initial?.name ?? "");
+  const [name, setName] = useState(initial?.name ?? `التقرير الشهري — ${currentMonthNo()}`);
   const [rows, setRows] = useState<PreviewRow[] | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>(initial?.notes ?? {});
   const [previewError, setPreviewError] = useState("");

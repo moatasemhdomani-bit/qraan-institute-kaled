@@ -5,7 +5,7 @@ import { cardStyle } from "@/lib/ui";
 import { SUNNAH_SECTIONS, sunnahSlug } from "@/lib/sunnah";
 import PageHeader from "@/components/PageHeader";
 
-/** «السنة النبوية» عند الإدارة (شاشة في القائمة): يختار أحد المناهج الثلاثة. مختبر الحديث يرى كل منهج في واجهة مستقلة من القائمة. */
+/** «السنة النبوية» عند الإدارة (شاشة في القائمة): يختار أحد المناهج الثلاثة. مختبر السنة يرى كل منهج في واجهة مستقلة من القائمة. */
 export default async function SunnahHubPage() {
   const session = await getSession();
   if (!session) redirect("/login");
@@ -29,7 +29,7 @@ export default async function SunnahHubPage() {
             <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{s.branches.length} مستويات</div>
           </Link>
         ))}
-        {/* سبر ترشيح الأوقاف: لمختبر الحديث من القائمة، وللمدير من هنا */}
+        {/* سبر ترشيح الأوقاف: لمختبر السنة من القائمة، وللمدير من هنا */}
         {session.role === "DIRECTOR" && (
           <Link href="/exams/sunnah/nomination" style={{ ...cardStyle, padding: "16px 18px", textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 17, fontWeight: 700 }}>سبر ترشيح الأوقاف</div>

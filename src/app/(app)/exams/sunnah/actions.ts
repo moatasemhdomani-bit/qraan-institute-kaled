@@ -10,7 +10,7 @@ import { SUNNAH_PASS_MARK, validSunnahStars, sunnahSection, sunnahBranchLabel, s
 import { revalidatePath } from "next/cache";
 import { applyStars } from "@/lib/starsServer";
 
-/** نجوم مختبر الحديث (−2 … 10) — تُطبَّق عند تسجيل التسميع أو السبر أول مرة، لا عند التعديل. */
+/** نجوم مختبر السنة (−2 … 10) — تُطبَّق عند تسجيل التسميع أو السبر أول مرة، لا عند التعديل. */
 async function sunnahStars(studentId: string, n: number | undefined, reason: string, session: { userId: string; role: Parameters<typeof applyStars>[4] }) {
   if (!n) return;
   await applyStars(studentId, n, reason, session.userId, session.role);
@@ -30,14 +30,14 @@ export type SunnahExamInput = {
   outcome: "pass" | "repeat" | "";
   mark: number | null;
   notes: string;
-  /** نجوم مختبر الحديث (−2 … 10) — للسبر المحلي وسبر الترشيح؛ لا نجوم لسبر الأوقاف */
+  /** نجوم مختبر السنة (−2 … 10) — للسبر المحلي وسبر الترشيح؛ لا نجوم لسبر الأوقاف */
   stars?: number;
 };
 
 const isAdmin = (role: string) => role === "DIRECTOR" || role === "ADMIN";
 
 /**
- * من يسجّل: السبر المحلي يجريه مختبر الحديث (والمدير)، والسبر الخارجي من الأوقاف تُدخله الإدارة
+ * من يسجّل: السبر المحلي يجريه مختبر السنة (والمدير)، والسبر الخارجي من الأوقاف تُدخله الإدارة
  * (المدير والإداري) بتاريخه — لا دورات ثابتة التاريخ.
  */
 function canRecord(role: string, type: SunnahExamInput["type"]): boolean {
@@ -50,7 +50,7 @@ export async function saveSunnahExam(input: SunnahExamInput): Promise<SunnahSave
   if (!session) return { error: "غير مصرَّح لك بهذا الإجراء." };
   if (input.type !== "SUNNAH" && input.type !== "SUNNAH_NOMINATION" && input.type !== "SUNNAH_AWQAF") return { error: "اختاروا نوع السبر." };
   if (!canRecord(session.role, input.type)) {
-    return { error: input.type === "SUNNAH_AWQAF" ? "نتيجة سبر الأوقاف في السنة النبوية تُدخلها الإدارة." : "هذا السبر يجريه مختبر الحديث." };
+    return { error: input.type === "SUNNAH_AWQAF" ? "نتيجة سبر الأوقاف في السنة النبوية تُدخلها الإدارة." : "هذا السبر يجريه مختبر السنة." };
   }
 
   const section = sunnahSection(input.section);
@@ -131,7 +131,7 @@ export async function saveSunnahExam(input: SunnahExamInput): Promise<SunnahSave
 
 /**
  * جلسة تسميع السنة النبوية بالأرقام — أكثر من رقم في الجلسة، ولكل رقم تقديره
- * («إعادة» يبقى ضمن التالي). يسجّلها مختبر الحديث (والمدير).
+ * («إعادة» يبقى ضمن التالي). يسجّلها مختبر السنة (والمدير).
  */
 export async function saveSunnahRecitation(input: {
   studentId: string;
@@ -139,11 +139,11 @@ export async function saveSunnahRecitation(input: {
   book: string;
   items: { no: number; grade: string }[];
   date: string;
-  /** نجوم مختبر الحديث للجلسة (−2 … 10) */
+  /** نجوم مختبر السنة للجلسة (−2 … 10) */
   stars?: number;
 }): Promise<SunnahSaveResult> {
   const session = await getSession();
-  if (!session || (session.role !== "SUNNAH_EXAMINER" && session.role !== "DIRECTOR")) return { error: "تسميع السنة النبوية من صلاحية مختبر الحديث." };
+  if (!session || (session.role !== "SUNNAH_EXAMINER" && session.role !== "DIRECTOR")) return { error: "تسميع السنة النبوية من صلاحية مختبر السنة." };
   if (!sunnahSection(input.section)) return { error: "اختاروا المنهج." };
   const book = sunnahBook(input.section, input.book);
   if (!book) return { error: "اختاروا الكتاب." };
@@ -237,7 +237,7 @@ async function loadPosition(studentId: string, section: SunnahSectionId) {
 }
 
 /**
- * سبر المرحلة داخل المعهد — بتقدير (ممتاز / جيد جدًا / جيد / إعادة). يجريه مختبر الحديث (والمدير).
+ * سبر المرحلة داخل المعهد — بتقدير (ممتاز / جيد جدًا / جيد / إعادة). يجريه مختبر السنة (والمدير).
  * النجاح فيه يفتح أرقام المرحلة التالية للتسميع.
  */
 export async function saveSunnahStageExam(input: {
@@ -249,13 +249,13 @@ export async function saveSunnahStageExam(input: {
   grade: string;
   date: string;
   notes: string;
-  /** نجوم مختبر الحديث (−2 … 10) */
+  /** نجوم مختبر السنة (−2 … 10) */
   stars?: number;
   /** سبر القسم في المستوى المقسَّم — stage عندئذ رقم القسم */
   part?: boolean;
 }): Promise<SunnahSaveResult> {
   const session = await getSession();
-  if (!session || (session.role !== "SUNNAH_EXAMINER" && session.role !== "DIRECTOR")) return { error: "سبر المراحل من صلاحية مختبر الحديث." };
+  if (!session || (session.role !== "SUNNAH_EXAMINER" && session.role !== "DIRECTOR")) return { error: "سبر المراحل من صلاحية مختبر السنة." };
   const part = !!input.part;
   const what = part ? `سبر القسم ${input.stage}` : `سبر ${stageName(input.section, input.level, input.stage)}`;
   const examType = part ? ("SUNNAH_PART" as const) : ("SUNNAH_STAGE" as const);
@@ -340,8 +340,8 @@ export async function saveSunnahStart(input: {
   const reset = !!input.reset;
   if (reset) {
     if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN" && session.role !== "SUNNAH_EXAMINER"))
-      return { error: "إعادة ضبط مستوى الطالب من صلاحية الإدارة ومختبر الحديث." };
-  } else if (!session || (session.role !== "SUNNAH_EXAMINER" && session.role !== "DIRECTOR")) return { error: "الإعداد الأول من صلاحية مختبر الحديث." };
+      return { error: "إعادة ضبط مستوى الطالب من صلاحية الإدارة ومختبر السنة." };
+  } else if (!session || (session.role !== "SUNNAH_EXAMINER" && session.role !== "DIRECTOR")) return { error: "الإعداد الأول من صلاحية مختبر السنة." };
   const sec = sunnahSection(input.section);
   if (!sec) return { error: "المنهج غير معروف." };
   if (!Number.isInteger(input.level) || input.level < 1 || input.level > sec.branches.length) return { error: "اختاروا المستوى." };

@@ -112,7 +112,7 @@ export async function withdrawExamStars(examId: string, studentId: string, reaso
 }
 
 /**
- * نجوم مختبر الحديث: موجبة تُودَع، وسالبة تُسحب بقدر ما في الرصيد (الرصيد صفر يُعفى). لا تمسّ رصيد الحلقة.
+ * نجوم مختبر السنة: موجبة تُودَع، وسالبة تُسحب بقدر ما في الرصيد (الرصيد صفر يُعفى). لا تمسّ رصيد الحلقة.
  * يُرجع ما تغيّر فعلًا في الرصيد.
  */
 export async function applyStars(studentId: string, n: number, reason: string, byId: string, byRole: Role): Promise<number> {

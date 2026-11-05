@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import Link from "next/link";
 import { cardStyle, chipStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
-import { today, monthStart } from "@/lib/daily";
+import { today, monthStart, currentMonthNo } from "@/lib/daily";
 import type { ReviewInputs } from "@/lib/reports";
 import type { LogBlock } from "@/lib/recitationLog";
 import RecitationLogTable from "@/components/RecitationLogTable";
@@ -24,7 +24,7 @@ export default function RecitationLogReportClient({
   const [to, setTo] = useState(initial?.to ?? today());
   // الحلقات المختارة — «all» = كل الحلقات
   const [picked, setPicked] = useState<string[] | "all">(initial?.halqaIds ?? "all");
-  const [name, setName] = useState(initial?.name ?? "");
+  const [name, setName] = useState(initial?.name ?? `سجل التسميع والحضور — ${currentMonthNo()}`);
   const [blocks, setBlocks] = useState<LogBlock[] | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [pending, startTransition] = useTransition();

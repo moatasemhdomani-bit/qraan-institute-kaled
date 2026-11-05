@@ -138,8 +138,29 @@ export default function SunnahClient({
     );
   };
 
+  // عدّاد الحديث الشريف قبل اختيار الطالب: أحاديث اليوم (بلا «إعادة») وسبور اليوم المحلية —
+  // للمختبِر ما سجّله وحده، وللإدارة إجمالي كل المختبِرين
+  const mine = (examinerId: string) => !canLocal || isDirector || examinerId === currentUserId;
+  const todayHadiths = recitations
+    .filter((r) => r.date === todayStr && r.grade !== "إعادة" && mine(r.examinerId))
+    .reduce((n, r) => n + r.toNo - r.fromNo + 1, 0);
+  const todayExams = exams.filter((e) => e.date === todayStr && e.type !== "SUNNAH_AWQAF" && mine(e.examinerId)).length;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {section === "HADITH" && !student && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {[
+            { label: "إجمالي أحاديث اليوم", value: todayHadiths },
+            { label: "إجمالي السبر اليوم", value: todayExams },
+          ].map((c) => (
+            <div key={c.label} style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>{c.label}</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: "var(--gold)" }}>{c.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ fontSize: 14, fontWeight: 700 }}>اختيار الطالب</div>
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="اكتبوا اسم الطالب أو رقمه — كل طلاب المعهد" style={inputStyle()} />

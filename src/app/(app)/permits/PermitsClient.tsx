@@ -7,6 +7,7 @@ import PermitForm, { type ExistingPermit } from "./PermitForm";
 import type { CohortTimes } from "@/lib/cohortTime";
 import { deleteStudentPermits } from "./actions";
 import { textHas } from "@/lib/search";
+import Select from "@/components/Select";
 
 const KIND_LABELS: Record<string, string> = { ENTRY: "إذن دخول", EXIT: "إذن خروج" };
 const KIND_COLORS: Record<string, string> = { ENTRY: "var(--ok)", EXIT: "var(--gold)" };
@@ -45,6 +46,14 @@ export default function PermitsClient({
   readOnly?: boolean;
 }) {
   const [kindFilter, setKindFilter] = useState<"all" | "ENTRY" | "EXIT">("all");
+  // «اختر وقتًا»: الطلاب الذين لهم إذن بهذا الوقت (من نوع الإذن المختار)
+  const [timeFilter, setTimeFilter] = useState("all");
+  const kindOk = (p: Permit) => kindFilter === "all" || p.kind === kindFilter;
+  const timeOptions = [
+    { value: "all", label: "اختر وقتًا" },
+    ...[...new Set(halaqat.flatMap((h) => h.permits.filter(kindOk).map((p) => p.time)))].sort().map((x) => ({ value: x, label: formatTime12(x) })),
+  ];
+  const activeTime = timeOptions.some((o) => o.value === timeFilter) ? timeFilter : "all";
 
   // initialStudentId: فُتح النموذج من نتيجة البحث «لا يوجد إذن» على طالب بعينه
   const [formOpen, setFormOpen] = useState<{ existing: ExistingPermit | null; initialStudentId?: string } | null>(null);
@@ -68,7 +77,7 @@ export default function PermitsClient({
         const byStudent = new Map<string, Permit[]>();
         for (const p of h.permits) byStudent.set(p.studentId, [...(byStudent.get(p.studentId) ?? []), p]);
         const rows = [...byStudent.entries()]
-          .filter(([, ps]) => kindFilter === "all" || ps.some((p) => p.kind === kindFilter))
+          .filter(([, ps]) => ps.some((p) => kindOk(p) && (activeTime === "all" || p.time === activeTime)))
           .map(([studentId, ps]) => {
             const sorted = [...ps].sort((a, b) => (a.kind === "ENTRY" ? -1 : 1) - (b.kind === "ENTRY" ? -1 : 1));
             const first = sorted[0];
@@ -92,7 +101,8 @@ export default function PermitsClient({
           rows,
         };
       }),
-    [halaqat, kindFilter]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [halaqat, kindFilter, activeTime]
   );
 
   const totalPermits = halaqat.reduce((sum, h) => sum + h.permits.length, 0);
@@ -125,12 +135,15 @@ export default function PermitsClient({
       />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 9, padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {(["all", "ENTRY", "EXIT"] as const).map((k) => (
             <button key={k} onClick={() => setKindFilter(k)} style={chipStyle(kindFilter === k)}>
               {k === "all" ? "النوعان" : KIND_LABELS[k]}
             </button>
           ))}
+          <div style={{ marginInlineStart: "auto" }}>
+            <Select value={activeTime} onChange={setTimeFilter} options={timeOptions} width={170} />
+          </div>
         </div>
         <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{scopeNote}</div>
       </div>

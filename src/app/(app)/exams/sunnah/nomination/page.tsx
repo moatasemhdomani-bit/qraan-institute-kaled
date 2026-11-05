@@ -8,7 +8,7 @@ import NominationClient from "./NominationClient";
 import { loadSunnahExamRows, loadSunnahStudents } from "../data";
 
 /**
- * سبر ترشيح الأوقاف في السنة النبوية — لمختبر الحديث (والمدير): يختار المنهج أولًا (الحديث الشريف / الشمائل / السيرة)،
+ * سبر ترشيح الأوقاف في السنة النبوية — لمختبر السنة (والمدير): يختار المنهج أولًا (الحديث الشريف / الشمائل / السيرة)،
  * ثم يرى المؤهَّلين فيه (من نجح في السبر المحلي لمستوى). الناجح يُرفع إلى قائمة الجاهزين لسبر الأوقاف عند الإدارة.
  */
 export default async function SunnahNominationPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {

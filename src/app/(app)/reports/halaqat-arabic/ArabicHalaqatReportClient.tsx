@@ -6,7 +6,7 @@ import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
-import { today, monthStart } from "@/lib/daily";
+import { today, monthStart, currentMonthNo } from "@/lib/daily";
 import type { ReviewInputs, ArabicHalaqatBlock, ArabicExamMark } from "@/lib/reports";
 import IssuedNotice from "../IssuedNotice";
 import { previewArabicHalaqatReport, issueArabicHalaqatReport, type FormState } from "./actions";
@@ -31,7 +31,7 @@ export default function ArabicHalaqatReportClient({ halaqat, initial }: { halaqa
   const [from, setFrom] = useState(initial?.from ?? monthStart());
   const [to, setTo] = useState(initial?.to ?? today());
   const [halqaScope, setHalqaScope] = useState(initial?.halqaScope ?? "all");
-  const [name, setName] = useState(initial?.name ?? "");
+  const [name, setName] = useState(initial?.name ?? `تسميع القراءة العربية — ${currentMonthNo()}`);
   const [blocks, setBlocks] = useState<ArabicHalaqatBlock[] | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [pending, startTransition] = useTransition();

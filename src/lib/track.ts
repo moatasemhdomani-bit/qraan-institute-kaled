@@ -138,6 +138,6 @@ export function staffRoleLabel(role: string, track: TrackId | null | undefined, 
   if (role === "EXAMINER") return track === "ARABIC" ? "مختبِر قراءة عربية" : "مختبِر قرآن";
   if (role === "EXAM_SUPERVISOR") return "مشرف مختبرين القرآن";
   if (role === "ACTIVITY_OFFICER") return "مسؤول النشاط";
-  if (role === "SUNNAH_EXAMINER") return "مختبر حديث";
+  if (role === "SUNNAH_EXAMINER") return "مختبر سنة";
   return roleLabels[role] ?? role;
 }

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { cardStyle, chipStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import type { OrphanStatus } from "@/lib/reports";
 import IssuedNotice from "../IssuedNotice";
-import { formatDateAr } from "@/lib/daily";
+import { formatDateAr, currentMonthNo } from "@/lib/daily";
 import { issueOrphansReport, type FormState } from "./actions";
 
 const initialState: FormState = {};
@@ -31,7 +31,7 @@ export default function OrphansReportClient({
   /** «مراجعة التقرير»: فتح PDF وتنزيله بدل إصداره من جديد */
   reviewId?: string;
 }) {
-  const [name, setName] = useState(initialName);
+  const [name, setName] = useState(initialName || `الأيتام — ${currentMonthNo()}`);
   const [status, setStatus] = useState<OrphanStatus>(initialStatus);
   // يبقى عرض قائمة يوم الإصدار حتى يغيّر المستخدم الفلتر، فتظهر القائمة الحالية بحسبه
   const [showFrozen, setShowFrozen] = useState(!!frozen);

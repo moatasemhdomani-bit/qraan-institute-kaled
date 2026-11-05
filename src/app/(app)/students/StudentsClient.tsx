@@ -269,7 +269,10 @@ export default function StudentsClient({
                   background: s.halqaId ? undefined : "linear-gradient(90deg, rgba(224,138,138,0.10), transparent 60%)",
                 }}
               >
-                <div style={{ color: "var(--ink-3)", fontSize: 13, direction: "ltr", textAlign: "right" }}>{s.no}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <StudentAvatar s={s} size={40} />
+                  <span style={{ color: "var(--ink-3)", fontSize: 13, direction: "ltr" }}>{s.no}</span>
+                </div>
                 <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {s.fullName}
                   <StudentBadges s={s} />
@@ -311,6 +314,7 @@ export default function StudentsClient({
                   background: s.halqaId ? undefined : "linear-gradient(90deg, rgba(224,138,138,0.10), transparent 60%)",
                 }}
               >
+                <StudentAvatar s={s} size={48} />
                 <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 15, fontWeight: 600 }}>{s.fullName}</span>
@@ -383,6 +387,34 @@ function isUnsorted(s: StudentRow) {
 }
 
 /** شارتا «منقطع» و«يتيم» بجانب اسم الطالب في القائمة. */
+function StudentAvatar({ s, size }: { s: StudentRow; size: number }) {
+  return (
+    <span
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 99,
+        flex: "none",
+        background: "var(--chip)",
+        border: "1px solid var(--line)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: Math.round(size * 0.38),
+        color: "var(--ink-2)",
+        overflow: "hidden",
+      }}
+    >
+      {s.photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={s.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        s.fullName.charAt(0)
+      )}
+    </span>
+  );
+}
+
 function StudentBadges({ s }: { s: StudentRow }) {
   const badge = (text: string, color: string) => (
     <span style={{ marginInlineStart: 6, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, border: "1px solid " + color, color }}>{text}</span>

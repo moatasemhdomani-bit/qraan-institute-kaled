@@ -389,6 +389,62 @@ export async function buildArabicTeachersRows(from: string, to: string): Promise
     });
 }
 
+export type HadithTeachersRow = {
+  teacherId: string;
+  teacherName: string;
+  halqaNames: string;
+  /** طلابه النشطون */
+  count: number;
+  /** من سمّع أو سُبر في الحديث الشريف خلال الفترة */
+  participants: number;
+  nonParticipants: number;
+  /** سبر المرحلة والقسم والمستوى المحلي في الحديث الشريف */
+  exams: number;
+  /** مجموع الأحاديث المسمَّعة — بلا «إعادة» */
+  hadiths: number;
+};
+
+/** تقرير الحديث الشريف: صف لكل مدرّس — حلقاته، طلابه النشطون، المشاركون منهم وغير المشاركين، سبرهم، ومجموع أحاديثهم. */
+export async function buildHadithTeachersRows(from: string, to: string): Promise<HadithTeachersRow[]> {
+  const teachers = await prisma.user.findMany({
+    where: { halaqatTaught: { some: {} } },
+    orderBy: { name: "asc" },
+    include: { halaqatTaught: { select: { id: true, name: true, cohort: { select: { name: true } } }, orderBy: { name: "asc" } } },
+  });
+  const students = await prisma.student.findMany({
+    where: { active: true, halqaId: { in: teachers.flatMap((t) => t.halaqatTaught.map((h) => h.id)) } },
+    select: { id: true, halqaId: true },
+  });
+  const studentIds = students.map((s) => s.id);
+  const [recitations, exams] = await Promise.all([
+    prisma.sunnahRecitation.findMany({
+      where: { studentId: { in: studentIds }, section: "HADITH", date: { gte: from, lte: to } },
+      select: { studentId: true, fromNo: true, toNo: true, grade: true },
+    }),
+    prisma.exam.findMany({
+      where: { studentId: { in: studentIds }, sunnahSection: "HADITH", type: { in: ["SUNNAH_STAGE", "SUNNAH_PART", "SUNNAH"] }, date: { gte: from, lte: to } },
+      select: { studentId: true },
+    }),
+  ]);
+  return teachers.map((t) => {
+    const halqaIds = new Set(t.halaqatTaught.map((h) => h.id));
+    const ids = new Set(students.filter((s) => s.halqaId && halqaIds.has(s.halqaId)).map((s) => s.id));
+    const recs = recitations.filter((r) => ids.has(r.studentId));
+    const exs = exams.filter((e) => ids.has(e.studentId));
+    const participants = new Set([...recs.map((r) => r.studentId), ...exs.map((e) => e.studentId)]).size;
+    return {
+      teacherId: t.id,
+      teacherName: t.name,
+      halqaNames: t.halaqatTaught.map((h) => `${h.name} · ${h.cohort.name}`).join("، "),
+      count: ids.size,
+      participants,
+      nonParticipants: ids.size - participants,
+      exams: exs.length,
+      hadiths: recs.filter((r) => r.grade !== "إعادة").reduce((n, r) => n + r.toNo - r.fromNo + 1, 0),
+    };
+  });
+}
+
 export type StudentPreview = {
   studentId: string;
   studentName: string;
@@ -501,7 +557,7 @@ export type ReviewInputs = {
 /** معطيات تقرير صادر سابقًا من السجل — لإعادة إعداده بنفس المدخلات («مراجعة التقرير»). */
 export async function loadReviewInputs(
   id: string | undefined,
-  kind: "HALAQAT" | "TEACHERS" | "HALAQAT_AR" | "TEACHERS_AR" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS" | "RECITATION_LOG"
+  kind: "HALAQAT" | "TEACHERS" | "HALAQAT_AR" | "TEACHERS_AR" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS" | "RECITATION_LOG" | "HADITH"
 ): Promise<ReviewInputs | null> {
   if (!id) return null;
   const r = await prisma.issuedReport.findUnique({ where: { id } });

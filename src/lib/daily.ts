@@ -38,6 +38,16 @@ export function monthStart(): string {
   return `${today().slice(0, 7)}-01`;
 }
 
+/** الشهر الحالي بالأرقام مع السنة (11/2026) — لاسم التقرير التلقائي */
+export function currentMonthNo(): string {
+  return monthNoOf(today());
+}
+
+/** شهر تاريخ YYYY-MM-DD بالأرقام مع السنة: 9/2026 */
+export function monthNoOf(date: string): string {
+  return `${Number(date.slice(5, 7))}/${date.slice(0, 4)}`;
+}
+
 export function isValidDate(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s + "T00:00:00").getTime());
 }

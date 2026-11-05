@@ -4,7 +4,7 @@ import { chipStyle } from "@/lib/ui";
 import { SUNNAH_STARS_MIN, SUNNAH_STARS_MAX, clampSunnahStars } from "@/lib/sunnah";
 
 /**
- * نجوم مختبر الحديث: − / + ضمن المجال −2 … 10. يقترح النموذج قيمة تلقائية (نجاح +3، إعادة −1)
+ * نجوم مختبر السنة: − / + ضمن المجال −2 … 10. يقترح النموذج قيمة تلقائية (نجاح +3، إعادة −1)
  * ويعدّلها المختبِر بحرية. الرصيد صفر يُعفى من السحب.
  */
 export default function SunnahStarsField({

@@ -12,6 +12,7 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[]; tr
   { id: "stars", href: "/stars", label: "إدارة النجوم", roles: ["DIRECTOR", "ADMIN"] },
   { id: "my-stars", href: "/my-stars", label: "متابعة النجوم", roles: ["TEACHER"] },
   { id: "activity-stars", href: "/activity-stars", label: "نجوم النشاط", roles: ["ACTIVITY_OFFICER"] },
+  { id: "competitions", href: "/competitions", label: "المسابقات", roles: ["ACTIVITY_OFFICER"] },
   { id: "awqaf-batches", href: "/exams/awqaf-batches", label: "سبر الأوقاف والشهادات", roles: ["DIRECTOR", "ADMIN"] },
   { id: "exams-local", href: "/exams/local", label: "السبر المحلي", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
   { id: "exams-awqaf", href: "/exams/awqaf", label: "سبر ترشيح الأوقاف للقرآن", roles: ["EXAMINER", "EXAM_SUPERVISOR"], track: "QURAN" },
@@ -22,7 +23,7 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[]; tr
   { id: "exams-arabic", href: "/exams/arabic", label: "سبر القراءة العربية", roles: ["EXAMINER"], track: "ARABIC" },
   // «السنة النبوية» للمدير والإداري: المناهج الثلاثة، وترشيح الأوقاف (للمدير)، وإعادة ضبط المستوى
   { id: "exams-sunnah", href: "/exams/sunnah", label: "السنة النبوية", roles: ["DIRECTOR", "ADMIN"] },
-  // مختبر الحديث: «سبر محلي» (المناهج الثلاثة: تسميع، مراحل، سبر المستوى) و«سبر ترشيح الأوقاف»
+  // مختبر السنة: «سبر محلي» (المناهج الثلاثة: تسميع، مراحل، سبر المستوى) و«سبر ترشيح الأوقاف»
   { id: "sunnah-staged", href: "/exams/sunnah", label: "سبر محلي", roles: ["SUNNAH_EXAMINER"] },
   { id: "sunnah-nomination", href: "/exams/sunnah/nomination", label: "سبر ترشيح الأوقاف", roles: ["SUNNAH_EXAMINER"] },
   { id: "sunnah-reset", href: "/exams/sunnah/reset", label: "إعادة ضبط مستوى", roles: ["SUNNAH_EXAMINER"] },

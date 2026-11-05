@@ -17,7 +17,7 @@ export default function AwqafMarksClient({
   batches,
   initial,
 }: {
-  batches: { id: string; label: string }[];
+  batches: { id: string; label: string; month: string }[];
   initial: ReviewInputs | null;
 }) {
   const [batchId, setBatchId] = useState(initial?.batchId ?? "");
@@ -67,6 +67,9 @@ export default function AwqafMarksClient({
             <Select
               value={batchId}
               onChange={(v) => {
+                // اسم التقرير التلقائي بشهر الدفعة — ما لم يكتب المستخدم اسمًا آخر
+                const auto = (id: string) => { const m = batches.find((b) => b.id === id)?.month; return m ? `علامات دفعة ${m}` : ""; };
+                if (!name || name === auto(batchId)) setName(auto(v));
                 setBatchId(v);
                 setRows(null);
               }}

@@ -10,7 +10,9 @@ datasource db {
 // نوع التدريس: القرآن الكريم، أو كتاب «مختصر القراءة العربية» (صفحاته 5–48)
 // مستويات الطالب بالترتيب: قراءة عربية ← عمَّ غيباً ← قرآن حاضراً ← قرآن غيباً ← متخرِّج.
 // المدرّس والحلقة من الأربعة الأولى، والمختبِر QURAN (كل مستويات القرآن) أو ARABIC.
-/** حالة رسوم الطالب. */
+/**
+ * حالة رسوم الطالب.
+ */
 enum FeeStatus {
   PAID // تم الدفع
   UNPAID // لم يدفع
@@ -66,28 +68,30 @@ model User {
   passwordEnc String?
 
   // حساب محذوف لكن مرتبط بسجلات سابقة (سبر أجراه، سجل تدقيق، …): لا يدخل ولا يظهر في القوائم، ويبقى اسمه في تلك السجلات
-  deletedAt DateTime?
+  deletedAt   DateTime?
   // موظف معلَّق: لا يدخل (كالمحذوف) لكن تبقى بياناته الشخصية كاملة ويظهر في القائمة، ويمكن إلغاء تعليقه
   suspendedAt DateTime?
 
-  teachableCohorts CohortTeacher[]
-  assignments      StaffAssignment[]
-  halaqatTaught    Halqa[]
-  auditLogs        AuditLog[]
-  guardianOf       Student[]       @relation("StudentGuardianAccount")
-  attendanceTaken  Attendance[]    @relation("AttendanceRecorder")
-  recitationsTaken Recitation[]    @relation("RecitationRecorder")
-  examsGiven       Exam[]          @relation("ExamsGiven")
-  permitsSet       Permit[]        @relation("PermitSetter")
-  awqafBatchesMade AwqafBatch[]    @relation("AwqafBatchCreator")
-  behaviorChangesMade StudentBehaviorLog[] @relation("BehaviorActor")
-  reportsIssued    IssuedReport[]  @relation("ReportIssuer")
-  starTxnsMade     StarTxn[]       @relation("StarTxnBy")
+  teachableCohorts       CohortTeacher[]
+  assignments            StaffAssignment[]
+  halaqatTaught          Halqa[]
+  auditLogs              AuditLog[]
+  guardianOf             Student[]            @relation("StudentGuardianAccount")
+  attendanceTaken        Attendance[]         @relation("AttendanceRecorder")
+  recitationsTaken       Recitation[]         @relation("RecitationRecorder")
+  examsGiven             Exam[]               @relation("ExamsGiven")
+  permitsSet             Permit[]             @relation("PermitSetter")
+  awqafBatchesMade       AwqafBatch[]         @relation("AwqafBatchCreator")
+  behaviorChangesMade    StudentBehaviorLog[] @relation("BehaviorActor")
+  reportsIssued          IssuedReport[]       @relation("ReportIssuer")
+  starTxnsMade           StarTxn[]            @relation("StarTxnBy")
   /// مسؤول النشاط: رصيد نجوم النشاط — تشحنه الإدارة، ويُصرف منه شحنه للطلاب (ما يسحبه من الطلاب لا يعود إليه)
-  activityStars    Int             @default(0)
-  starTxnsOfficer  StarTxn[]       @relation("StarTxnOfficer")
-  sunnahRecitationsTaken SunnahRecitation[] @relation("SunnahRecitationBy")
-  sunnahStartsSet   SunnahStart[]   @relation("SunnahStartBy")
+  activityStars          Int                  @default(0)
+  starTxnsOfficer        StarTxn[]            @relation("StarTxnOfficer")
+  sunnahRecitationsTaken SunnahRecitation[]   @relation("SunnahRecitationBy")
+  sunnahStartsSet        SunnahStart[]        @relation("SunnahStartBy")
+  competitionsMade       Competition[]        @relation("CompetitionCreator")
+  competitionResults     CompetitionResult[]  @relation("CompetitionResultBy")
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
@@ -155,22 +159,22 @@ model Halqa {
 }
 
 model Student {
-  id            String   @id @default(cuid())
-  studentNo     Int      @unique
-  name          String
-  fatherName    String?
-  motherName    String?
-  familyName    String? // النسبة: الكنية أو اسم العائلة
-  birthDate     String?
-  birthPlace    String? @default("حلب") // مكان الولادة (المدينة)
-  address       String?
-  fatherJob     String?
-  photoUrl      String?
-  studentPhone  String?
-  guardianPhone String?
+  id             String    @id @default(cuid())
+  studentNo      Int       @unique
+  name           String
+  fatherName     String?
+  motherName     String?
+  familyName     String? // النسبة: الكنية أو اسم العائلة
+  birthDate      String?
+  birthPlace     String?   @default("حلب") // مكان الولادة (المدينة)
+  address        String?
+  fatherJob      String?
+  photoUrl       String?
+  studentPhone   String?
+  guardianPhone  String?
   /// رقم ولي الأمر 2 — اختياري، بصيغة رقم ولي الأمر نفسها
   guardianPhone2 String?
-  registeredAt  DateTime? @default(now()) // فارغ لطلاب مستوردين بلا تاريخ تسجيل في الجدول القديم
+  registeredAt   DateTime? @default(now()) // فارغ لطلاب مستوردين بلا تاريخ تسجيل في الجدول القديم
 
   halqaId String?
   halqa   Halqa?  @relation(fields: [halqaId], references: [id])
@@ -180,42 +184,43 @@ model Student {
   guardianUser   User?   @relation("StudentGuardianAccount", fields: [guardianUserId], references: [id])
 
   // سلوك الطالب — افتراضيًا «ممتاز»، وأي تعديل يستوجب ملاحظة (StudentBehaviorLog) توضّح سببه.
-  behavior String @default("ممتاز")
+  behavior    String  @default("ممتاز")
   // ملاحظة المدرّس الخاصة: ما يعمل على تصحيحه للطالب — تظهر للمدرّس وحده في شاشة التسميع، لا للإدارة ولا لولي الأمر
   teacherNote String?
   // ملاحظة التقرير الشهري: تبقى محفوظة من فترة لأخرى حتى يعدّلها المدرّس (مركز التقارير) أو الإدارة (تقرير تسميع الحلقات)
-  reportNote String?
+  reportNote  String?
   // ملاحظات الإدارة عن الطالب: تُكتب وتُعدَّل من نموذج الطالب في «شؤون الطلاب» — لا تظهر لغير الإدارة
-  adminNotes String?
+  adminNotes  String?
 
   // حالة الطالب: نشط (افتراضيًا) أو منقطع — المنقطع يُخرَج من حلقته (فيغيب عن الحضور والتسميع اليوميين)
   // وتبقى بياناته الشخصية وكل سجلاته محفوظة
   active Boolean @default(true)
 
   // يتيم — غير مفعّل افتراضيًا؛ أساس فلتر «أيتام» وتقرير «الأيتام»
-  isOrphan Boolean @default(false)
+  isOrphan  Boolean    @default(false)
   // الرسوم: حالة الدفع والمبلغ (بالعملة الجديدة) — الطالب يبدأ «تم الدفع» (المبلغ اختياري)، و«متبقي» بمبلغه المتبقي
   feeStatus FeeStatus? @default(PAID)
   feeAmount Int?
 
   // قرآن أو قراءة عربية — يُفرز فقط في حلقة من نوعه
-  track Track @default(QURAN)
+  track      Track     @default(QURAN)
   // تاريخ ترفّعه إلى مستوى جديد (أُخرج من حلقته لإعادة فرزه) — يميّزه في «غير المفروزين» عن الطالب الجديد
   promotedAt DateTime?
 
-  attendance  Attendance[]
-  recitations Recitation[]
-  exams       Exam[]
-  permits     Permit[]
+  attendance         Attendance[]
+  recitations        Recitation[]
+  exams              Exam[]
+  permits            Permit[]
   /// رصيد النجوم (مكافآت المعهد)
-  stars       Int         @default(0)
-  starTxns    StarTxn[]
-  sunnahRecitations SunnahRecitation[]
-  sunnahStarts      SunnahStart[]
-  awqafResults AwqafResult[]
-  behaviorLog StudentBehaviorLog[]
-  teacherNotes TeacherMonthlyNote[]
-  issuedReports IssuedReport[]
+  stars              Int                  @default(0)
+  starTxns           StarTxn[]
+  sunnahRecitations  SunnahRecitation[]
+  sunnahStarts       SunnahStart[]
+  competitionEntries CompetitionEntry[]
+  awqafResults       AwqafResult[]
+  behaviorLog        StudentBehaviorLog[]
+  teacherNotes       TeacherMonthlyNote[]
+  issuedReports      IssuedReport[]
 
   updatedAt DateTime @updatedAt
 }
@@ -285,7 +290,7 @@ model Permit {
   note  String?
   since String // YYYY-MM-DD — تاريخ إضافته أول مرة، لا يتغيّر مع التعديل
   // أيام الإذن من أيام الدوام الرسمية (بأسمائها، مثل «السبت») — فارغة في الأذونات القديمة = كل أيام الدوام
-  days  String[] @default([])
+  days  String[]   @default([])
 
   studentId String
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -368,7 +373,7 @@ model Exam {
   // WAQF_NOMINATION، وLOCAL (الأنواع الثلاثة) — علامة من 100، يُدخلها المختبِر مباشرةً
   resultMark Float? // تقبل نصف درجة (92.5)
   // نتيجة السبر «إعادة» (بدل «راسب»): يختار المختبِر «ناجح» أو «إعادة» أولًا — للإعادة لا علامة، وللنجاح علامة ضمن علامات النجاح
-  repeat Boolean @default(false)
+  repeat     Boolean @default(false)
 
   // WAQF_NOMINATION وPLACEMENT
   nominationPresent Boolean? // true = حاضرًا, false = غيبًا
@@ -381,13 +386,13 @@ model Exam {
   // SUNNAH وSUNNAH_AWQAF: القسم، والفرع في stage (1…)، والعلامة في resultMark (النجاح 80) أو repeat
   sunnahSection SunnahSection?
   /// سبر ماضٍ غيباً: ما سُبر فيه — [{ kind: HIZB1|HIZB2|JUZ, juz }]
-  pastItems Json?
+  pastItems     Json?
 
   /// ترشيح أوقاف (قرآن أو سنّة) أُسقط من قائمة المؤهلين لسبر الأوقاف — عند حذف دفعته باختيار الإدارة؛ يعود الطالب بترشيح جديد
   nominationDismissed Boolean @default(false)
 
   // SUNNAH_STAGE: رقم المرحلة ضمن المستوى (stage = المستوى/الفرع)، والتقدير في grade
-  sunnahStage   Int?
+  sunnahStage Int?
 
   notes String?
 
@@ -419,7 +424,7 @@ model AwqafBatch {
   date String // YYYY-MM-DD
 
   createdById String
-  createdBy   User   @relation("AwqafBatchCreator", fields: [createdById], references: [id])
+  createdBy   User     @relation("AwqafBatchCreator", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
 
   // أرشفة الشهادات بملف واحد لكل الدفعة (بديل عن ملف لكل طالب، أو إضافة إليه)
@@ -466,9 +471,9 @@ model Recitation {
   id   String @id @default(cuid())
   date String // YYYY-MM-DD
 
-  none   Boolean @default(false) // لم يسمّع اليوم إطلاقًا
-  noNew  Boolean @default(false) // لم يسمّع جديدًا
-  noPast Boolean @default(false) // لم يقرأ ماضيًا
+  none     Boolean @default(false) // لم يسمّع اليوم إطلاقًا
+  noNew    Boolean @default(false) // لم يسمّع جديدًا
+  noPast   Boolean @default(false) // لم يقرأ ماضيًا
   /// «تحضير للسبر» (طلاب القرآن): مكان الجديد — بلا صفحات ولا تقدير، فلا يتقدّم به العدّاد (noNew = true معه)
   examPrep Boolean @default(false)
 
@@ -483,7 +488,7 @@ model Recitation {
   pastItems Json @default("[]")
 
   // تسميع بالسور (عمَّ غيباً، وطالب القراءة العربية بعد المرحلة 6 — «بينة للناس»): السور المسمَّعة بدل أرقام الصفحات
-  surahs String[] @default([])
+  surahs     String[] @default([])
   /// السور التي أنهاها الطالب («أنهى السورة») — وحدها تُحسب مسمَّعة
   surahsDone String[] @default([])
 
@@ -506,9 +511,9 @@ model Recitation {
 
 // سجل تغييرات سلوك الطالب — كل تغيير عن «ممتاز» (أو عودة إليها) يستوجب ملاحظة.
 model StudentBehaviorLog {
-  id            String   @id @default(cuid())
+  id            String  @id @default(cuid())
   studentId     String
-  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student       Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   previousValue String
   newValue      String
   note          String
@@ -524,9 +529,9 @@ model StudentBehaviorLog {
 // ملاحظة شهرية يكتبها مدرّس الحلقة عن طالب واحد — تصل جاهزة (وقابلة للتعديل) إلى عمود
 // الملاحظات في تقرير تسميع الحلقات عندما يغطّي التقرير هذا الشهر.
 model TeacherMonthlyNote {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   studentId String
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   month     String // "YYYY-MM"
   note      String
 
@@ -544,6 +549,7 @@ enum ReportKind {
   AWQAF_MARKS // علامات سبر الأوقاف — لدفعة واحدة
   ORPHANS // الأيتام — قائمة أسماء الطلاب الأيتام
   RECITATION_LOG // سجل التسميع — أيام الدوام أعمدةً والطلاب سطورًا، لحلقة أو أكثر
+  HADITH // تقرير الحديث الشريف — صف لكل مدرّس: طلابه المشاركون وغير المشاركين وسبرهم وأحاديثهم
 }
 
 // سجل التقارير الصادرة — لا يحمل ملف PDF مخزَّنًا؛ يُعاد توليد التقرير عند الطلب من هذه المعطيات نفسها.
@@ -573,30 +579,30 @@ enum StarTxnKind {
 
 /// أرشيف عمليات النجوم: على رصيد طالب (studentId) أو على رصيد حلقة (studentId = null).
 model StarTxn {
-  id        String      @id @default(cuid())
-  createdAt DateTime    @default(now())
-  kind      StarTxnKind
-  amount    Int
-  studentId String?
-  student   Student?    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id         String      @id @default(cuid())
+  createdAt  DateTime    @default(now())
+  kind       StarTxnKind
+  amount     Int
+  studentId  String?
+  student    Student?    @relation(fields: [studentId], references: [id], onDelete: Cascade)
   /// حلقة الطالب وقت العملية، أو الحلقة التي شُحن/سُحب رصيدها
-  halqaId   String?
-  halqa     Halqa?      @relation(fields: [halqaId], references: [id], onDelete: SetNull)
+  halqaId    String?
+  halqa      Halqa?      @relation(fields: [halqaId], references: [id], onDelete: SetNull)
   /// عملية المدرّس على طالب: تُصرف من رصيد الحلقة (الشحن) أو تعود إليه (السحب)
-  fromPool  Boolean     @default(false)
-  byId      String
-  by        User        @relation("StarTxnBy", fields: [byId], references: [id])
+  fromPool   Boolean     @default(false)
+  byId       String
+  by         User        @relation("StarTxnBy", fields: [byId], references: [id])
   /// مسؤول النشاط المعنيّ: شحن الإدارة لرصيد نشاطه أو سحبه (بلا طالب)، أو عمليته هو على طالب
-  officerId String?
-  officer   User?       @relation("StarTxnOfficer", fields: [officerId], references: [id], onDelete: SetNull)
-  byRole    Role
-  reason    String?
+  officerId  String?
+  officer    User?       @relation("StarTxnOfficer", fields: [officerId], references: [id], onDelete: SetNull)
+  byRole     Role
+  reason     String?
   /// إعادة نجوم سُحبت بالغلط: تشير إلى عملية السحب الأصلية (تُعاد مرة واحدة فقط)
   /// نجوم النجاح في سبر القرآن/القراءة العربية: السبر الذي أُعطيت عليه (تُسحب بقدرها عند تعديله إلى «إعادة» أو حذفه)
-  examId    String?
-  reversesId String?    @unique
-  reverses   StarTxn?   @relation("StarReversal", fields: [reversesId], references: [id], onDelete: SetNull)
-  reversedBy StarTxn?   @relation("StarReversal")
+  examId     String?
+  reversesId String?     @unique
+  reverses   StarTxn?    @relation("StarReversal", fields: [reversesId], references: [id], onDelete: SetNull)
+  reversedBy StarTxn?    @relation("StarReversal")
 
   @@index([createdAt])
   @@index([studentId])
@@ -644,4 +650,52 @@ model SunnahStart {
   setBy     User          @relation("SunnahStartBy", fields: [setById], references: [id])
 
   @@unique([studentId, section])
+}
+
+// ==================== المسابقات (مسؤول النشاط) ====================
+
+/// مسابقة: يُخصم من نجوم الطالب «cost» عند ضمّه، ولها عدد من المستويات
+model Competition {
+  id          String             @id @default(cuid())
+  name        String
+  cost        Int
+  levels      Int
+  /// وقت آخر تراجع عن مباراة — يُسمح بالتراجع عن مباراة واحدة فقط، ثم لا تراجع حتى تُسجَّل مباراة جديدة
+  lastUndoAt  DateTime?
+  createdById String
+  createdBy   User               @relation("CompetitionCreator", fields: [createdById], references: [id])
+  createdAt   DateTime           @default(now())
+  entries     CompetitionEntry[]
+}
+
+/// مشاركة طالب في مسابقة — مرتان على الأكثر (attempt 1 أو 2). مستواه وحالته تُحسب من نتائجه (lib/competition.ts)
+model CompetitionEntry {
+  id            String              @id @default(cuid())
+  competitionId String
+  competition   Competition         @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  attempt       Int
+  createdAt     DateTime            @default(now())
+  results       CompetitionResult[]
+
+  @@unique([competitionId, studentId, attempt])
+}
+
+/// ربح أو خسارة في جولة — يسجّلها مسؤول النشاط مباراةً بين مشاركَين: نتيجتان بالمعرّف matchId نفسه
+model CompetitionResult {
+  id        String           @id @default(cuid())
+  entryId   String
+  entry     CompetitionEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  won       Boolean
+  /// المباراة: نتيجة الفائز ونتيجة الخاسر — تُحذفان معًا عند التراجع
+  matchId   String
+  /// رقم المنافس في المسابقة (كما في الورقة: «ف 4» = فاز على رقم 4)
+  opponentNo Int?
+  byId      String
+  by        User             @relation("CompetitionResultBy", fields: [byId], references: [id])
+  createdAt DateTime         @default(now())
+
+  @@index([entryId])
+  @@index([matchId])
 }
