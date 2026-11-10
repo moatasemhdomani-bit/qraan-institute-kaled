@@ -46,9 +46,9 @@ function buildPaths(): string {
 
 const PATHS = buildPaths();
 
-/** SVG الزخرفة بعرض حاويته كاملًا (نسبة 1600×77). */
-export function reportFooterSvg(): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax meet" style="display:block;width:100%;height:auto;"><g fill="none" stroke="${GOLD}" stroke-width="${STROKE}" stroke-linejoin="miter" stroke-linecap="butt">${PATHS}</g></svg>`;
+/** SVG الزخرفة بعرض حاويته كاملًا (نسبة 1600×77) — واللون قابل للتغيير (الشهادات بذهبي أغمق). */
+export function reportFooterSvg(color = GOLD): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax meet" style="display:block;width:100%;height:auto;"><g fill="none" stroke="${color}" stroke-width="${STROKE}" stroke-linejoin="miter" stroke-linecap="butt">${PATHS}</g></svg>`;
 }
 
 /** نسبة الارتفاع إلى العرض — لحساب الهامش السفلي للصفحة. */

@@ -19,7 +19,7 @@ export default async function CompetitionsPage() {
           orderBy: { createdAt: "asc" },
           include: {
             student: { select: { name: true, studentNo: true, halqa: { select: { teacher: { select: { name: true } }, cohort: { select: { name: true } } } } } },
-            results: { orderBy: { createdAt: "asc" }, select: { won: true, opponentNo: true, createdAt: true } },
+            results: { orderBy: { createdAt: "asc" }, select: { won: true, opponentNo: true, opponents: true, createdAt: true } },
           },
         },
       },
@@ -43,6 +43,7 @@ export default async function CompetitionsPage() {
           name: c.name,
           cost: c.cost,
           levels: c.levels,
+          matchSize: c.matchSize,
           // التراجع متاح لآخر مباراة فقط، ومرة واحدة: آخر نتيجة أحدث من آخر تراجع
           canUndo: (() => {
             const lastAt = Math.max(0, ...c.entries.flatMap((e) => e.results.map((r) => r.createdAt.getTime())));

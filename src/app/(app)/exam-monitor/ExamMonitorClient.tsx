@@ -6,7 +6,7 @@ import { cardStyle, chipStyle, inputStyle } from "@/lib/ui";
 import { sunnahSlug, type SunnahSectionId } from "@/lib/sunnah";
 import { resultLabel, passFailLabel, examKindLabel, isSunnahType, TYPE_LABELS, type ExamTypeId } from "@/lib/exam";
 import { formatDateAr } from "@/lib/daily";
-import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
+import { awqafPassed, awqafResultLabel, certCycleLabel } from "@/lib/awqaf";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
 import Select from "@/components/Select";
 import { useCohortTeacherFilter } from "@/components/useCohortTeacherFilter";
@@ -45,6 +45,8 @@ type Row = ExistingExam & {
   certArrived: boolean;
   certArchived: boolean;
   certDelivered: boolean;
+  /** سبر الأوقاف الفعلي: ناجح / إعادة / لم يحضر */
+  awqafOutcome?: string | null;
 };
 type Block = {
   id: string;
@@ -235,16 +237,10 @@ export default function ExamMonitorClient({
             b.rows.map((r) => {
               const isAwqafActual = r.type === "AWQAF_ACTUAL";
               const examRow = r as Row & { type: ExamTypeId };
-              const passFail = isAwqafActual
-                ? awqafPassed(r.resultMark, r.nominationPresent ?? false) === null
-                  ? null
-                  : awqafPassed(r.resultMark, r.nominationPresent ?? false)
-                    ? "ناجح"
-                    : "إعادة"
-                : passFailLabel(examRow);
-              const resultText = isAwqafActual
-                ? r.resultMark != null ? `${r.resultMark} / 100` : "بانتظار العلامة"
-                : resultLabel(examRow);
+              const awqaf = { score: r.resultMark, nominationPresent: r.nominationPresent ?? false, outcome: r.awqafOutcome };
+              const awqafPass = isAwqafActual ? awqafPassed(awqaf) : null;
+              const passFail = isAwqafActual ? (awqafPass === null ? null : awqafPass ? "ناجح" : "إعادة") : passFailLabel(examRow);
+              const resultText = isAwqafActual ? awqafResultLabel(awqaf) : resultLabel(examRow);
               return (
               <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 5, padding: "11px 16px", borderTop: "1px solid var(--line-2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -279,7 +275,7 @@ export default function ExamMonitorClient({
                   )}
                   {isSunnahType(r.type) && canEdit && (
                     <Link
-                      href={r.type === "SUNNAH_AWQAF" ? "/exams/awqaf-batches" : `/exams/sunnah/${sunnahSlug((r.sunnahSection ?? "HADITH") as SunnahSectionId)}`}
+                      href={r.type === "SUNNAH_AWQAF" ? "/exams/awqaf-batches?tab=awqaf" : `/exams/sunnah/${sunnahSlug((r.sunnahSection ?? "HADITH") as SunnahSectionId)}`}
                       style={{ marginInlineStart: "auto", padding: "6px 13px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, textDecoration: "none" }}
                     >
                       {r.type === "SUNNAH_AWQAF" ? "فتح سبر الأوقاف" : "فتح شاشة المنهج"}

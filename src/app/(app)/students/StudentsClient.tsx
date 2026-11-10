@@ -541,20 +541,20 @@ function StudentForm({
           <ReadOnly label="رقم الطالب" value={initial ? initial.no : "يُحدَّد تلقائيًا عند الحفظ"} />
           <ReadOnly label="تاريخ التسجيل" value={initial ? initial.registeredAt : todayLabel} />
           <Field label="اسم الطالب" name="name" defaultValue={initial?.name} required />
-          <Field label="النسبة" name="familyName" defaultValue={initial?.familyName} required />
-          <Field label="اسم الوالد" name="father" defaultValue={initial?.father} required />
-          <Field label="اسم الوالدة" name="mother" defaultValue={initial?.mother} required />
-          <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} required />
-          <Field label="مكان الولادة" name="birthPlace" defaultValue={initial?.birthPlace || "حلب"} required />
-          <Field label="عنوان السكن" name="address" defaultValue={initial?.address} required />
+          <Field label="النسبة" name="familyName" defaultValue={initial?.familyName} required={active} />
+          <Field label="اسم الوالد" name="father" defaultValue={initial?.father} required={active} />
+          <Field label="اسم الوالدة" name="mother" defaultValue={initial?.mother} required={active} />
+          <Field label="المواليد" name="birth" type="date" defaultValue={initial?.birth} required={active} />
+          <Field label="مكان الولادة" name="birthPlace" defaultValue={initial?.birthPlace || "حلب"} required={active} />
+          <Field label="عنوان السكن" name="address" defaultValue={initial?.address} required={active} />
           {/* اليتيم: عمل الوالد «متوفى» تلقائيًا */}
           {isOrphan ? (
             <ReadOnly label="عمل الوالد الحالي" value="متوفى" />
           ) : (
-            <Field label="عمل الوالد الحالي" name="job" defaultValue={initial?.job === "متوفى" ? "" : initial?.job} required />
+            <Field label="عمل الوالد الحالي" name="job" defaultValue={initial?.job === "متوفى" ? "" : initial?.job} required={active} />
           )}
           <PhoneField label="رقم هاتف الطالب" name="phone" defaultValue={initial?.phone} />
-          <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required />
+          <PhoneField label="رقم ولي الأمر" name="guardianPhone" defaultValue={initial?.guardianPhone} required={active} />
           {/* رقم ولي الأمر 2: اختياري وبلا شروط صيغة */}
           <div>
             <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>رقم ولي الأمر 2</label>

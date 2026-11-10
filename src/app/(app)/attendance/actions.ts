@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { dayLockReason, isValidDate, ATT_STATES, formatDateAr } from "@/lib/daily";
 import { revalidatePath } from "next/cache";
+import { invalidateNotifications } from "@/lib/notifications";
 import type { AttendanceStatus } from "@prisma/client";
 
 export type FormState = { error?: string; ok?: boolean; missing?: number };
@@ -85,6 +86,7 @@ export async function uploadAttendance(_prev: FormState, formData: FormData): Pr
       : `رفع حضور ${halaqat.length > 1 ? "الحلقات" : "حلقة"} ${names} ليوم ${formatDateAr(date)}`
   );
 
+  invalidateNotifications();
   revalidatePath("/attendance");
   revalidatePath("/monitor");
   return { ok: true };

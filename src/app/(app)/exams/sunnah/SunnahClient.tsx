@@ -141,22 +141,25 @@ export default function SunnahClient({
   // عدّاد الحديث الشريف قبل اختيار الطالب: أحاديث اليوم (بلا «إعادة») وسبور اليوم المحلية —
   // للمختبِر ما سجّله وحده، وللإدارة إجمالي كل المختبِرين
   const mine = (examinerId: string) => !canLocal || isDirector || examinerId === currentUserId;
-  const todayHadiths = recitations
-    .filter((r) => r.date === todayStr && r.grade !== "إعادة" && mine(r.examinerId))
-    .reduce((n, r) => n + r.toNo - r.fromNo + 1, 0);
-  const todayExams = exams.filter((e) => e.date === todayStr && e.type !== "SUNNAH_AWQAF" && mine(e.examinerId)).length;
+  const todayRecs = recitations.filter((r) => r.date === todayStr && mine(r.examinerId));
+  const hadiths = (rs: typeof todayRecs) => rs.reduce((n, r) => n + r.toNo - r.fromNo + 1, 0);
+  const todayExams = exams.filter((e) => e.date === todayStr && e.type !== "SUNNAH_AWQAF" && mine(e.examinerId));
+  const examOk = (e: SunnahExamRow) => (graded(e) ? stageOk(e) : passed(e));
+  const counters = [
+    { label: "أحاديث اليوم — ناجح", value: hadiths(todayRecs.filter((r) => r.grade !== "إعادة")), color: "var(--ok)" },
+    { label: "أحاديث اليوم — إعادة", value: hadiths(todayRecs.filter((r) => r.grade === "إعادة")), color: "var(--bad)" },
+    { label: "سبر اليوم — ناجح", value: todayExams.filter(examOk).length, color: "var(--ok)" },
+    { label: "سبر اليوم — إعادة", value: todayExams.filter((e) => !examOk(e)).length, color: "var(--bad)" },
+  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {section === "HADITH" && !student && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          {[
-            { label: "إجمالي أحاديث اليوم", value: todayHadiths },
-            { label: "إجمالي السبر اليوم", value: todayExams },
-          ].map((c) => (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
+          {counters.map((c) => (
             <div key={c.label} style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>{c.label}</div>
-              <div style={{ fontSize: 30, fontWeight: 800, color: "var(--gold)" }}>{c.value}</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: c.color }}>{c.value}</div>
             </div>
           ))}
         </div>

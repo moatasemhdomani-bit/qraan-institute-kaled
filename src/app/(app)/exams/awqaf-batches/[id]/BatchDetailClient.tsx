@@ -1,16 +1,19 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useRef, useState } from "react";
 import { cardStyle, softButtonStyle } from "@/lib/ui";
 import NumberField from "@/components/NumberField";
 import DeleteExamButton from "../../DeleteExamButton";
-import { awqafPassed, certStepLocked, type CertStep } from "@/lib/awqaf";
+import { awqafPassed, awqafPassMark, certStepLocked, type CertStep } from "@/lib/awqaf";
 import { saveAwqafScore, setCertStep, bulkSetCertStep, archiveBatchCerts, type FormState } from "../actions";
 
 type Result = {
   id: string;
   student: { id: string; no: number; name: string };
   score: number | null;
+  /** ناجح / إعادة / لم يحضر — null بانتظار النتيجة */
+  outcome: "PASS" | "REPEAT" | "ABSENT" | null;
+  sunnahSection: string | null;
   nominationPresent: boolean;
   sunnahLabel: string | null;
   certArrived: boolean;
@@ -22,7 +25,7 @@ type Result = {
 const STEP_TITLES: Record<CertStep, string> = { arrived: "وصول الشهادة", archived: "أرشفة الشهادة", delivered: "تسليم الشهادة" };
 
 export default function BatchDetailClient({ batchId, batchFileUrl, results }: { batchId: string; batchFileUrl: string | null; results: Result[] }) {
-  const passedResults = results.filter((r) => awqafPassed(r.score, r.nominationPresent) === true);
+  const passedResults = results.filter((r) => awqafPassed(r) === true);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -98,8 +101,7 @@ function BulkButton({ batchId, step, label, disabledHint }: { batchId: string; s
 }
 
 function ResultRow({ result }: { result: Result }) {
-  const passed = awqafPassed(result.score, result.nominationPresent);
-  const [scoreState, scoreAction, scorePending] = useActionState<FormState, FormData>(saveAwqafScore, {});
+  const passed = awqafPassed(result);
 
   return (
     <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
@@ -127,24 +129,7 @@ function ResultRow({ result }: { result: Result }) {
         )}
       </div>
 
-      <form action={scoreAction} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <input type="hidden" name="id" value={result.id} />
-        <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>العلامة</span>
-        <NumberField
-          half
-          name="score"
-          defaultValue={result.score != null ? String(result.score) : ""}
-          style={{ width: 90, minHeight: 36 }}
-        />
-        <span style={{ fontSize: 12, color: "var(--ink-3)" }}>/ 100</span>
-        <button type="submit" disabled={scorePending} style={{ ...softButtonStyle, padding: "6px 13px" }}>
-          حفظ
-        </button>
-        {scoreState.error && <span style={{ fontSize: 11.5, color: "var(--bad)" }}>{scoreState.error}</span>}
-        <span style={{ marginInlineStart: "auto" }}>
-          <DeleteExamButton awqafResultId={result.id} />
-        </span>
-      </form>
+      <OutcomeForm result={result} />
 
       {passed === false && (
         <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>إعادة — لا دورة شهادة له في هذه الدفعة.</div>
@@ -250,6 +235,77 @@ function ToggleOffButton({ step, resultId }: { step: CertStep; resultId: string 
       <button type="submit" disabled={pending} style={{ ...softButtonStyle, background: "transparent", fontSize: 11 }}>
         إلغاء
       </button>
+    </form>
+  );
+}
+
+const OUTCOMES = [
+  { id: "PASS", label: "ناجح", color: "var(--ok)" },
+  { id: "REPEAT", label: "إعادة", color: "var(--bad)" },
+  { id: "ABSENT", label: "لم يحضر", color: "var(--ink-2)" },
+] as const;
+
+/** نتيجة الطالب: ناجح (يفتح حقل العلامة ضمن حدود النجاح) أو إعادة أو لم يحضر — تُحفظ الأخيرتان فورًا */
+function OutcomeForm({ result }: { result: Result }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(saveAwqafScore, {});
+  const [pick, setPick] = useState<"PASS" | "REPEAT" | "ABSENT" | null>(result.outcome ?? (result.score != null ? (awqafPassed(result) ? "PASS" : "REPEAT") : null));
+  const formRef = useRef<HTMLFormElement>(null);
+  const outcomeRef = useRef<HTMLInputElement>(null);
+  const min = awqafPassMark(result);
+
+  const choose = (id: "PASS" | "REPEAT" | "ABSENT") => {
+    setPick(id);
+    // إعادة ولم يحضر بلا علامة — تُحفظان مباشرة
+    if (id !== "PASS" && outcomeRef.current) {
+      outcomeRef.current.value = id;
+      formRef.current?.requestSubmit();
+    }
+  };
+
+  return (
+    <form ref={formRef} action={action} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <input type="hidden" name="id" value={result.id} />
+      <input ref={outcomeRef} type="hidden" name="outcome" value={pick ?? ""} readOnly />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        {OUTCOMES.map((o) => {
+          const on = pick === o.id;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              disabled={pending}
+              onClick={() => choose(o.id)}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 10,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                border: `1px solid ${on ? o.color : "var(--line)"}`,
+                color: on ? o.color : "var(--ink-2)",
+                background: on ? `color-mix(in srgb, ${o.color} 14%, transparent)` : "transparent",
+              }}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+        <span style={{ marginInlineStart: "auto" }}>
+          <DeleteExamButton awqafResultId={result.id} />
+        </span>
+      </div>
+      {pick === "PASS" && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>العلامة</span>
+          <NumberField half name="score" defaultValue={result.score != null && result.outcome !== "REPEAT" ? String(result.score) : ""} style={{ width: 90, minHeight: 36 }} />
+          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>من {min} إلى 100</span>
+          <button type="submit" disabled={pending} style={{ ...softButtonStyle, padding: "6px 13px" }}>
+            حفظ
+          </button>
+        </div>
+      )}
+      {state.error && <span style={{ fontSize: 11.5, color: "var(--bad)" }}>{state.error}</span>}
     </form>
   );
 }

@@ -84,6 +84,7 @@ model User {
   awqafBatchesMade       AwqafBatch[]         @relation("AwqafBatchCreator")
   behaviorChangesMade    StudentBehaviorLog[] @relation("BehaviorActor")
   reportsIssued          IssuedReport[]       @relation("ReportIssuer")
+  certificatesIssued     IssuedCertificate[]  @relation("CertificateIssuer")
   starTxnsMade           StarTxn[]            @relation("StarTxnBy")
   /// مسؤول النشاط: رصيد نجوم النشاط — تشحنه الإدارة، ويُصرف منه شحنه للطلاب (ما يسحبه من الطلاب لا يعود إليه)
   activityStars          Int                  @default(0)
@@ -92,6 +93,8 @@ model User {
   sunnahStartsSet        SunnahStart[]        @relation("SunnahStartBy")
   competitionsMade       Competition[]        @relation("CompetitionCreator")
   competitionResults     CompetitionResult[]  @relation("CompetitionResultBy")
+  notifications          Notification[]
+  announcementsSent      Announcement[]       @relation("AnnouncementBy")
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
@@ -107,6 +110,10 @@ model Cohort {
 
   // القلّاب يتناوب أسبوعًا بأسبوع؛ هذا التاريخ يحدد أي أسبوع هو الأول
   rotationStart String?
+
+  // تذكير المدرّس «لم ترفع الحضور اليوم» — الساعة (HH:MM) لكل وقت دوام؛ فارغ = بلا تذكير
+  reminderTime1 String?
+  reminderTime2 String? // قلّاب فقط
 
   teachers    CohortTeacher[]
   halaqat     Halqa[]
@@ -221,6 +228,7 @@ model Student {
   behaviorLog        StudentBehaviorLog[]
   teacherNotes       TeacherMonthlyNote[]
   issuedReports      IssuedReport[]
+  certificates       IssuedCertificate[]
 
   updatedAt DateTime @updatedAt
 }
@@ -437,6 +445,12 @@ model AwqafBatch {
 }
 
 // نتيجة طالب واحد ضمن دفعة: علامته، ثم — إن نجح — دورة شهادته الثلاثية.
+enum AwqafOutcome {
+  PASS // ناجح
+  REPEAT // إعادة
+  ABSENT // لم يحضر
+}
+
 model AwqafResult {
   id        String     @id @default(cuid())
   batchId   String
@@ -444,7 +458,9 @@ model AwqafResult {
   studentId String
   student   Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  score Float? // علامة من 100 (تقبل نصف درجة) — تصل من جهة الأوقاف، تُدخلها الإدارة بعد الاختبار
+  score   Float? // علامة من 100 (تقبل نصف درجة) — تصل من جهة الأوقاف، تُدخلها الإدارة بعد الاختبار
+  /// النتيجة: ناجح (بعلامة ضمن حدود النجاح)، أو إعادة، أو لم يحضر (بلا علامة) — null = بانتظار النتيجة
+  outcome AwqafOutcome?
 
   // حاضرًا (تلاوة، حدّ النجاح 90) أو غيبًا (حفظ، حدّ النجاح 80) — لقطة من مسار ترشيحه وقت إضافته للدفعة
   nominationPresent Boolean
@@ -550,6 +566,31 @@ enum ReportKind {
   ORPHANS // الأيتام — قائمة أسماء الطلاب الأيتام
   RECITATION_LOG // سجل التسميع — أيام الدوام أعمدةً والطلاب سطورًا، لحلقة أو أكثر
   HADITH // تقرير الحديث الشريف — صف لكل مدرّس: طلابه المشاركون وغير المشاركين وسبرهم وأحاديثهم
+}
+
+// شهادات المعهد — تُصدر من «سبر الأوقاف والشهادات» ← «شهادات المعهد» لمن نجح في سبرها
+enum CertificateKind {
+  AMMA // شهادة حفظ جزء عمّ — النجاح في السبر المحلي «عمّ غيباً»
+  ARABIC // شهادة نجاح في القراءة العربية — النجاح في المرحلة 6
+}
+
+// شهادة واحدة لكل طالب من كل نوع، برقم متسلسل وتاريخ إصدار ثابتين. بياناتها تُقرأ حيّة عند كل تنزيل (تعديل الطالب يظهر فيها)؛
+// dataJson لقطة يوم الإصدار — تُستعمل فقط إن لم يعد الطالب مستحقًا.
+model IssuedCertificate {
+  id        String          @id @default(cuid())
+  number    Int             @unique @default(autoincrement())
+  kind      CertificateKind
+  studentId String
+  student   Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  examId    String? // السبر الذي بُنيت عليه (للمرجع فقط)
+  dataJson  String // { name, fatherName, birthPlace, birthYear, grade, examDate, issueDate }
+
+  issuedById String
+  issuedBy   User   @relation("CertificateIssuer", fields: [issuedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([kind, studentId])
 }
 
 // سجل التقارير الصادرة — لا يحمل ملف PDF مخزَّنًا؛ يُعاد توليد التقرير عند الطلب من هذه المعطيات نفسها.
@@ -660,6 +701,8 @@ model Competition {
   name        String
   cost        Int
   levels      Int
+  /// عدد الطلاب في المباراة (زوجي): نصفهم فائزون ونصفهم خاسرون — 2 = طالب ضد طالب
+  matchSize   Int                @default(2)
   /// وقت آخر تراجع عن مباراة — يُسمح بالتراجع عن مباراة واحدة فقط، ثم لا تراجع حتى تُسجَّل مباراة جديدة
   lastUndoAt  DateTime?
   createdById String
@@ -684,18 +727,54 @@ model CompetitionEntry {
 
 /// ربح أو خسارة في جولة — يسجّلها مسؤول النشاط مباراةً بين مشاركَين: نتيجتان بالمعرّف matchId نفسه
 model CompetitionResult {
-  id        String           @id @default(cuid())
-  entryId   String
-  entry     CompetitionEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  won       Boolean
+  id         String           @id @default(cuid())
+  entryId    String
+  entry      CompetitionEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  won        Boolean
   /// المباراة: نتيجة الفائز ونتيجة الخاسر — تُحذفان معًا عند التراجع
-  matchId   String
+  matchId    String
   /// رقم المنافس في المسابقة (كما في الورقة: «ف 4» = فاز على رقم 4)
   opponentNo Int?
-  byId      String
-  by        User             @relation("CompetitionResultBy", fields: [byId], references: [id])
-  createdAt DateTime         @default(now())
+  /// أرقام المنافسين في مباراة من أكثر من طالبين («4، 7»)
+  opponents  String?
+  byId       String
+  by         User             @relation("CompetitionResultBy", fields: [byId], references: [id])
+  createdAt  DateTime         @default(now())
 
   @@index([entryId])
   @@index([matchId])
+}
+
+// ==================== الإشعارات ====================
+
+/// إشعار لمستخدم واحد — key يمنع تكراره (تذكير الحضور لحلقة في يوم، أو غياب طالب في يوم، أو إعلان)
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  title     String
+  body      String?
+  href      String?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@unique([userId, key])
+  @@index([userId, createdAt])
+  @@index([key])
+}
+
+/// إعلان من الإدارة — يصل إشعارًا لكل مستخدم في جمهوره (الكل، أو دور، أو فوج)
+model Announcement {
+  id            String   @id @default(cuid())
+  title         String
+  body          String
+  /// "all" | "role:TEACHER" | "cohort:<id>"
+  audience      String
+  /// وصف الجمهور كما ظهر عند الإرسال
+  audienceLabel String
+  recipients    Int
+  byId          String
+  by            User     @relation("AnnouncementBy", fields: [byId], references: [id])
+  createdAt     DateTime @default(now())
 }

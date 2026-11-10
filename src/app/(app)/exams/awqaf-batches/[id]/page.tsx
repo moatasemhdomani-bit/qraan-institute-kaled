@@ -29,6 +29,8 @@ export default async function AwqafBatchDetailPage({ params }: { params: Promise
       id: r.id,
       student: { id: r.student.id, no: r.student.studentNo, name: r.student.name },
       score: r.score,
+      outcome: r.outcome,
+      sunnahSection: r.sunnahSection,
       nominationPresent: r.nominationPresent,
       // دفعة السنّة: المنهج والمستوى (حدّ النجاح 80)
       sunnahLabel: r.sunnahSection && r.sunnahLevel ? sunnahBranchLabel(r.sunnahSection, r.sunnahLevel, false) : null,
@@ -52,7 +54,7 @@ export default async function AwqafBatchDetailPage({ params }: { params: Promise
                 تنزيل Excel
               </a>
             )}
-            <Link href="/exams/awqaf-batches" style={{ ...softButtonStyle, textDecoration: "none", display: "inline-block" }}>
+            <Link href="/exams/awqaf-batches?tab=awqaf" style={{ ...softButtonStyle, textDecoration: "none", display: "inline-block" }}>
               ← كل الدفعات
             </Link>
           </div>

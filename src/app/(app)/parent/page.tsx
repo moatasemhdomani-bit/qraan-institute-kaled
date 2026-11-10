@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { formatDateAr } from "@/lib/daily";
 import { cardStyle } from "@/lib/ui";
 import { resultLabel, examKindLabel, TYPE_LABELS } from "@/lib/exam";
-import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
+import { awqafPassed, awqafResultLabel, certCycleLabel } from "@/lib/awqaf";
 import { buildStudentPreview } from "@/lib/reports";
 import PageHeader from "@/components/PageHeader";
 import StudentReportPreview from "../reports/student/StudentReportPreview";
@@ -32,7 +32,7 @@ export default async function ParentOverviewPage({ searchParams }: { searchParam
       certStatus: undefined as string | undefined,
     })),
     ...awqafResults.map((r) => {
-      const passed = awqafPassed(r.score, r.nominationPresent);
+      const passed = awqafPassed(r);
       return {
         type: [
           "سبر الأوقاف",
@@ -42,7 +42,7 @@ export default async function ParentOverviewPage({ searchParams }: { searchParam
             nominationParts: exams.find((e) => e.type === "WAQF_NOMINATION" && e.nominationPresent === r.nominationPresent && e.date <= r.batch.date)?.nominationParts ?? null,
           }),
         ].join(" — "),
-        result: r.score != null ? `${r.score} / 100${passed != null ? ` — ${passed ? "ناجح" : "إعادة"}` : ""}` : "بانتظار العلامة",
+        result: r.outcome === "PASS" || (r.outcome == null && r.score != null) ? `${r.score} / 100${passed != null ? ` — ${passed ? "ناجح" : "إعادة"}` : ""}` : awqafResultLabel(r),
         rawDate: r.batch.date,
         examinerName: "",
         notes: null as string | null,

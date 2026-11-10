@@ -14,6 +14,7 @@ export type CompResult = { error?: string; ok?: boolean };
 class CompError extends Error {}
 
 const MAX_LEVELS = 20;
+const MAX_MATCH = 20;
 
 async function officer() {
   const session = await getSession();
@@ -31,20 +32,23 @@ async function loadEntries(competitionId: string) {
   return prisma.competitionEntry.findMany({
     where: { competitionId },
     orderBy: { createdAt: "asc" },
-    include: { results: { orderBy: { createdAt: "asc" }, select: { won: true, opponentNo: true } } },
+    include: { results: { orderBy: { createdAt: "asc" }, select: { won: true, opponentNo: true, opponents: true } } },
   });
 }
 
-export async function createCompetition(input: { name: string; cost: number; levels: number }): Promise<CompResult> {
+export async function createCompetition(input: { name: string; cost: number; levels: number; matchSize: number }): Promise<CompResult> {
   const session = await officer();
   if (!session) return { error: "المسابقات من صلاحية مسؤول النشاط." };
   const name = input.name.trim();
   if (!name) return { error: "اكتبوا اسم المسابقة." };
   if (!Number.isInteger(input.cost) || input.cost < 0 || input.cost > STAR_MAX) return { error: "اكتبوا عدد النجوم للمشاركة (0 أو أكثر)." };
   if (!Number.isInteger(input.levels) || input.levels < 1 || input.levels > MAX_LEVELS) return { error: `عدد المستويات من 1 إلى ${MAX_LEVELS}.` };
+  if (!Number.isInteger(input.matchSize) || input.matchSize < 2 || input.matchSize > MAX_MATCH || input.matchSize % 2 !== 0) {
+    return { error: `عدد الطلاب في المباراة عدد زوجي من 2 إلى ${MAX_MATCH}.` };
+  }
 
-  await prisma.competition.create({ data: { name, cost: input.cost, levels: input.levels, createdById: session.userId } });
-  await logAction(session.userId, `أضاف المسابقة «${name}» (المشاركة ${input.cost} نجمة، ${input.levels} مستويات)`);
+  await prisma.competition.create({ data: { name, cost: input.cost, levels: input.levels, matchSize: input.matchSize, createdById: session.userId } });
+  await logAction(session.userId, `أضاف المسابقة «${name}» (المشاركة ${input.cost} نجمة، ${input.levels} مستويات، ${input.matchSize} طلاب في المباراة)`);
   done();
   return { ok: true };
 }
@@ -97,31 +101,39 @@ export async function joinCompetition(competitionId: string, studentId: string):
   return { ok: true };
 }
 
-/** مباراة بين مشاركَين برقميهما: ربح للفائز وخسارة للخاسر — كلاهما مستمر في المسابقة */
-export async function recordMatch(competitionId: string, winnerNo: number, loserNo: number): Promise<CompResult> {
+/**
+ * مباراة برقمي المشاركين كما في ورقة الدوري: نصف طلاب المباراة فائزون ونصفهم خاسرون (4 طلاب = فائزان وخاسران).
+ * لكل فائز «ف» بأرقام الخاسرين، ولكل خاسر «خ» بأرقام الفائزين — وكلهم مستمرون في المسابقة.
+ */
+export async function recordMatch(competitionId: string, winnerNos: number[], loserNos: number[]): Promise<CompResult> {
   const session = await officer();
   if (!session) return { error: "المسابقات من صلاحية مسؤول النشاط." };
-  if (!Number.isInteger(winnerNo) || !Number.isInteger(loserNo)) return { error: "اكتبوا رقمي الفائز والخاسر." };
-  if (winnerNo === loserNo) return { error: "الفائز والخاسر رقمان مختلفان." };
 
   const comp = await prisma.competition.findUnique({ where: { id: competitionId } });
   if (!comp) return { error: "المسابقة غير موجودة." };
+  const half = comp.matchSize / 2;
+  const all = [...winnerNos, ...loserNos];
+  if (winnerNos.length !== half || loserNos.length !== half || all.some((n) => !Number.isInteger(n))) {
+    return { error: `اكتبوا أرقام ${half === 1 ? "الفائز والخاسر" : `${half} فائزين و${half} خاسرين`}.` };
+  }
+  if (new Set(all).size !== all.length) return { error: "رقم مكرَّر في المباراة — لكل طالب رقم واحد." };
+
   const entries = await loadEntries(competitionId);
-  const winner = entries[winnerNo - 1];
-  const loser = entries[loserNo - 1];
-  if (!winner) return { error: `لا مشارك برقم ${winnerNo}.` };
-  if (!loser) return { error: `لا مشارك برقم ${loserNo}.` };
-  if (entryState(winner.results, comp.levels).status !== "ACTIVE") return { error: `المشارك رقم ${winnerNo} لم يعد في المسابقة.` };
-  if (entryState(loser.results, comp.levels).status !== "ACTIVE") return { error: `المشارك رقم ${loserNo} لم يعد في المسابقة.` };
+  for (const n of all) {
+    const entry = entries[n - 1];
+    if (!entry) return { error: `لا مشارك برقم ${n}.` };
+    if (entryState(entry.results, comp.levels).status !== "ACTIVE") return { error: `المشارك رقم ${n} لم يعد في المسابقة.` };
+  }
 
   const matchId = randomUUID();
+  const list = (nos: number[]) => (nos.length === 1 ? { opponentNo: nos[0], opponents: null } : { opponentNo: null, opponents: nos.join("، ") });
   await prisma.competitionResult.createMany({
     data: [
-      { entryId: winner.id, won: true, opponentNo: loserNo, matchId, byId: session.userId },
-      { entryId: loser.id, won: false, opponentNo: winnerNo, matchId, byId: session.userId },
+      ...winnerNos.map((n) => ({ entryId: entries[n - 1].id, won: true, ...list(loserNos), matchId, byId: session.userId })),
+      ...loserNos.map((n) => ({ entryId: entries[n - 1].id, won: false, ...list(winnerNos), matchId, byId: session.userId })),
     ],
   });
-  await logAction(session.userId, `مسابقة «${comp.name}»: فاز رقم ${winnerNo} على رقم ${loserNo}`);
+  await logAction(session.userId, `مسابقة «${comp.name}»: فاز ${winnerNos.join("، ")} على ${loserNos.join("، ")}`);
   done();
   return { ok: true };
 }

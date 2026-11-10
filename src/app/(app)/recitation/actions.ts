@@ -9,6 +9,7 @@ import { validatePastItems } from "@/lib/pastRecitation";
 import { recitationMode, hasPastRecitation } from "@/lib/track";
 import { passedArabicStage6 } from "@/lib/arabicProgress";
 import { revalidatePath } from "next/cache";
+import { invalidateNotifications } from "@/lib/notifications";
 
 const PAST_ORDER = ["JUZ", "HIZB1", "HIZB2"];
 
@@ -97,6 +98,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
       create: { ...surahData, studentId, date },
     });
     await logAction(session.userId, `${existingSurah ? "عدّل" : "سجّل"} تسميع ${await studentRef(studentId)} (حلقة ${halqa.name}) ليوم ${formatDateAr(date)}`);
+    invalidateNotifications();
     revalidatePath("/recitation");
     revalidatePath("/recitation-monitor");
     return { ok: true };
@@ -173,6 +175,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
       session.userId,
       `${prev ? "عدّل" : "سجّل"} ${input.part === "new" ? "التسميع الجديد" : "الماضي"} لـ ${await studentRef(studentId)} (حلقة ${halqa.name}) ليوم ${formatDateAr(date)}`
     );
+    invalidateNotifications();
     revalidatePath("/recitation");
     revalidatePath("/recitation-monitor");
     return { ok: true };
@@ -216,6 +219,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
     `${existing ? "عدّل" : "سجّل"} تسميع ${await studentRef(studentId)} (حلقة ${halqa.name}) ليوم ${formatDateAr(date)}`
   );
 
+  invalidateNotifications();
   revalidatePath("/recitation");
   revalidatePath("/recitation-monitor");
   return { ok: true };

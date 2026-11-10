@@ -300,8 +300,12 @@ export function arabicTeachersReportHtml(input: {
 export type TeachersReportRow = {
   teacherName: string;
   halqaNames: string;
-  newPages: number;
-  pastJuz: number;
+  newGhaib: number;
+  amma: boolean;
+  surahs: number;
+  newHadir: number;
+  pastGhaib: number;
+  pastHadir: number;
   locPass: number; locFail: number;
   pastPass: number; pastFail: number;
   nomPass: number; nomFail: number;
@@ -317,7 +321,7 @@ export function teachersReportHtml(input: {
   const table = `
     <table>
       <thead><tr>
-        <th>المدرس</th><th>الحلقة</th><th>صفحات جديد لكل الطلاب</th><th>أجزاء ماضٍ لكل الطلاب</th>
+        <th>المدرس</th><th>الحلقة</th><th>صفحات جديد غيباً</th><th>صفحات جديد حاضراً</th><th>أجزاء ماضٍ غيباً</th><th>أجزاء ماضٍ حاضراً</th>
         <th>اختبارات محلية (ناجحة/إعادة)</th><th>سبر ماضٍ غيباً (ناجحة/إعادة)</th><th>ترشيح الأوقاف (ناجحة/إعادة)</th><th>سبر الأوقاف الفعلي (ناجحة/إعادة)</th>
         <th>عدد الطلاب</th><th>ملاحظات</th>
       </tr></thead>
@@ -327,8 +331,7 @@ export function teachersReportHtml(input: {
             (r) => `<tr>
               <td class="name">${escapeHtml(r.teacherName)}</td>
               <td>${escapeHtml(r.halqaNames)}</td>
-              <td>${r.newPages}</td>
-              <td>${formatJuz(r.pastJuz)}</td>
+              ${r.amma ? `<td>${r.surahs} سورة</td><td></td><td></td><td></td>` : `<td>${r.newGhaib}</td><td>${r.newHadir}</td><td>${formatJuz(r.pastGhaib)}</td><td>${formatJuz(r.pastHadir)}</td>`}
               <td><span class="pass">${r.locPass}</span> / <span class="fail">${r.locFail}</span></td>
               <td><span class="pass">${r.pastPass ?? 0}</span> / <span class="fail">${r.pastFail ?? 0}</span></td>
               <td><span class="pass">${r.nomPass}</span> / <span class="fail">${r.nomFail}</span></td>
@@ -481,6 +484,7 @@ export type AwqafMarksReportRow = {
   halqaName: string;
   cohortName: string;
   score: number | null;
+  outcomeLabel?: string | null;
   passed: boolean | null;
 };
 
@@ -505,7 +509,7 @@ export function awqafMarksReportHtml(input: {
               <td>${escapeHtml(r.teacherName)}</td>
               <td>${escapeHtml(r.halqaName)}</td>
               <td>${escapeHtml(r.cohortName)}</td>
-              <td>${r.score ?? "—"}</td>
+              <td>${r.score ?? r.outcomeLabel ?? "—"}</td>
               <td>${r.passed == null ? "—" : r.passed ? `<span class="pass">ناجح</span>` : `<span class="fail">إعادة</span>`}</td>
             </tr>`
           )

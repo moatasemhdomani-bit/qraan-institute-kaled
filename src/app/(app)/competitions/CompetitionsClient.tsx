@@ -20,7 +20,7 @@ type Entry = EntryState & {
   teacherName: string;
   attempt: number;
 };
-type Competition = { id: string; name: string; cost: number; levels: number; canUndo: boolean; entries: Entry[] };
+type Competition = { id: string; name: string; cost: number; levels: number; matchSize: number; canUndo: boolean; entries: Entry[] };
 type StudentRow = { id: string; name: string; no: number; stars: number; halqaName: string | null };
 
 const STATUS_COLORS = { ACTIVE: "var(--ink-2)", OUT: "var(--bad)", WON: "var(--ok)" } as const;
@@ -80,6 +80,7 @@ export default function CompetitionsClient({ competitions, students }: { competi
                 المشاركة: <StarBadge n={open.cost} />
               </span>
               <span>{open.levels} مستويات</span>
+              <span>{open.matchSize} طلاب في المباراة</span>
               <span>{open.entries.filter((e) => e.status === "ACTIVE").length} مستمر من {open.entries.length}</span>
             </div>
           </div>
@@ -88,7 +89,7 @@ export default function CompetitionsClient({ competitions, students }: { competi
           </button>
         </div>
         {noticeBox}
-        <MatchForm comp={open} pending={pending} onRecord={(w, l) => run(() => recordMatch(open.id, w, l), `سُجّلت المباراة: فاز رقم ${w} على رقم ${l}.`)} onUndo={() => run(() => undoLastMatch(open.id), "أُلغيت آخر مباراة.")} />
+        <MatchForm comp={open} pending={pending} onRecord={(w, l) => run(() => recordMatch(open.id, w, l), `سُجّلت المباراة: فاز ${w.join("، ")} على ${l.join("، ")}.`)} onUndo={() => run(() => undoLastMatch(open.id), "أُلغيت آخر مباراة.")} />
         <EntriesTable comp={open} />
         {adding && (
           <AddStudentDrawer
@@ -131,6 +132,7 @@ export default function CompetitionsClient({ competitions, students }: { competi
                   المشاركة: <StarBadge n={c.cost} />
                 </span>
                 <span>{c.levels} مستويات</span>
+                <span>{c.matchSize} في المباراة</span>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
                 {c.entries.length} مشاركة · {c.entries.filter((e) => e.status === "ACTIVE").length} مستمر
@@ -144,22 +146,24 @@ export default function CompetitionsClient({ competitions, students }: { competi
   );
 }
 
-function NewCompetitionDrawer({ pending, onSubmit, onClose }: { pending: boolean; onSubmit: (v: { name: string; cost: number; levels: number }) => void; onClose: () => void }) {
+function NewCompetitionDrawer({ pending, onSubmit, onClose }: { pending: boolean; onSubmit: (v: { name: string; cost: number; levels: number; matchSize: number }) => void; onClose: () => void }) {
   const [name, setName] = useState("");
   const [cost, setCost] = useState("");
   const [levels, setLevels] = useState("");
+  const [matchSize, setMatchSize] = useState("2");
+  const odd = matchSize !== "" && Number(matchSize) % 2 !== 0;
   const label = { display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 } as const;
   return (
     <Drawer
       open
       title="إضافة مسابقة"
-      subtitle="الاسم، ونجوم المشاركة تُسحب من رصيد الطالب عند ضمّه، وعدد المستويات"
+      subtitle="الاسم، ونجوم المشاركة تُسحب من رصيد الطالب عند ضمّه، وعدد المستويات، وعدد الطلاب في المباراة"
       onClose={onClose}
       footer={
         <button
           type="button"
           disabled={pending}
-          onClick={() => onSubmit({ name, cost: Number(cost), levels: Number(levels) })}
+          onClick={() => onSubmit({ name, cost: Number(cost), levels: Number(levels), matchSize: Number(matchSize) })}
           style={{ ...primaryButtonStyle, width: "100%", opacity: pending ? 0.7 : 1 }}
         >
           {pending ? "جارٍ الحفظ…" : "حفظ المسابقة"}
@@ -178,6 +182,13 @@ function NewCompetitionDrawer({ pending, onSubmit, onClose }: { pending: boolean
         <div>
           <label style={label}>عدد المستويات</label>
           <NumberField value={levels} onChange={(e) => setLevels(e.target.value)} />
+        </div>
+        <div>
+          <label style={label}>عدد الطلاب في المباراة</label>
+          <NumberField value={matchSize} onChange={(e) => setMatchSize(e.target.value)} />
+          <div style={{ fontSize: 12, color: odd ? "var(--bad)" : "var(--ink-3)", marginTop: 5 }}>
+            {odd ? "يقبل الأعداد الزوجية فقط." : "عدد زوجي: نصفهم فائزون ونصفهم خاسرون — 4 = فائزان وخاسران."}
+          </div>
         </div>
       </div>
     </Drawer>
@@ -250,45 +261,112 @@ function AddStudentDrawer({ comp, students, pending, onPick, onClose }: { comp: 
   );
 }
 
-/** تسجيل مباراة برقمي الفائز والخاسر كما في ورقة الدوري */
-function MatchForm({ comp, pending, onRecord, onUndo }: { comp: Competition; pending: boolean; onRecord: (winner: number, loser: number) => void; onUndo: () => void }) {
-  const [winner, setWinner] = useState("");
-  const [loser, setLoser] = useState("");
-  const nameOf = (v: string) => comp.entries.find((e) => e.no === Number(v))?.name;
+/** تسجيل مباراة باختيار المشاركين بأسمائهم (ويُحفظ رقم كل منهم كما في ورقة الدوري): نصف طلاب المباراة فائزون ونصفهم خاسرون */
+function MatchForm({ comp, pending, onRecord, onUndo }: { comp: Competition; pending: boolean; onRecord: (winners: number[], losers: number[]) => void; onUndo: () => void }) {
+  const half = comp.matchSize / 2;
+  const empty = () => Array.from({ length: half }, () => "");
+  const [winners, setWinners] = useState<string[]>(empty);
+  const [losers, setLosers] = useState<string[]>(empty);
+  const ready = [...winners, ...losers].every((v) => v !== "");
+  // المستمرّون وحدهم يدخلون مباراة، ولا يُختار الطالب مرتين في المباراة نفسها
+  const taken = new Set([...winners, ...losers].filter(Boolean));
+  const field = (list: string[], set: (v: string[]) => void, i: number) => (
+    <ParticipantPicker
+      key={i}
+      entries={comp.entries.filter((e) => e.status === "ACTIVE" && (!taken.has(String(e.no)) || String(e.no) === list[i]))}
+      value={list[i]}
+      onChange={(v) => set(list.map((x, j) => (j === i ? v : x)))}
+    />
+  );
+  const group = (title: string, color: string, list: string[], set: (v: string[]) => void) => (
+    <div>
+      <div style={{ fontSize: 12.5, color, marginBottom: 6, fontWeight: 600 }}>{title}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{list.map((_, i) => field(list, set, i))}</div>
+    </div>
+  );
   return (
     <div style={{ ...cardStyle, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ fontSize: 14, fontWeight: 700 }}>تسجيل مباراة</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, alignItems: "end" }}>
-        <div>
-          <label style={{ display: "block", fontSize: 12.5, color: "var(--ok)", marginBottom: 6, fontWeight: 600 }}>رقم الفائز</label>
-          <NumberField value={winner} onChange={(e) => setWinner(e.target.value)} />
-          <div style={{ fontSize: 12, color: "var(--ink-3)", minHeight: 18, marginTop: 3 }}>{nameOf(winner) ?? ""}</div>
-        </div>
-        <div>
-          <label style={{ display: "block", fontSize: 12.5, color: "var(--bad)", marginBottom: 6, fontWeight: 600 }}>رقم الخاسر</label>
-          <NumberField value={loser} onChange={(e) => setLoser(e.target.value)} />
-          <div style={{ fontSize: 12, color: "var(--ink-3)", minHeight: 18, marginTop: 3 }}>{nameOf(loser) ?? ""}</div>
-        </div>
-        <div style={{ display: "flex", gap: 8, paddingBottom: 21 }}>
-          <button
-            type="button"
-            disabled={pending || !winner || !loser}
-            onClick={() => {
-              onRecord(Number(winner), Number(loser));
-              setWinner("");
-              setLoser("");
-            }}
-            style={{ ...primaryButtonStyle, flex: 1, opacity: pending || !winner || !loser ? 0.6 : 1 }}
-          >
-            تسجيل
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
+        {group(half === 1 ? "الفائز" : `الفائزون (${half})`, "var(--ok)", winners, setWinners)}
+        {group(half === 1 ? "الخاسر" : `الخاسرون (${half})`, "var(--bad)", losers, setLosers)}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          disabled={pending || !ready}
+          onClick={() => {
+            onRecord(winners.map(Number), losers.map(Number));
+            setWinners(empty());
+            setLosers(empty());
+          }}
+          style={{ ...primaryButtonStyle, opacity: pending || !ready ? 0.6 : 1 }}
+        >
+          تسجيل
+        </button>
+        {comp.canUndo && (
+          <button type="button" disabled={pending} onClick={onUndo} style={{ ...softButtonStyle, padding: "8px 12px", fontSize: 12.5 }}>
+            تراجع عن آخر مباراة
           </button>
-          {comp.canUndo && (
-            <button type="button" disabled={pending} onClick={onUndo} style={{ ...softButtonStyle, padding: "8px 12px", fontSize: 12.5 }}>
-              تراجع عن آخر مباراة
-            </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** اختيار مشارك بكتابة اسمه أو رقمه: تظهر المطابقة من المستمرّين في المسابقة ويُختار واحد منهم */
+function ParticipantPicker({ entries, value, onChange }: { entries: Entry[]; value: string; onChange: (v: string) => void }) {
+  const [q, setQ] = useState("");
+  const [focus, setFocus] = useState(false);
+  const picked = entries.find((e) => String(e.no) === value);
+  const query = toWesternDigits(q.trim());
+  const matches = query ? entries.filter((e) => textHas(e.name, query) || String(e.no) === query || String(e.studentNo) === query).slice(0, 8) : [];
+
+  if (picked) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
+        <span style={{ fontWeight: 800, minWidth: 22 }}>{picked.no}</span>
+        <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600 }}>{picked.name}</span>
+        <button type="button" onClick={() => onChange("")} aria-label="إلغاء الاختيار" style={{ border: 0, background: "transparent", color: "var(--ink-2)", cursor: "pointer", fontSize: 16 }}>
+          ×
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onFocus={() => setFocus(true)}
+        onBlur={() => setTimeout(() => setFocus(false), 150)}
+        placeholder="اكتبوا اسم الطالب أو رقمه"
+        style={inputStyle()}
+      />
+      {focus && query && (
+        <div style={{ position: "absolute", top: "100%", insetInlineStart: 0, insetInlineEnd: 0, marginTop: 4, zIndex: 30, borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-grad), var(--panel-solid)", boxShadow: "var(--glow)", overflow: "hidden" }}>
+          {matches.length === 0 ? (
+            <div style={{ padding: "10px 12px", fontSize: 12.5, color: "var(--ink-3)" }}>لا مشارك مستمرّ بهذا الاسم.</div>
+          ) : (
+            matches.map((e) => (
+              <button
+                key={e.no}
+                type="button"
+                onMouseDown={(ev) => ev.preventDefault()}
+                onClick={() => {
+                  onChange(String(e.no));
+                  setQ("");
+                }}
+                style={{ display: "flex", gap: 10, alignItems: "center", width: "100%", padding: "9px 12px", border: 0, borderTop: "1px solid var(--line-2)", background: "transparent", color: "var(--ink)", textAlign: "start", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                <span style={{ fontWeight: 800, minWidth: 22 }}>{e.no}</span>
+                <span style={{ flex: 1, fontSize: 13.5 }}>{e.name}</span>
+                <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>المستوى {e.level}</span>
+              </button>
+            ))
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -341,7 +419,7 @@ function EntriesTable({ comp }: { comp: Competition }) {
                           border: `1px solid color-mix(in srgb, ${c.won ? "var(--ok)" : "var(--bad)"} 45%, transparent)`,
                         }}
                       >
-                        {c.won ? "ف" : "خ"} {c.opponentNo ?? ""}
+                        {c.won ? "ف" : "خ"} {c.opponents ?? c.opponentNo ?? ""}
                       </span>
                       {c.qualified && <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--gold)" }}>تأهل</span>}
                     </span>

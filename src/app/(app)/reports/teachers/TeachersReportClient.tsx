@@ -110,13 +110,15 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
           {state.ok && state.reportId && <IssuedNotice reportId={state.reportId} name={name} duplicate={state.duplicate} />}
 
           <div style={{ ...cardStyle, overflow: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 900 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 1050 }}>
               <thead>
                 <tr style={{ background: "var(--head-grad)", color: "var(--ink-2)" }}>
                   <th style={{ padding: 8, textAlign: "start" }}>المدرس</th>
                   <th style={{ padding: 8 }}>الحلقة</th>
-                  <th style={{ padding: 8 }}>صفحات جديد لكل الطلاب</th>
-                  <th style={{ padding: 8 }}>أجزاء ماضٍ لكل الطلاب</th>
+                  <th style={{ padding: 8 }}>صفحات جديد غيباً</th>
+                  <th style={{ padding: 8 }}>صفحات جديد حاضراً</th>
+                  <th style={{ padding: 8 }}>أجزاء ماضٍ غيباً</th>
+                  <th style={{ padding: 8 }}>أجزاء ماضٍ حاضراً</th>
                   <th style={{ padding: 8 }}>اختبارات محلية</th>
                   <th style={{ padding: 8 }}>سبر ماضٍ غيباً</th>
                   <th style={{ padding: 8 }}>ترشيح الأوقاف</th>
@@ -130,8 +132,11 @@ export default function TeachersReportClient({ initial }: { initial: ReviewInput
                   <tr key={r.teacherId} style={{ borderTop: "1px solid var(--line-2)" }}>
                     <td style={{ padding: 8, fontWeight: 600 }}>{r.teacherName}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{r.halqaNames}</td>
-                    <td style={{ padding: 8, textAlign: "center" }}>{r.newPages}</td>
-                    <td style={{ padding: 8, textAlign: "center" }}>{formatJuz(r.pastJuz)}</td>
+                    {/* مدرّس عمَّ غيباً: السور المسمَّعة، وبقية الخانات فارغة */}
+                    <td style={{ padding: 8, textAlign: "center" }}>{r.amma ? `${r.surahs} سورة` : r.newGhaib}</td>
+                    <td style={{ padding: 8, textAlign: "center" }}>{r.amma ? "" : r.newHadir}</td>
+                    <td style={{ padding: 8, textAlign: "center" }}>{r.amma ? "" : formatJuz(r.pastGhaib)}</td>
+                    <td style={{ padding: 8, textAlign: "center" }}>{r.amma ? "" : formatJuz(r.pastHadir)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.locPass, r.locFail)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.pastPass, r.pastFail)}</td>
                     <td style={{ padding: 8, textAlign: "center" }}>{passFailCell(r.nomPass, r.nomFail)}</td>

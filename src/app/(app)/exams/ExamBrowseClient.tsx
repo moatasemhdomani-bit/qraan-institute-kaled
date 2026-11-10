@@ -14,7 +14,7 @@ type Halqa = { id: string; name: string; teacherName: string; cohortName: string
 /** type: نوع السبر حين يعرض السجلُّ أنواعًا عدة (سجل الطالب في منهج القرآن) */
 type ExamRow = ExistingExam & { examinerId: string; examinerName: string; type?: ExamTypeId };
 
-type AwqafRow = { batchDate: string; score: number | null; passed: boolean | null; certLabel: string };
+type AwqafRow = { batchDate: string; score: number | null; resultLabel?: string; passed: boolean | null; certLabel: string };
 
 export default function ExamBrowseClient({
   type,
@@ -204,7 +204,7 @@ export default function ExamBrowseClient({
               {awqafByStudent![fileStudent.id].map((a, i) => (
                 <div key={i} style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 4 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 13.5, fontWeight: 700 }}>{a.score != null ? `${a.score} / 100` : "بانتظار العلامة"}</span>
+                    <span style={{ fontSize: 13.5, fontWeight: 700 }}>{a.resultLabel ?? (a.score != null ? `${a.score} / 100` : "بانتظار العلامة")}</span>
                     {a.passed != null && (
                       <span style={{ fontSize: 11, fontWeight: 700, color: a.passed ? "var(--ok)" : "var(--bad)" }}>{a.passed ? "ناجح" : "إعادة"}</span>
                     )}

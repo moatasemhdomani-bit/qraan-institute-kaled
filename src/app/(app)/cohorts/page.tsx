@@ -23,6 +23,8 @@ export default async function CohortsPage() {
     time2Start: c.time2Start || "",
     time2End: c.time2End || "",
     rotationStart: c.rotationStart || "",
+    reminderTime1: c.reminderTime1 || "",
+    reminderTime2: c.reminderTime2 || "",
     halaqatCount: c._count.halaqat,
     teachers: c.teachers.map((t) => ({ id: t.userId, name: t.user.name })),
   }));

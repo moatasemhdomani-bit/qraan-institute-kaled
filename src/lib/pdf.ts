@@ -29,6 +29,20 @@ function launchOptions(): LaunchOptions & { executablePath: string; args: string
   return { executablePath: local, headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] };
 }
 
+/** PDF بمقاس الصفحة المعرَّف في الـ CSS (@page)، بلا هوامش ولا تذييل التقارير — للشهادات. */
+export async function renderPagePdf(html: string): Promise<Buffer> {
+  const browser = await puppeteer.launch(launchOptions());
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "load" });
+    await page.evaluate(() => document.fonts.ready);
+    const buf = await page.pdf({ preferCSSPageSize: true, printBackground: true, margin: { top: 0, bottom: 0, left: 0, right: 0 } });
+    return Buffer.from(buf);
+  } finally {
+    await browser.close();
+  }
+}
+
 /** يحوّل صفحة HTML كاملة (مستقلة، بلا حاجة لجلسة أو كوكيز) إلى ملف PDF عبر متصفح خفي. */
 export async function renderPdf(html: string, landscape = false): Promise<Buffer> {
   const browser = await puppeteer.launch(launchOptions());

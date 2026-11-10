@@ -17,6 +17,8 @@ type Cohort = {
   time2Start: string;
   time2End: string;
   rotationStart: string;
+  reminderTime1: string;
+  reminderTime2: string;
   halaqatCount: number;
   teachers: { id: string; name: string }[];
 };
@@ -168,6 +170,24 @@ function CohortCard({ cohort, allTeachers }: { cohort: Cohort; allTeachers: { id
             <DateField name="rotationStart" defaultValue={cohort.rotationStart} />
           </div>
         )}
+
+        <div>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 5 }}>
+            ساعة تذكير المدرّس إن لم يرفع الحضور أو التسميع — وفيها تظهر للإدارة الحلقات التي لم ترفع (فارغة = بلا تذكير)
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {cohort.isRotating && <span style={{ width: 70, flex: "none", color: "var(--ink-2)", fontSize: 12 }}>الوقت الأول</span>}
+              <TimeField name="reminderTime1" defaultValue={cohort.reminderTime1} />
+            </div>
+            {cohort.isRotating && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 70, flex: "none", color: "var(--ink-2)", fontSize: 12 }}>الوقت الثاني</span>
+                <TimeField name="reminderTime2" defaultValue={cohort.reminderTime2} />
+              </div>
+            )}
+          </div>
+        </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button

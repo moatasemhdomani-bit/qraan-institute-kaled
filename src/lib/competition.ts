@@ -11,12 +11,12 @@ export const MAX_ATTEMPTS = 2;
 export type EntryStatus = "ACTIVE" | "OUT" | "WON";
 
 /** خانة في سطر الطالب كما في ورقة الدوري: «ف 4» / «خ 12»، و«تأهل» بعد الانتقال إلى مستوى */
-export type ResultCell = { won: boolean; opponentNo: number | null; qualified: boolean };
+export type ResultCell = { won: boolean; opponentNo: number | null; opponents?: string | null; qualified: boolean };
 
 export type EntryState = { level: number; wins: number; losses: number; status: EntryStatus; cells: ResultCell[] };
 
 /** مستوى المشارك وحالته من نتائجه بالترتيب */
-export function entryState(results: { won: boolean; opponentNo: number | null }[], levels: number): EntryState {
+export function entryState(results: { won: boolean; opponentNo: number | null; opponents?: string | null }[], levels: number): EntryState {
   let level = 1;
   let wins = 0;
   let losses = 0;
@@ -40,7 +40,7 @@ export function entryState(results: { won: boolean; opponentNo: number | null }[
       losses++;
       if (losses >= LOSSES_TO_EXIT) status = "OUT";
     }
-    cells.push({ won: r.won, opponentNo: r.opponentNo, qualified });
+    cells.push({ won: r.won, opponentNo: r.opponentNo, opponents: r.opponents ?? null, qualified });
   }
   return { level, wins, losses, status, cells };
 }

@@ -30,7 +30,7 @@ type SearchStudent = {
   id: string;
   no: number;
   name: string;
-  history: { batchDate: string; score: number | null; passed: boolean | null; certLabel: string }[];
+  history: { batchDate: string; score: number | null; resultLabel: string; passed: boolean | null; certLabel: string }[];
 };
 
 function batchBadge(b: Batch) {
@@ -178,7 +178,7 @@ export default function AwqafBatchesClient({
               {fileStudent.history.map((h, i) => (
                 <div key={i} style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 15, fontWeight: 700 }}>{h.score != null ? `${h.score} / 100` : "بانتظار العلامة"}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>{h.resultLabel}</span>
                     {h.passed != null && (
                       <span
                         style={{

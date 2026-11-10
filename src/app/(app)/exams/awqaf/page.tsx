@@ -6,7 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import ExamBrowseClient from "../ExamBrowseClient";
 import { passFailLabel } from "@/lib/exam";
 import { formatDateAr } from "@/lib/daily";
-import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
+import { awqafPassed, awqafResultLabel, certCycleLabel } from "@/lib/awqaf";
 
 export default async function AwqafExamPage({ searchParams }: { searchParams: Promise<{ halqa?: string }> }) {
   const session = await getSession();
@@ -30,12 +30,13 @@ export default async function AwqafExamPage({ searchParams }: { searchParams: Pr
     prisma.awqafResult.findMany({ where: { sunnahSection: null }, include: { batch: { select: { date: true } } }, orderBy: { createdAt: "desc" } }),
   ]);
 
-  const awqafByStudent: Record<string, { batchDate: string; score: number | null; passed: boolean | null; certLabel: string }[]> = {};
+  const awqafByStudent: Record<string, { batchDate: string; score: number | null; resultLabel: string; passed: boolean | null; certLabel: string }[]> = {};
   for (const r of awqafResultsRaw) {
     (awqafByStudent[r.studentId] ??= []).push({
       batchDate: formatDateAr(r.batch.date),
       score: r.score,
-      passed: awqafPassed(r.score, r.nominationPresent),
+      resultLabel: awqafResultLabel(r),
+      passed: awqafPassed(r),
       certLabel: certCycleLabel(r),
     });
   }

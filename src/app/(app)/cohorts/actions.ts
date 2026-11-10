@@ -27,8 +27,11 @@ export async function updateCohortTiming(_prev: FormState, formData: FormData): 
   const time2Start = String(formData.get("time2Start") || "") || null;
   const time2End = String(formData.get("time2End") || "") || null;
   const rotationStart = String(formData.get("rotationStart") || "") || null;
+  // ساعة تذكير المدرّس بالحضور والتسميع (فارغة = بلا تذكير)
+  const reminderTime1 = String(formData.get("reminderTime1") || "") || null;
+  const reminderTime2 = String(formData.get("reminderTime2") || "") || null;
 
-  const cohort = await prisma.cohort.update({ where: { id }, data: { time1Start, time1End, time2Start, time2End, rotationStart } });
+  const cohort = await prisma.cohort.update({ where: { id }, data: { time1Start, time1End, time2Start, time2End, rotationStart, reminderTime1, reminderTime2 } });
   await logAction(session.userId, `عدّل توقيت الفوج «${cohort.name}»`);
   revalidatePath("/cohorts");
   return { ok: true };

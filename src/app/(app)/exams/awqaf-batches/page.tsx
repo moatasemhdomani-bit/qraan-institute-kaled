@@ -4,15 +4,64 @@ import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import { formatDateAr } from "@/lib/daily";
 import { passFailLabel } from "@/lib/exam";
-import { awqafPassed, certCycleLabel } from "@/lib/awqaf";
+import { awqafPassed, awqafResultLabel, awqafDecided, certCycleLabel } from "@/lib/awqaf";
 import AwqafBatchesClient from "./AwqafBatchesClient";
 import { sunnahAwqafCandidates } from "@/lib/sunnahServer";
 import { sunnahBranchLabel } from "@/lib/sunnah";
+import Link from "next/link";
+import { cardStyle, chipStyle } from "@/lib/ui";
+import { certificateCandidates } from "@/lib/certificateServer";
+import CertificatesClient from "./certificates/CertificatesClient";
 
-export default async function AwqafBatchesPage() {
+const TITLE = "سبر الأوقاف والشهادات";
+const TABS = [
+  { id: "awqaf", label: "الأوقاف", hint: "دفعات سبر الأوقاف للقرآن والسنّة النبوية، ودورة شهاداتها" },
+  { id: "certs", label: "شهادات المعهد", hint: "شهادة حفظ جزء عمّ، وشهادة النجاح في القراءة العربية — تُملأ من بيانات الطالب" },
+] as const;
+
+/** الشاشة تُفتح على زرّين: «الأوقاف» (كل ما كان في الشاشة) و«شهادات المعهد» — وبعد الدخول يبقى الزرّان أعلاها للتنقّل */
+export default async function AwqafBatchesPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.role !== "ADMIN" && session.role !== "DIRECTOR") redirect("/dashboard");
+
+  const { tab } = await searchParams;
+  if (tab !== "awqaf" && tab !== "certs") {
+    return (
+      <>
+        <PageHeader title={TITLE} subtitle="اختاروا القسم." />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
+          {TABS.map((t) => (
+            <Link key={t.id} href={`?tab=${t.id}`} style={{ ...cardStyle, padding: "22px 22px", textDecoration: "none", color: "var(--ink)" }}>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{t.label}</div>
+              <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 6 }}>{t.hint}</div>
+            </Link>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  const tabBar = (
+    <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      {TABS.map((t) => (
+        <Link key={t.id} href={`?tab=${t.id}`} style={{ ...chipStyle(tab === t.id), textDecoration: "none", fontSize: 13.5 }}>
+          {t.label}
+        </Link>
+      ))}
+    </div>
+  );
+
+  if (tab === "certs") {
+    const [amma, arabic] = await Promise.all([certificateCandidates("AMMA"), certificateCandidates("ARABIC")]);
+    return (
+      <>
+        <PageHeader title={TITLE} subtitle="شهادات المعهد: اختاروا نوع الشهادة ثم الطلاب — تُملأ تلقائيًا من بيانات الطالب ونتيجة سبره، وتُحفظ برقم متسلسل." />
+        {tabBar}
+        <CertificatesClient candidates={{ AMMA: amma, ARABIC: arabic }} />
+      </>
+    );
+  }
 
   const [batchesRaw, nominationExams, allStudents, priorResults] = await Promise.all([
     prisma.awqafBatch.findMany({
@@ -59,22 +108,22 @@ export default async function AwqafBatchesPage() {
     })
     .map(([studentId, e]) => {
       const student = studentById.get(studentId);
-      const priorFail = (priorByStudent.get(studentId) ?? []).find((r) => awqafPassed(r.score, r.nominationPresent) === false);
+      const priorFail = (priorByStudent.get(studentId) ?? []).find((r) => awqafPassed(r) === false);
       return {
         id: studentId,
         no: student?.studentNo ?? 0,
         name: student?.name ?? "",
         nominationDate: e.date,
         nominationPresent: e.nominationPresent ?? false,
-        priorFailNote: priorFail ? `رسب سابقًا في دفعة ${formatDateAr(priorFail.batch.date)} (علامة ${priorFail.score})` : null,
+        priorFailNote: priorFail ? `رسب سابقًا في دفعة ${formatDateAr(priorFail.batch.date)} (${awqafResultLabel(priorFail)})` : null,
       };
     })
     .filter((c) => c.name)
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
 
   const batches = batchesRaw.map((b) => {
-    const rows = b.results.map((r) => ({ ...r, passed: awqafPassed(r.score, r.nominationPresent) }));
-    const scoredCount = rows.filter((r) => r.score != null).length;
+    const rows = b.results.map((r) => ({ ...r, passed: awqafPassed(r) }));
+    const scoredCount = rows.filter((r) => awqafDecided(r)).length;
     const passedRows = rows.filter((r) => r.passed === true);
     const allScored = scoredCount === rows.length;
     return {
@@ -98,7 +147,8 @@ export default async function AwqafBatchesPage() {
     history: (priorByStudent.get(s.id) ?? []).map((r) => ({
       batchDate: formatDateAr(r.batch.date),
       score: r.score,
-      passed: awqafPassed(r.score, r.nominationPresent),
+      resultLabel: awqafResultLabel(r),
+      passed: awqafPassed(r),
       certLabel: certCycleLabel(r),
     })),
   }));
@@ -106,9 +156,10 @@ export default async function AwqafBatchesPage() {
   return (
     <>
       <PageHeader
-        title="سبر الأوقاف والشهادات"
+        title={TITLE}
         subtitle="الاختبار تُجريه جهة الأوقاف خارج النظام — هنا تُدار الدفعات ودورة الشهادة. حدّ النجاح: 90 حاضرًا (تلاوة) و80 غيبًا (حفظ)."
       />
+      {tabBar}
       <AwqafBatchesClient
         candidates={candidates}
         sunnahCandidates={(await sunnahAwqafCandidates()).map((c) => ({

@@ -145,7 +145,7 @@ export default function AwqafMarksClient({
                     <td style={td}>{r.teacherName}</td>
                     <td style={td}>{r.halqaName}</td>
                     <td style={td}>{r.cohortName}</td>
-                    <td style={{ ...td, fontWeight: 700 }}>{r.score ?? "—"}</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{r.score ?? r.outcomeLabel ?? "—"}</td>
                     <td style={{ ...td, fontWeight: 700, color: r.passed == null ? "var(--ink-3)" : r.passed ? "var(--ok)" : "var(--bad)" }}>
                       {r.passed == null ? "—" : r.passed ? "ناجح" : "إعادة"}
                     </td>

@@ -6,12 +6,12 @@ import { parseHalfMark, isHalfStep } from "@/lib/numbers";
 import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { isValidDate } from "@/lib/daily";
-import { awqafPassed, certStepLocked, type CertStep } from "@/lib/awqaf";
+import { awqafPassed, awqafPassMark, certStepLocked, type CertStep } from "@/lib/awqaf";
 import crypto from "crypto";
 import { uploadFile, mimeFromExt } from "@/lib/storage";
 import { promoteStudent } from "@/lib/promotion";
 import { sunnahAwqafCandidates } from "@/lib/sunnahServer";
-import { SUNNAH_PASS_MARK, type SunnahSectionId } from "@/lib/sunnah";
+import { type SunnahSectionId } from "@/lib/sunnah";
 
 export type FormState = { error?: string; ok?: boolean; batchId?: string };
 
@@ -95,25 +95,37 @@ export async function createAwqafBatch(_prev: FormState, formData: FormData): Pr
   return { ok: true, batchId: batch.id };
 }
 
+/**
+ * نتيجة الطالب في سبر الأوقاف الفعلي: ناجح (بعلامة ضمن حدود النجاح: من حدّ النجاح إلى 100)، أو إعادة، أو لم يحضر (بلا علامة).
+ * نتيجة فارغة تمسح ما سُجّل.
+ */
 export async function saveAwqafScore(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();
   if (!canManage(session)) return { error: "غير مصرَّح لك بهذا الإجراء." };
 
   const id = String(formData.get("id") || "");
-  const scoreRaw = String(formData.get("score") || "");
-  const score = parseHalfMark(scoreRaw);
-  if (score != null && (!isHalfStep(score) || score < 0 || score > 100)) {
-    return { error: "العلامة من 0 إلى 100 — عدد صحيح أو بكسر 0.25 أو 0.5 أو 0.75 (مثل 92.75)." };
-  }
+  const outcomeRaw = String(formData.get("outcome") || "");
+  const outcome = outcomeRaw === "PASS" || outcomeRaw === "REPEAT" || outcomeRaw === "ABSENT" ? outcomeRaw : null;
+  if (outcomeRaw && !outcome) return { error: "اختاروا النتيجة: ناجح أو إعادة أو لم يحضر." };
 
   const result = await prisma.awqafResult.findUnique({ where: { id }, include: { student: true, batch: true } });
   if (!result) return { error: "السجل غير موجود." };
 
-  await prisma.awqafResult.update({ where: { id }, data: { score } });
+  let score: number | null = null;
+  if (outcome === "PASS") {
+    const min = awqafPassMark(result);
+    score = parseHalfMark(String(formData.get("score") || ""));
+    if (score == null) return { error: "اكتبوا علامة الناجح." };
+    if (!isHalfStep(score) || score < min || score > 100) {
+      return { error: `علامة الناجح من ${min} إلى 100 — عدد صحيح أو بكسر 0.25 أو 0.5 أو 0.75.` };
+    }
+  }
 
-  // دفعة السنّة: العلامة تُسجَّل سبرَ أوقاف للطالب في منهجه ومستواه (SUNNAH_AWQAF) — منها تقدّمه وتقاريره
+  await prisma.awqafResult.update({ where: { id }, data: { score, outcome } });
+
+  // دفعة السنّة: النتيجة تُسجَّل سبرَ أوقاف للطالب في منهجه ومستواه (SUNNAH_AWQAF) — منها تقدّمه وتقاريره. لم يحضر = لا سبر
   if (result.sunnahSection && result.sunnahLevel) {
-    if (score == null) {
+    if (outcome !== "PASS" && outcome !== "REPEAT") {
       if (result.sunnahExamId) await prisma.exam.delete({ where: { id: result.sunnahExamId } }).catch(() => {});
       await prisma.awqafResult.update({ where: { id }, data: { sunnahExamId: null } });
     } else {
@@ -123,9 +135,9 @@ export async function saveAwqafScore(_prev: FormState, formData: FormData): Prom
         studentId: result.studentId,
         sunnahSection: result.sunnahSection,
         stage: result.sunnahLevel,
-        resultMark: score >= SUNNAH_PASS_MARK ? score : null,
-        repeat: score < SUNNAH_PASS_MARK,
-        notes: score < SUNNAH_PASS_MARK ? `علامة الأوقاف ${score} / 100` : null,
+        resultMark: outcome === "PASS" ? score : null,
+        repeat: outcome === "REPEAT",
+        notes: null,
       };
       const existing = result.sunnahExamId ? await prisma.exam.findUnique({ where: { id: result.sunnahExamId } }) : null;
       if (existing) await prisma.exam.update({ where: { id: existing.id }, data });
@@ -138,9 +150,9 @@ export async function saveAwqafScore(_prev: FormState, formData: FormData): Prom
     revalidatePath("/exam-monitor");
   }
 
-  const passed = awqafPassed(score, result.nominationPresent);
-  const passNote = passed == null ? "" : passed ? " — ناجح" : " — إعادة";
-  await logAction(session.userId, `أدخل علامة سبر الأوقاف للطالب ${await studentRef(result.studentId)}: ${score ?? "—"}${passNote}`);
+  const passed = outcome === "PASS";
+  const label = outcome === "PASS" ? `ناجح بعلامة ${score}` : outcome === "REPEAT" ? "إعادة" : outcome === "ABSENT" ? "لم يحضر" : "مسح النتيجة";
+  await logAction(session.userId, `سجّل نتيجة سبر الأوقاف للطالب ${await studentRef(result.studentId)}: ${label}`);
 
   // الترفّع بعد النجاح في سبر الأوقاف الفعلي لـ 30 جزءًا (عدد الأجزاء من آخر ترشيح له بالمسار نفسه حتى تاريخ الدفعة):
   // 30 حاضراً ← «قرآن غيباً» ويُخرَج من حلقته لإعادة فرزه، و30 غيباً ← «متخرِّج» تلقائيًا
@@ -222,7 +234,7 @@ export async function bulkSetCertStep(_prev: FormState, formData: FormData): Pro
     prisma.awqafBatch.findUnique({ where: { id: batchId }, select: { certFileUrl: true } }),
   ]);
   const eligible = results.filter((r) => {
-    if (awqafPassed(r.score, r.nominationPresent) !== true) return false;
+    if (awqafPassed(r) !== true) return false;
     if (step === "arrived") return !r.certArrived;
     if (step === "archived") return r.certArrived && !r.certArchived;
     return r.certArchived && !r.certDelivered;
@@ -255,7 +267,7 @@ export async function archiveBatchCerts(_prev: FormState, formData: FormData): P
   const batch = await prisma.awqafBatch.findUnique({ where: { id: batchId }, include: { results: true } });
   if (!batch) return { error: "الدفعة غير موجودة." };
 
-  const passedIds = batch.results.filter((r) => awqafPassed(r.score, r.nominationPresent) === true).map((r) => r.id);
+  const passedIds = batch.results.filter((r) => awqafPassed(r) === true).map((r) => r.id);
   if (passedIds.length === 0) return { error: "لا ناجحين في هذه الدفعة بعد — أدخلوا العلامات أولًا." };
 
   const certFileUrl = await saveCertFile(file);

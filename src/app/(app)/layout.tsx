@@ -10,6 +10,8 @@ import DragScroll from "@/components/DragScroll";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import AccountSwitcher from "./AccountSwitcher";
+import NotificationBell from "./NotificationBell";
+import { syncNotifications, loadNotifications } from "@/lib/notifications";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await getSession();
@@ -20,6 +22,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const displayName = user?.name ?? session.name;
   const theme = await getTheme();
   const navCollapsed = await isNavCollapsed();
+  await syncNotifications(session);
+  const notifications = await loadNotifications(session.userId);
 
   return (
     // أعمدة الشبكة في globals.css (.app-shell) كي يطويها زر ☰ — الشريط الجانبي ينسحب وتتسع الشاشة
@@ -32,7 +36,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <main style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
         <div className="app-content-pad" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
           {/* التنقّل بين حسابات الموظف (أدواره في الأفواج) أعلى الشاشة */}
-          <AccountSwitcher session={session} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <AccountSwitcher session={session} />
+            </div>
+            {/* جرس الإشعارات */}
+            <NotificationBell items={notifications.items} unread={notifications.unread} />
+          </div>
           {children}
         </div>
       </main>

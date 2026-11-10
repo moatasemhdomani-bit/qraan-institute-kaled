@@ -76,13 +76,13 @@ export function pastGhaibSplit(exams: PastGhaibRow[]): { pass: number; fail: num
   return { pass, fail };
 }
 
-type AwqafResultRow = { score: number | null; nominationPresent: boolean };
+type AwqafResultRow = { score: number | null; nominationPresent: boolean; outcome?: string | null };
 
 /** عدد نتائج سبر الأوقاف الفعلي الناجحة/المُعادة — نفس حدّ مسار ترشيح كل طالب. */
 export function realAwqafSplit(results: AwqafResultRow[]): { pass: number; fail: number } {
   let pass = 0, fail = 0;
   for (const r of results) {
-    const passed = awqafPassed(r.score, r.nominationPresent);
+    const passed = awqafPassed(r);
     if (passed === true) pass++;
     else if (passed === false) fail++;
   }
@@ -215,8 +215,14 @@ export type TeachersPreviewRow = {
   teacherId: string;
   teacherName: string;
   halqaNames: string;
-  newPages: number;
-  pastJuz: number;
+  /** صفحات الجديد وأجزاء الماضي — غيباً (طلاب «قرآن غيباً» و«عمَّ غيباً») وحاضراً (طلاب «قرآن حاضراً») بمستوى الطالب الحالي */
+  newGhaib: number;
+  /** مدرّس «عمَّ غيباً» (كل حلقاته عمّ): عدد السور المسمَّعة بدل الصفحات، وبقية خانات الجديد والماضي فارغة */
+  amma: boolean;
+  surahs: number;
+  newHadir: number;
+  pastGhaib: number;
+  pastHadir: number;
   locPass: number; locFail: number;
   /** سبر ماضٍ غيباً */
   pastPass: number; pastFail: number;
@@ -233,12 +239,12 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
   const teachers = await prisma.user.findMany({
     where: { halaqatTaught: { some: { track: { in: [...QF] } } } },
     orderBy: { name: "asc" },
-    include: { halaqatTaught: { where: { track: { in: [...QF] } }, select: { id: true, name: true } } },
+    include: { halaqatTaught: { where: { track: { in: [...QF] } }, select: { id: true, name: true, track: true } } },
   });
 
   const allStudents = await prisma.student.findMany({
     where: { halqaId: { in: teachers.flatMap((t) => t.halaqatTaught.map((h) => h.id)) } },
-    select: { id: true, halqaId: true },
+    select: { id: true, halqaId: true, track: true },
   });
   const studentIds = allStudents.map((s) => s.id);
 
@@ -255,11 +261,19 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
       const halqaIds = new Set(t.halaqatTaught.map((h) => h.id));
       const studs = allStudents.filter((s) => s.halqaId && halqaIds.has(s.halqaId));
       let pastPass = 0, pastFail = 0;
-      let newPages = 0, pastJuz = 0, locPass = 0, locFail = 0, nomPass = 0, nomFail = 0, awqPass = 0, awqFail = 0;
+      const amma = t.halaqatTaught.every((h) => h.track === "AMMA");
+      // السور التي أنهاها الطلاب («أنهى السورة») وحدها تُحسب مسمَّعة
+      const surahs = recitations.filter((r) => halqaIds.has(r.halqaId)).reduce((n, r) => n + r.surahsDone.length, 0);
+      let newGhaib = 0, newHadir = 0, pastGhaib = 0, pastHadir = 0, locPass = 0, locFail = 0, nomPass = 0, nomFail = 0, awqPass = 0, awqFail = 0;
       for (const s of studs) {
         const pages = pagesSummary(recitations.filter((r) => r.studentId === s.id));
-        newPages += pages.newTotal;
-        pastJuz += pages.pastJuz;
+        if (s.track === "QURAN") {
+          newHadir += pages.newTotal;
+          pastHadir += pages.pastJuz;
+        } else {
+          newGhaib += pages.newTotal;
+          pastGhaib += pages.pastJuz;
+        }
         const loc = localSplit(localExams.filter((e) => e.studentId === s.id));
         locPass += loc.pass; locFail += loc.fail;
         const past = pastGhaibSplit(pastExams.filter((e) => e.studentId === s.id));
@@ -273,7 +287,8 @@ export async function buildTeachersRows(from: string, to: string): Promise<Teach
         teacherId: t.id,
         teacherName: t.name,
         halqaNames: t.halaqatTaught.map((h) => h.name).join("، ") || "—",
-        newPages, pastJuz, locPass, locFail, pastPass, pastFail, nomPass, nomFail, awqPass, awqFail,
+        amma, surahs,
+        newGhaib, newHadir, pastGhaib, pastHadir, locPass, locFail, pastPass, pastFail, nomPass, nomFail, awqPass, awqFail,
         count: studs.length,
       };
     })
@@ -595,11 +610,11 @@ const fullStudentName = (s: { name: string; fatherName: string | null; familyNam
 export async function listMarkedAwqafBatches(): Promise<{ id: string; date: string; marked: number; total: number }[]> {
   const batches = await prisma.awqafBatch.findMany({
     where: { kind: "QURAN" },
-    include: { results: { select: { score: true } } },
+    include: { results: { select: { score: true, outcome: true } } },
     orderBy: { date: "desc" },
   });
   return batches
-    .map((b) => ({ id: b.id, date: b.date, marked: b.results.filter((r) => r.score != null).length, total: b.results.length }))
+    .map((b) => ({ id: b.id, date: b.date, marked: b.results.filter((r) => r.score != null || r.outcome != null).length, total: b.results.length }))
     .filter((b) => b.marked > 0);
 }
 
@@ -612,6 +627,8 @@ export type AwqafMarksRow = {
   halqaName: string;
   cohortName: string;
   score: number | null;
+  /** إعادة أو لم يحضر (بلا علامة) */
+  outcomeLabel: string | null;
   passed: boolean | null;
 };
 
@@ -651,7 +668,8 @@ export async function buildAwqafMarks(batchId: string): Promise<{ date: string; 
         halqaName: s.halqa?.name ?? "—",
         cohortName: s.halqa?.cohort.name ?? "—",
         score: r.score,
-        passed: awqafPassed(r.score, r.nominationPresent),
+        outcomeLabel: r.outcome === "REPEAT" ? "إعادة" : r.outcome === "ABSENT" ? "لم يحضر" : null,
+        passed: awqafPassed(r),
       };
     })
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "ar"));

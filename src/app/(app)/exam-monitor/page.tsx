@@ -84,6 +84,7 @@ export default async function ExamMonitorPage() {
         juz: null,
         pages: [] as number[],
         resultMark: r.score,
+        awqafOutcome: r.outcome,
         nominationPresent: r.nominationPresent,
         // عدد الأجزاء من آخر ترشيح للطالب حتى تاريخ الدفعة، بنفس مسار حاضرًا/غيبًا
         nominationParts:
