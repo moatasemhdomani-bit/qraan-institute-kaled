@@ -23,13 +23,15 @@ export default async function StaffAttendanceReportPage({ searchParams }: { sear
     }
   }
 
+  const cohorts = await prisma.cohort.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+
   return (
     <>
       <PageHeader
         title="حضور الموظفين"
         subtitle="من ملف البصّامة (.XLS، ورقة «سجلات»): أيام الدوام والغياب وتفصيل التأخير من بداية دوام الفوج وإجماليه — يُنزَّل ملف Excel."
       />
-      <StaffAttendanceClient key={review ?? "new"} initial={initial} />
+      <StaffAttendanceClient key={review ?? "new"} initial={initial} cohorts={cohorts} />
     </>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { cardStyle, primaryButtonStyle, inputStyle, softButtonStyle } from "@/lib/ui";
+import { cardStyle, chipStyle, primaryButtonStyle, inputStyle, softButtonStyle } from "@/lib/ui";
 import { monthNoOf } from "@/lib/daily";
 import type { StaffAttendanceRow, StaffAttendanceResult } from "@/lib/staffAttendance";
 import { previewStaffAttendance, issueStaffAttendance } from "./actions";
@@ -11,16 +11,79 @@ type Initial = { id: string; name: string; from: string; to: string; totalDays: 
 
 const notice: React.CSSProperties = { padding: "12px 14px", borderRadius: 11, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 13 };
 
-function ExcelButton({ reportId }: { reportId: string }) {
+type SaveFilePicker = (opts: {
+  suggestedName: string;
+  types: { description: string; accept: Record<string, string[]> }[];
+}) => Promise<{ createWritable: () => Promise<{ write: (b: Blob) => Promise<void>; close: () => Promise<void> }> }>;
+
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+/**
+ * «فتح»: يعرض التقرير PDF في صفحة جديدة.
+ * «تنزيل Excel»: يسأل أين يُحفظ الملف (حين يدعم المتصفح ذلك).
+ */
+function OpenDownloadButtons({ reportId, name }: { reportId: string; name: string }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const url = `/reports/${reportId}/excel`;
+  const fileName = `${name.trim() || "حضور الموظفين"}.xlsx`;
+  const btn = { ...softButtonStyle, fontSize: 13, padding: "8px 16px", textDecoration: "none", fontFamily: "inherit" };
+
+  async function saveAs() {
+    setErr("");
+    const picker = (window as unknown as { showSaveFilePicker?: SaveFilePicker }).showSaveFilePicker;
+    if (!picker) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return;
+    }
+    let handle;
+    try {
+      handle = await picker({ suggestedName: fileName, types: [{ description: "ملف Excel", accept: { [XLSX_MIME]: [".xlsx"] } }] });
+    } catch {
+      return; // ألغى المستخدم نافذة الحفظ
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(await res.text());
+      const writable = await handle.createWritable();
+      await writable.write(await res.blob());
+      await writable.close();
+    } catch (e) {
+      setErr(e instanceof Error && e.message ? e.message : "تعذّر تنزيل الملف.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <a href={`/reports/${reportId}/excel`} style={{ ...softButtonStyle, fontSize: 13, padding: "8px 16px", textDecoration: "none" }}>
-      تنزيل Excel
-    </a>
+    <span style={{ display: "inline-flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <a href={`/reports/${reportId}/pdf`} target="_blank" rel="noreferrer" style={btn}>
+        فتح
+      </a>
+      <button type="button" onClick={saveAs} disabled={busy} style={{ ...btn, cursor: "pointer", opacity: busy ? 0.7 : 1 }}>
+        {busy ? "جارٍ التنزيل…" : "تنزيل Excel"}
+      </button>
+      {err && <span style={{ width: "100%", fontSize: 12, color: "var(--bad)" }}>{err}</span>}
+    </span>
   );
 }
 
-export default function StaffAttendanceClient({ initial }: { initial: Initial }) {
+export default function StaffAttendanceClient({ initial, cohorts }: { initial: Initial; cohorts: { id: string; name: string }[] }) {
   const [file, setFile] = useState<File | null>(null);
+  // الأفواج التي يُحتسب دوامها — الكل افتراضيًا
+  const [picked, setPicked] = useState<string[]>(cohorts.map((c) => c.id));
+  const allPicked = cohorts.length > 0 && picked.length === cohorts.length;
+  const toggle = (id: string) => {
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+    setResult(null);
+    setIssuedId(null);
+  };
   const [name, setName] = useState(initial?.name ?? "");
   const [nameTouched, setNameTouched] = useState(!!initial);
   const [result, setResult] = useState<Pick<StaffAttendanceResult, "from" | "to" | "totalDays" | "rows"> & Partial<StaffAttendanceResult> | null>(initial);
@@ -32,6 +95,7 @@ export default function StaffAttendanceClient({ initial }: { initial: Initial })
     const f = new FormData();
     if (file) f.set("file", file);
     f.set("name", name);
+    f.set("cohortIds", picked.join(","));
     return f;
   };
 
@@ -39,6 +103,7 @@ export default function StaffAttendanceClient({ initial }: { initial: Initial })
     setError("");
     setIssuedId(null);
     if (!file) return setError("اختاروا ملف البصّامة (.XLS).");
+    if (!picked.length) return setError("اختاروا فوجًا واحدًا على الأقل يُحتسب دوامه.");
     startTransition(async () => {
       const res = await previewStaffAttendance(fd());
       if ("error" in res) {
@@ -104,6 +169,27 @@ export default function StaffAttendanceClient({ initial }: { initial: Initial })
               </button>
             )}
           </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>الأفواج — اختاروا الأفواج التي يُحتسب دوامها</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPicked(allPicked ? [] : cohorts.map((c) => c.id));
+                  setResult(null);
+                  setIssuedId(null);
+                }}
+                style={{ ...chipStyle(allPicked), padding: "7px 12px" }}
+              >
+                الكل
+              </button>
+              {cohorts.map((c) => (
+                <button key={c.id} type="button" onClick={() => toggle(c.id)} style={{ ...chipStyle(picked.includes(c.id)), padding: "7px 12px" }}>
+                  فوج {c.name}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -112,7 +198,7 @@ export default function StaffAttendanceClient({ initial }: { initial: Initial })
       {issuedId && (
         <div style={{ ...cardStyle, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
           <span style={{ flex: "1 1 220px" }}>{initial ? `«${initial.name}» — صادر سابقًا.` : "تم إصدار التقرير وحُفظ في السجل."}</span>
-          <ExcelButton reportId={issuedId} />
+          <OpenDownloadButtons reportId={issuedId} name={name} />
         </div>
       )}
 
@@ -139,9 +225,7 @@ export default function StaffAttendanceClient({ initial }: { initial: Initial })
           )}
 
           {result.rows.length === 0 ? (
-            <div style={{ ...cardStyle, padding: 30, textAlign: "center", color: "var(--ink-2)" }}>
-              لا موظفين مربوطين بأرقام البصمة — أضيفوا «رقم البصمة» للموظفين من «إدارة المستخدمين».
-            </div>
+            <div style={notice}>تنبيه: لا موظفين مربوطين بأرقام البصمة — أضيفوا «رقم البصمة» للموظفين من «إدارة المستخدمين». يمكن الإصدار والتنزيل على أي حال.</div>
           ) : (
             <div style={{ ...cardStyle, overflow: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 820 }}>

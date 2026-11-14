@@ -10,9 +10,12 @@ async function fromUpload(formData: FormData): Promise<StaffAttendanceResult | {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "اختاروا ملف البصّامة (.XLS)." };
   if (file.size > MAX_BYTES) return { error: "الملف كبير جدًا." };
+  // الأفواج التي يُحتسب دوامها
+  const cohortIds = String(formData.get("cohortIds") || "").split(",").filter(Boolean);
+  if (!cohortIds.length) return { error: "اختاروا فوجًا واحدًا على الأقل يُحتسب دوامه." };
   try {
     const parsed = parseFingerprintXls(Buffer.from(await file.arrayBuffer()));
-    return await buildStaffAttendance(parsed);
+    return await buildStaffAttendance(parsed, cohortIds);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "تعذّرت قراءة الملف." };
   }
@@ -35,7 +38,7 @@ export async function issueStaffAttendance(formData: FormData): Promise<IssueSta
   if (!name) return { error: "اكتبوا اسمًا يُعرَف به التقرير في السجل لاحقًا." };
   const res = await fromUpload(formData);
   if ("error" in res) return res;
-  if (!res.rows.length) return { error: "لا موظفين مربوطين بأرقام البصمة — أضيفوا «رقم البصمة» للموظفين من «إدارة المستخدمين»." };
+  // التنبيهات (أرقام غير مربوطة، موظفون غير نشطين…) لا تمنع الإصدار والتنزيل
 
   const created = await prisma.issuedReport.create({
     data: {
@@ -43,7 +46,7 @@ export async function issueStaffAttendance(formData: FormData): Promise<IssueSta
       name,
       fromDate: res.from,
       toDate: res.to,
-      paramsJson: JSON.stringify({ totalDays: res.totalDays, rows: res.rows }),
+      paramsJson: JSON.stringify({ totalDays: res.totalDays, rows: res.rows, cohortIds: String(formData.get("cohortIds") || "").split(",").filter(Boolean) }),
       issuedById: session.userId,
     },
   });

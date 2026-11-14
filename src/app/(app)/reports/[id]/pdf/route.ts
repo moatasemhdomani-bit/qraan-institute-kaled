@@ -5,7 +5,7 @@ import { dateOnly } from "@/lib/daily";
 import { buildHalaqatBlocks, buildTeachersRows, buildArabicHalaqatBlocks, buildArabicTeachersRows, buildStudentPreview, buildAwqafMarks, buildOrphans, buildHadithTeachersRows, buildFinanceReport, ORPHAN_STATUS_LABELS, type OrphanStatus } from "@/lib/reports";
 import { renderPdf } from "@/lib/pdf";
 import { buildRecitationLog } from "@/lib/recitationLog";
-import { halaqatReportHtml, teachersReportHtml, arabicHalaqatReportHtml, arabicTeachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml, recitationLogReportHtml, hadithReportHtml, financeReportHtml } from "@/lib/reportHtml";
+import { halaqatReportHtml, teachersReportHtml, arabicHalaqatReportHtml, arabicTeachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml, recitationLogReportHtml, hadithReportHtml, financeReportHtml, staffAttendanceReportHtml } from "@/lib/reportHtml";
 
 /** يُعيد توليد PDF تقرير سابق من معطياته المحفوظة عند الطلب — لا يُخزَّن أي ملف. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -21,8 +21,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     include: { issuedBy: { select: { name: true } } },
   });
   if (!report) return new NextResponse("التقرير غير موجود.", { status: 404 });
-  // «حضور الموظفين» يُنزَّل Excel لا PDF
-  if (report.kind === "STAFF_ATTENDANCE") return NextResponse.redirect(new URL(`/reports/${id}/excel`, req.url));
 
   let params_: Record<string, unknown> = {};
   try {
@@ -59,6 +57,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     html = arabicTeachersReportHtml({ ...common, rows: rows.map((r) => ({ ...r, note: notes[r.teacherId] || "" })) });
   } else if (report.kind === "HADITH") {
     html = hadithReportHtml({ ...common, rows: await buildHadithTeachersRows(report.fromDate, report.toDate) });
+  } else if (report.kind === "STAFF_ATTENDANCE") {
+    // «فتح» يعرضه PDF، والتنزيل ملف Excel (/reports/[id]/excel)
+    html = staffAttendanceReportHtml({ ...common, totalDays: Number(params_.totalDays) || 0, rows: Array.isArray(params_.rows) ? (params_.rows as never[]) : [] });
+    landscape = true;
   } else if (report.kind === "FINANCE") {
     html = financeReportHtml({ ...common, ...(await buildFinanceReport(report.fromDate, report.toDate)) });
   } else if (report.kind === "ORPHANS") {

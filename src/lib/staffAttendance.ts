@@ -92,9 +92,9 @@ const EARLY_WINDOW = 120;
 /**
  * حضور الموظفين من ملف البصّامة: لكل موظف له «رقم بصمة» — في كل يوم دوام (بلا العطل) ولكل فوج له فيه دور
  * بوقت دوام محدد: حاضر إن بصم بين (بداية الدوام − ساعتين) ونهايته، والتأخير = أول بصمة − بداية الدوام.
- * من له فوجان: كل فوج نصف يوم.
+ * كل فوج = 0.5 يوم (حضورًا وغيابًا)، ويُجمع تأخر كل فوج حضره.
  */
-export async function buildStaffAttendance(file: FingerprintFile): Promise<StaffAttendanceResult> {
+export async function buildStaffAttendance(file: FingerprintFile, cohortIds?: string[]): Promise<StaffAttendanceResult> {
   const [staff, holidays, working] = await Promise.all([
     prisma.user.findMany({
       // الموظفون النشطون وحدهم: لا المحذوف ولا المعلَّق
@@ -133,13 +133,17 @@ export async function buildStaffAttendance(file: FingerprintFile): Promise<Staff
 
   for (const u of staff) {
     const fp = u.fingerprintNo as number;
+    // الأفواج المختارة عند الإصدار وحدها يُحتسب دوامها — ومن لا فوج له منها لا يدخل التقرير
+    const cohorts = [...new Map(u.assignments.map((a) => [a.cohort.id, a.cohort])).values()].filter((c) => !cohortIds || cohortIds.includes(c.id));
+    if (cohortIds && !cohorts.length) continue;
     const person = byNo.get(fp);
     if (!person) {
       missing.push(`${u.name} (${fp})`);
       continue;
     }
-    const cohorts = [...new Map(u.assignments.map((a) => [a.cohort.id, a.cohort])).values()];
+    // كل فوج من أفواجه = نصف يوم: المطلوب منه في اليوم 0.5 × عدد أفواجه، والحضور 0.5 لكل فوج بصم في وقته
     let present = 0;
+    let expected = 0;
     const delays: number[] = [];
 
     for (const day of workDays) {
@@ -152,14 +156,16 @@ export async function buildStaffAttendance(file: FingerprintFile): Promise<Staff
         .filter((x): x is { start: number; end: number } => x != null);
 
       if (!sessions.length) {
-        // بلا وقت دوام محدد لأفواجه: حاضر إن بصم يومها، بلا حساب تأخير
-        if (punches.length) present += 1;
+        // بلا وقت دوام محدد لأفواجه: 0.5 إن بصم يومها، بلا حساب تأخير
+        expected += 0.5;
+        if (punches.length) present += 0.5;
         continue;
       }
+      expected += 0.5 * sessions.length;
       for (const s of sessions) {
         const inWin = punches.filter((p) => p >= s.start - EARLY_WINDOW && p <= s.end);
         if (!inWin.length) continue;
-        present += 1 / sessions.length;
+        present += 0.5;
         const late = inWin[0] - s.start;
         if (late > 0) delays.push(late);
       }
@@ -169,7 +175,7 @@ export async function buildStaffAttendance(file: FingerprintFile): Promise<Staff
       name: u.name,
       fingerprintNo: fp,
       present: round(present),
-      absent: round(workDays.length - present),
+      absent: round(expected - present),
       delays,
       totalDelay: delays.reduce((n, x) => n + x, 0),
     });

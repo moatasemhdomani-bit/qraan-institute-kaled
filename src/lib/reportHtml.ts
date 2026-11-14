@@ -22,6 +22,7 @@ const KIND_LABELS: Record<string, string> = {
   RECITATION_LOG: "سجل التسميع والحضور",
   HADITH: "تقرير الحديث الشريف",
   FINANCE: "تقرير المالية",
+  STAFF_ATTENDANCE: "حضور الموظفين",
 };
 
 const BASE_STYLE = `
@@ -657,5 +658,42 @@ export function financeReportHtml(input: {
     summary +
     table +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير المالية</div></body></html>`
+  );
+}
+
+// ==================== حضور الموظفين (عرض PDF — والتنزيل Excel) ====================
+
+export function staffAttendanceReportHtml(input: {
+  name: string; from: string; to: string; issuedBy: string; issuedAt: string;
+  totalDays: number;
+  rows: { name: string; present: number; absent: number; delays: number[]; totalDelay: number }[];
+}): string {
+  const table = `
+    <table>
+      <thead><tr>
+        <th style="width:36px">م</th><th>اسم الأستاذ</th><th>عدد أيام الدوام<br>(الكلي ${input.totalDays} يوم)</th><th>الغياب</th>
+        <th>تفصيل التأخير<br>(بالدقائق)</th><th>إجمالي التأخير<br>(بالدقائق)</th><th style="min-width:140px">ملاحظات</th>
+      </tr></thead>
+      <tbody>
+        ${input.rows
+          .map(
+            (r, i) => `<tr>
+              <td>${i + 1}</td>
+              <td class="name">${escapeHtml(r.name)}</td>
+              <td>${r.present}</td>
+              <td${r.absent ? ' class="fail"' : ""}>${r.absent}</td>
+              <td style="direction:ltr">${r.delays.length ? r.delays.join("+") : 0}</td>
+              <td style="font-weight:700">${r.totalDelay}</td>
+              <td></td>
+            </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>`;
+  return (
+    htmlHead(input.name) +
+    reportHeader(input.name, "STAFF_ATTENDANCE", input.from, input.to, input.issuedBy, input.issuedAt) +
+    table +
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — حضور الموظفين</div></body></html>`
   );
 }
