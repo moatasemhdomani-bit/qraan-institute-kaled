@@ -87,11 +87,11 @@ export type StaffAttendanceResult = {
 };
 
 /** قبل البصمة بأكثر من هذا عن بداية الدوام لا تُحسب لهذا الوقت */
-const EARLY_WINDOW = 120;
+const EARLY_WINDOW = 30;
 
 /**
  * حضور الموظفين من ملف البصّامة: لكل موظف له «رقم بصمة» — في كل يوم دوام (بلا العطل) ولكل فوج له فيه دور
- * بوقت دوام محدد: حاضر إن بصم بين (بداية الدوام − ساعتين) ونهايته، والتأخير = أول بصمة − بداية الدوام.
+ * بوقت دوام محدد: حاضر إن بصم بين (بداية الدوام − نصف ساعة) ونهايته، والتأخير = أول بصمة − بداية الدوام.
  * كل فوج = 0.5 يوم (حضورًا وغيابًا)، ويُجمع تأخر كل فوج حضره.
  */
 export async function buildStaffAttendance(file: FingerprintFile, cohortIds?: string[]): Promise<StaffAttendanceResult> {
@@ -134,7 +134,10 @@ export async function buildStaffAttendance(file: FingerprintFile, cohortIds?: st
   for (const u of staff) {
     const fp = u.fingerprintNo as number;
     // الأفواج المختارة عند الإصدار وحدها يُحتسب دوامها — ومن لا فوج له منها لا يدخل التقرير
-    const cohorts = [...new Map(u.assignments.map((a) => [a.cohort.id, a.cohort])).values()].filter((c) => !cohortIds || cohortIds.includes(c.id));
+    const own = [...new Map(u.assignments.map((a) => [a.cohort.id, a.cohort])).values()];
+    const cohorts = own.filter((c) => !cohortIds || cohortIds.includes(c.id));
+    // أفواجه غير المحتسبة: لا تُحسب نهائيًا — بصماته في أوقاتها لا تدخل حضورًا ولا تأخيرًا لفوج آخر
+    const skipped = own.filter((c) => !cohorts.includes(c));
     if (cohortIds && !cohorts.length) continue;
     const person = byNo.get(fp);
     if (!person) {
@@ -146,24 +149,31 @@ export async function buildStaffAttendance(file: FingerprintFile, cohortIds?: st
     let expected = 0;
     const delays: number[] = [];
 
-    for (const day of workDays) {
-      const punches = (person.days[day] ?? []).map(toMin);
-      const sessions = cohorts
+    const slotsOf = (list: typeof own, day: string) =>
+      list
         .map((c) => {
           const slot = c.isRotating ? rotationSlot(c, day) : { start: c.time1Start, end: c.time1End };
           return slot?.start ? { start: toMin(slot.start), end: slot.end ? toMin(slot.end) : toMin(slot.start) + 180 } : null;
         })
         .filter((x): x is { start: number; end: number } => x != null);
 
+    for (const day of workDays) {
+      const skippedSlots = slotsOf(skipped, day);
+      // بصمات داخل وقت فوج غير محتسب تُهمل كليًا
+      const punches = (person.days[day] ?? []).map(toMin).filter((p) => !skippedSlots.some((s) => p >= s.start && p <= s.end));
+      const sessions = slotsOf(cohorts, day);
+
       if (!sessions.length) {
-        // بلا وقت دوام محدد لأفواجه: 0.5 إن بصم يومها، بلا حساب تأخير
+        // بلا وقت دوام محدد لأفواجه المحتسبة: 0.5 إن بصم يومها (خارج أوقات غير المحتسبة)، بلا حساب تأخير
         expected += 0.5;
         if (punches.length) present += 0.5;
         continue;
       }
       expected += 0.5 * sessions.length;
       for (const s of sessions) {
-        const inWin = punches.filter((p) => p >= s.start - EARLY_WINDOW && p <= s.end);
+        // نافذة الفوج: من نصف ساعة قبل بدايته — ولا تمتد إلى ما قبل نهاية فوج غير محتسب سبقه
+        const floor = Math.max(s.start - EARLY_WINDOW, ...skippedSlots.filter((k) => k.end <= s.start).map((k) => k.end + 1));
+        const inWin = punches.filter((p) => p >= floor && p <= s.end);
         if (!inWin.length) continue;
         present += 0.5;
         const late = inWin[0] - s.start;
