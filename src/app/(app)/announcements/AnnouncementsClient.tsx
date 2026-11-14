@@ -15,13 +15,15 @@ export default function AnnouncementsClient({ cohorts, sent }: { cohorts: { id: 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [kind, setKind] = useState<"all" | "role" | "cohort">("all");
-  const [role, setRole] = useState("TEACHER");
+  // دور أو أكثر
+  const [roles, setRoles] = useState<string[]>(["TEACHER"]);
+  const toggleRole = (r: string) => setRoles((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]));
   const [cohortId, setCohortId] = useState(cohorts[0]?.id ?? "");
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  const audience = kind === "all" ? "all" : kind === "role" ? `role:${role}` : `cohort:${cohortId}`;
+  const audience = kind === "all" ? "all" : kind === "role" ? `role:${roles.join(",")}` : `cohort:${cohortId}`;
   const label = { display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 } as const;
 
   const send = () =>
@@ -52,7 +54,7 @@ export default function AnnouncementsClient({ cohorts, sent }: { cohorts: { id: 
             {(
               [
                 ["all", "كل المعهد"],
-                ["role", "دور"],
+                ["role", "دور أو أكثر"],
                 ["cohort", "فوج"],
               ] as const
             ).map(([k, l]) => (
@@ -62,12 +64,25 @@ export default function AnnouncementsClient({ cohorts, sent }: { cohorts: { id: 
             ))}
           </div>
           {kind === "role" && (
-            <Select
-              value={role}
-              onChange={setRole}
-              options={ROLE_AUDIENCES.map((r) => ({ value: r, label: r === "GUARDIAN" ? "أولياء الأمور" : ROLE_LABELS[r] }))}
-              width={260}
-            />
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {/* «الكل»: يختار كل الأدوار، والضغط ثانيةً يلغيها */}
+              <button
+                type="button"
+                onClick={() => setRoles(roles.length === ROLE_AUDIENCES.length ? [] : [...ROLE_AUDIENCES])}
+                style={{ ...chipStyle(roles.length === ROLE_AUDIENCES.length), padding: "7px 12px" }}
+              >
+                {roles.length === ROLE_AUDIENCES.length ? "✓ " : ""}الكل
+              </button>
+              {ROLE_AUDIENCES.map((r) => {
+                const on = roles.includes(r);
+                return (
+                  <button key={r} type="button" onClick={() => toggleRole(r)} style={{ ...chipStyle(on), padding: "7px 12px" }}>
+                    {on ? "✓ " : ""}
+                    {r === "GUARDIAN" ? "أولياء الأمور" : ROLE_LABELS[r]}
+                  </button>
+                );
+              })}
+            </div>
           )}
           {kind === "cohort" && (
             <Select value={cohortId} onChange={setCohortId} options={cohorts.map((c) => ({ value: c.id, label: `فوج ${c.name}` }))} width={260} />

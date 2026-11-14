@@ -2,6 +2,8 @@ import { readFileSync, existsSync } from "fs";
 import path from "path";
 import { formatDateAr, formatTime12 } from "./daily";
 import { formatJuz } from "./pastRecitation";
+import { groupByTeacher, awqafMarksSummary } from "./awqaf";
+import { formatSyp } from "./finance";
 
 const LOGO_DATA_URI = (() => {
   const p = path.join(process.cwd(), "public", "logo-mark.png");
@@ -19,6 +21,7 @@ const KIND_LABELS: Record<string, string> = {
   ORPHANS: "الأيتام",
   RECITATION_LOG: "سجل التسميع والحضور",
   HADITH: "تقرير الحديث الشريف",
+  FINANCE: "تقرير المالية",
 };
 
 const BASE_STYLE = `
@@ -491,36 +494,48 @@ export type AwqafMarksReportRow = {
 export function awqafMarksReportHtml(input: {
   name: string; batchDate: string; issuedBy: string; issuedAt: string;
   rows: AwqafMarksReportRow[];
+  /** مدرّسو القرآن الذين ليس لهم طلاب في الدفعة */
+  teachersWithout?: string[];
 }): string {
   const table = `
     <table>
       <thead><tr>
-        <th>#</th><th>اسم الطالب الكامل</th><th>رقم الطالب</th><th>نوع السبر</th>
-        <th>المدرس</th><th>الحلقة</th><th>الفوج</th><th>العلامة</th><th>النتيجة</th>
+        <th style="width:42px">م</th><th>الاسم</th><th>نوع السبر</th><th>العلامة</th>
       </tr></thead>
       <tbody>
-        ${input.rows
+        ${groupByTeacher(input.rows)
           .map(
-            (r, i) => `<tr>
+            (g) =>
+              `<tr><td colspan="4" style="background:#f3e7c4;font-weight:700;text-align:center">المدرس: ${escapeHtml(g.teacherName)}</td></tr>` +
+              g.rows
+                .map(
+                  (r, i) => `<tr>
               <td>${i + 1}</td>
               <td class="name">${escapeHtml(r.fullName)}</td>
-              <td>${r.studentNo}</td>
               <td>${escapeHtml(r.examLabel)}</td>
-              <td>${escapeHtml(r.teacherName)}</td>
-              <td>${escapeHtml(r.halqaName)}</td>
-              <td>${escapeHtml(r.cohortName)}</td>
-              <td>${r.score ?? r.outcomeLabel ?? "—"}</td>
-              <td>${r.passed == null ? "—" : r.passed ? `<span class="pass">ناجح</span>` : `<span class="fail">إعادة</span>`}</td>
+              <td>${r.passed === true ? `<span class="pass">${r.score}</span>` : r.passed === false ? `<span class="fail">إعادة</span>` : r.outcomeLabel ? `<span style="color:#000;font-weight:700">${r.outcomeLabel}</span>` : "—"}</td>
             </tr>`
+                )
+                .join("")
           )
           .join("")}
       </tbody>
+    </table>`;
+  const s = awqafMarksSummary(input.rows);
+  const summary = `
+    <table style="margin-top:14px">
+      <thead><tr><th>إجمالي المتقدّمين</th><th>الناجحون</th><th>الإعادة</th><th>لم يحضر</th></tr></thead>
+      <tbody><tr><td><b>${s.total}</b></td><td><span class="pass">${s.passed}</span></td><td><span class="fail">${s.repeat}</span></td><td><b>${s.absent}</b></td></tr></tbody>
     </table>`;
 
   return (
     htmlHead(input.name) +
     reportHeader(input.name, "AWQAF_MARKS", input.batchDate, input.batchDate, input.issuedBy, input.issuedAt) +
     table +
+    summary +
+    (input.teachersWithout?.length
+      ? `<div style="margin-top:12px;font-size:12px;color:#444"><b>ملاحظة:</b> مدرّسو القرآن الذين ليس لديهم طلاب في هذا السبر: ${input.teachersWithout.map(escapeHtml).join("، ")}.</div>`
+      : "") +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — علامات سبر الأوقاف</div></body></html>`
   );
 }
@@ -590,5 +605,57 @@ export function recitationLogReportHtml(input: {
     reportHeader(input.name, "RECITATION_LOG", input.from, input.to, input.issuedBy, input.issuedAt) +
     blocks +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — سجل التسميع والحضور</div></body></html>`
+  );
+}
+
+// ==================== تقرير المالية ====================
+
+export function financeReportHtml(input: {
+  name: string; from: string; to: string; issuedBy: string; issuedAt: string;
+  opening: number; deposits: number; withdrawals: number; closing: number;
+  rows: { date: string; kind: "DEPOSIT" | "WITHDRAW"; amount: number; reason: string; byName: string }[];
+}): string {
+  const summary = `
+    <table style="margin-bottom:14px">
+      <thead><tr><th>رصيد أول الفترة</th><th>إجمالي الإيداع</th><th>إجمالي السحب</th><th>الصندوق آخر الفترة</th></tr></thead>
+      <tbody><tr style="font-weight:700">
+        <td>${formatSyp(input.opening)}</td>
+        <td class="pass">${formatSyp(input.deposits)}</td>
+        <td class="fail">${formatSyp(input.withdrawals)}</td>
+        <td>${formatSyp(input.closing)}</td>
+      </tr></tbody>
+    </table>`;
+  const table = input.rows.length
+    ? `
+    <table>
+      <thead><tr><th style="width:36px">م</th><th>التاريخ</th><th>العملية</th><th>السبب</th><th>الفاعل</th><th>إيداع</th><th>سحب</th></tr></thead>
+      <tbody>
+        ${input.rows
+          .map(
+            (r, i) => `<tr>
+              <td>${i + 1}</td>
+              <td>${r.date.replace(/-/g, "/")}</td>
+              <td class="${r.kind === "DEPOSIT" ? "pass" : "fail"}">${r.kind === "DEPOSIT" ? "إيداع" : "سحب"}</td>
+              <td class="name">${escapeHtml(r.reason)}</td>
+              <td>${escapeHtml(r.byName)}</td>
+              <td>${r.kind === "DEPOSIT" ? formatSyp(r.amount) : ""}</td>
+              <td>${r.kind === "WITHDRAW" ? formatSyp(r.amount) : ""}</td>
+            </tr>`
+          )
+          .join("")}
+        <tr style="font-weight:700;background:#f6f1e1">
+          <td class="name" colspan="5">المجموع</td>
+          <td class="pass">${formatSyp(input.deposits)}</td>
+          <td class="fail">${formatSyp(input.withdrawals)}</td>
+        </tr>
+      </tbody>
+    </table>`
+    : `<div style="padding:20px;text-align:center;color:#666">لا عمليات في هذه الفترة.</div>`;
+  return (
+    htmlHead(input.name) +
+    reportHeader(input.name, "FINANCE", input.from, input.to, input.issuedBy, input.issuedAt) +
+    summary +
+    table +
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — تقرير المالية</div></body></html>`
   );
 }

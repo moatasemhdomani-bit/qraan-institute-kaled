@@ -95,6 +95,9 @@ model User {
   competitionResults     CompetitionResult[]  @relation("CompetitionResultBy")
   notifications          Notification[]
   announcementsSent      Announcement[]       @relation("AnnouncementBy")
+  financeTxns            FinanceTxn[]         @relation("FinanceTxnBy")
+  /// رقم الموظف في البصّامة — يربط سجلات البصمة بالموظف في تقرير «حضور الموظفين»
+  fingerprintNo          Int?                 @unique
 }
 
 // الأفواج: خمسة صفوف ثابتة (لا تُضاف ولا تُحذف من الواجهة) تُزرع عند التهيئة.
@@ -566,6 +569,8 @@ enum ReportKind {
   ORPHANS // الأيتام — قائمة أسماء الطلاب الأيتام
   RECITATION_LOG // سجل التسميع — أيام الدوام أعمدةً والطلاب سطورًا، لحلقة أو أكثر
   HADITH // تقرير الحديث الشريف — صف لكل مدرّس: طلابه المشاركون وغير المشاركين وسبرهم وأحاديثهم
+  FINANCE // تقرير المالية — عمليات صندوق المعهد (إيداع / سحب) في الفترة مع رصيد أولها وآخرها
+  STAFF_ATTENDANCE // حضور الموظفين — من ملف البصّامة: أيام الدوام والغياب وتفصيل التأخير وإجماليه (يُنزَّل Excel)
 }
 
 // شهادات المعهد — تُصدر من «سبر الأوقاف والشهادات» ← «شهادات المعهد» لمن نجح في سبرها
@@ -777,4 +782,25 @@ model Announcement {
   byId          String
   by            User     @relation("AnnouncementBy", fields: [byId], references: [id])
   createdAt     DateTime @default(now())
+}
+
+/// صندوق المعهد (المالية): إيداع أو سحب بالليرة السورية — يسجّله المدير والإداري، وسبب العملية إجباري
+enum FinanceKind {
+  DEPOSIT
+  WITHDRAW
+}
+
+model FinanceTxn {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now())
+  kind      FinanceKind
+  /// المبلغ بالليرة السورية (موجب دائمًا — النوع يحدد الإيداع أو السحب)
+  amount    Int
+  /// تاريخ العملية YYYY-MM-DD
+  date      String
+  reason    String
+  byId      String
+  by        User        @relation("FinanceTxnBy", fields: [byId], references: [id])
+
+  @@index([date])
 }

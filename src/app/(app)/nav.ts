@@ -40,6 +40,7 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[]; tr
   { id: "students", href: "/students", label: "شؤون الطلاب", roles: ["DIRECTOR", "ADMIN"] },
   { id: "reports-hub", href: "/reports", label: "مركز التقارير", roles: ["DIRECTOR", "ADMIN"] },
   { id: "announcements", href: "/announcements", label: "الإعلانات", roles: ["DIRECTOR", "ADMIN"] },
+  { id: "finance", href: "/finance", label: "المالية", roles: ["DIRECTOR", "ADMIN"] },
   // ملاحظات المدرّس الشهرية تُغذّي تقرير تسميع حلقات القرآن — لا عمود ملاحظات في تقرير القراءة العربية
   // «مركز التقارير» للمدرّس (قرآن وقراءة عربية): التقرير الشهري، تقرير طالب، سجل التسميع
   { id: "monthly-report", href: "/monthly-report", label: "مركز التقارير", roles: ["TEACHER"] },
@@ -60,6 +61,7 @@ const STAFF_ORDER = [
   "users",
   "reports-hub",
   "announcements",
+  "finance",
   "awqaf-batches",
   "schedule",
   "audit",

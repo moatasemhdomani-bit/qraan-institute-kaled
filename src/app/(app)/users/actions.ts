@@ -80,7 +80,18 @@ export async function saveStaff(_prev: FormState, formData: FormData): Promise<F
     maritalStatus: String(formData.get("marital") || "") || null,
     education: String(formData.get("education") || "") || null,
     quranLevel: String(formData.get("quran") || "") || null,
+    fingerprintNo: null as number | null,
   };
+
+  // رقم البصمة: اختياري، رقم موجب لا يتكرر بين الموظفين
+  const fpRaw = String(formData.get("fingerprintNo") || "").trim();
+  const fingerprintNo = fpRaw ? Number(fpRaw) : null;
+  if (fingerprintNo != null && (!Number.isInteger(fingerprintNo) || fingerprintNo < 1)) return { error: "رقم البصمة رقم صحيح موجب." };
+  if (fingerprintNo != null) {
+    const clashFp = await prisma.user.findFirst({ where: { fingerprintNo, ...(id ? { id: { not: id } } : {}) }, select: { name: true } });
+    if (clashFp) return { error: `رقم البصمة ${fingerprintNo} مستخدَم للموظف «${clashFp.name}».` };
+  }
+  data.fingerprintNo = fingerprintNo;
 
   const rawNid = String(formData.get("nid") || "").trim();
   if (rawNid && !/^\d+$/.test(rawNid.replace(/[٠-٩]/g, "0"))) return { error: "الرقم الوطني أرقام فقط." };

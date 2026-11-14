@@ -18,21 +18,24 @@ const ACTIVE_USER: Prisma.UserWhereInput = {
   OR: [{ role: { not: "GUARDIAN" } }, { guardianOf: { some: { active: true } } }],
 };
 
-/** مستلمو الإعلان بحسب جمهوره: «all» أو «role:X» أو «cohort:<id>» */
+/** مستلمو الإعلان بحسب جمهوره: «all» أو «role:X,Y» (دور أو أكثر) أو «cohort:<id>» */
 async function recipientsOf(audience: string): Promise<{ ids: string[]; label: string } | null> {
   if (audience === "all") {
     const users = await prisma.user.findMany({ where: ACTIVE_USER, select: { id: true } });
     return { ids: users.map((u) => u.id), label: "كل المعهد" };
   }
   if (audience.startsWith("role:")) {
-    const role = audience.slice(5);
-    if (!ROLE_LABELS[role]) return null;
-    const where: Prisma.UserWhereInput =
-      role === "GUARDIAN"
-        ? { ...ACTIVE_USER, role: "GUARDIAN" }
-        : { deletedAt: null, OR: [{ role: role as never }, { assignments: { some: { role: role as never } } }] };
-    const users = await prisma.user.findMany({ where, select: { id: true } });
-    return { ids: users.map((u) => u.id), label: role === "GUARDIAN" ? "أولياء الأمور" : `${ROLE_LABELS[role]} (الدور)` };
+    const roles = [...new Set(audience.slice(5).split(",").filter(Boolean))];
+    if (!roles.length || roles.some((r) => !ROLE_LABELS[r])) return null;
+    const ids = new Set<string>();
+    for (const role of roles) {
+      const where: Prisma.UserWhereInput =
+        role === "GUARDIAN"
+          ? { ...ACTIVE_USER, role: "GUARDIAN" }
+          : { deletedAt: null, OR: [{ role: role as never }, { assignments: { some: { role: role as never } } }] };
+      for (const u of await prisma.user.findMany({ where, select: { id: true } })) ids.add(u.id);
+    }
+    return { ids: [...ids], label: roles.map((r) => (r === "GUARDIAN" ? "أولياء الأمور" : ROLE_LABELS[r])).join("، ") };
   }
   if (audience.startsWith("cohort:")) {
     const cohort = await prisma.cohort.findUnique({ where: { id: audience.slice(7) }, select: { id: true, name: true } });

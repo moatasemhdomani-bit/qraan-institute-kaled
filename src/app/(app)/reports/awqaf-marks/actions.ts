@@ -6,7 +6,7 @@ import { buildAwqafMarks, type AwqafMarksRow } from "@/lib/reports";
 
 export type FormState = { error?: string; ok?: boolean; reportId?: string; duplicate?: boolean };
 
-export async function previewAwqafMarks(batchId: string): Promise<{ date: string; rows: AwqafMarksRow[] } | { error: string }> {
+export async function previewAwqafMarks(batchId: string): Promise<{ date: string; rows: AwqafMarksRow[]; teachersWithout: string[] } | { error: string }> {
   const session = await getSession();
   if (!session || (session.role !== "DIRECTOR" && session.role !== "ADMIN")) return { error: "غير مصرَّح لك بهذا الإجراء." };
   if (!batchId) return { error: "اختاروا دفعة سبر الأوقاف." };

@@ -572,7 +572,7 @@ export type ReviewInputs = {
 /** معطيات تقرير صادر سابقًا من السجل — لإعادة إعداده بنفس المدخلات («مراجعة التقرير»). */
 export async function loadReviewInputs(
   id: string | undefined,
-  kind: "HALAQAT" | "TEACHERS" | "HALAQAT_AR" | "TEACHERS_AR" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS" | "RECITATION_LOG" | "HADITH"
+  kind: "HALAQAT" | "TEACHERS" | "HALAQAT_AR" | "TEACHERS_AR" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS" | "RECITATION_LOG" | "HADITH" | "FINANCE"
 ): Promise<ReviewInputs | null> {
   if (!id) return null;
   const r = await prisma.issuedReport.findUnique({ where: { id } });
@@ -632,7 +632,7 @@ export type AwqafMarksRow = {
   passed: boolean | null;
 };
 
-export async function buildAwqafMarks(batchId: string): Promise<{ date: string; rows: AwqafMarksRow[] } | null> {
+export async function buildAwqafMarks(batchId: string): Promise<{ date: string; rows: AwqafMarksRow[]; teachersWithout: string[] } | null> {
   const batch = await prisma.awqafBatch.findUnique({
     where: { id: batchId },
     include: {
@@ -674,7 +674,16 @@ export async function buildAwqafMarks(batchId: string): Promise<{ date: string; 
     })
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "ar"));
 
-  return { date: batch.date, rows };
+  // ملاحظة أسفل التقرير: مدرّسو القرآن الذين ليس لهم طالب في هذه الدفعة
+  const inBatch = new Set(batch.results.map((r) => r.student.halqa?.teacherId).filter(Boolean));
+  const quranTeachers = await prisma.user.findMany({
+    where: { deletedAt: null, halaqatTaught: { some: { track: "QURAN" } } },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  const teachersWithout = quranTeachers.filter((t) => !inBatch.has(t.id)).map((t) => t.name);
+
+  return { date: batch.date, rows, teachersWithout };
 }
 
 // ==================== تقرير الأيتام ====================
@@ -698,4 +707,27 @@ export async function listOrphans(): Promise<{ name: string; active: boolean }[]
 /** أسماء الأيتام بحسب حالة الطالب المختارة (الكل / نشط / منقطع). */
 export async function buildOrphans(status: OrphanStatus = "active"): Promise<string[]> {
   return (await listOrphans()).filter((o) => status === "all" || (status === "active" ? o.active : !o.active)).map((o) => o.name);
+}
+
+// ==================== تقرير المالية ====================
+
+export type FinanceReportRow = { date: string; kind: "DEPOSIT" | "WITHDRAW"; amount: number; reason: string; byName: string };
+export type FinanceReport = { opening: number; deposits: number; withdrawals: number; closing: number; rows: FinanceReportRow[] };
+
+/** عمليات صندوق المعهد في الفترة (الأقدم أولًا)، ورصيد الصندوق قبلها وبعدها. */
+export async function buildFinanceReport(from: string, to: string): Promise<FinanceReport> {
+  const [before, txns] = await Promise.all([
+    prisma.financeTxn.groupBy({ by: ["kind"], where: { date: { lt: from } }, _sum: { amount: true } }),
+    prisma.financeTxn.findMany({
+      where: { date: { gte: from, lte: to } },
+      include: { by: { select: { name: true } } },
+      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+    }),
+  ]);
+  const sumOf = (k: "DEPOSIT" | "WITHDRAW") => before.find((b) => b.kind === k)?._sum.amount ?? 0;
+  const opening = sumOf("DEPOSIT") - sumOf("WITHDRAW");
+  const rows: FinanceReportRow[] = txns.map((t) => ({ date: t.date, kind: t.kind, amount: t.amount, reason: t.reason, byName: t.by.name }));
+  const deposits = rows.filter((t) => t.kind === "DEPOSIT").reduce((n, t) => n + t.amount, 0);
+  const withdrawals = rows.filter((t) => t.kind === "WITHDRAW").reduce((n, t) => n + t.amount, 0);
+  return { opening, deposits, withdrawals, closing: opening + deposits - withdrawals, rows };
 }

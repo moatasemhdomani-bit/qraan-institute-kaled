@@ -45,6 +45,7 @@ import PasswordField from "@/components/PasswordField";
 import DateField from "@/components/DateField";
 import PhoneField from "@/components/PhoneField";
 import { formatMobile } from "@/lib/phone";
+import NumberField from "@/components/NumberField";
 import Select from "@/components/Select";
 import { cleanNationalId, MARITAL_OPTIONS, EDUCATION_OPTIONS, QURAN_LEVEL_OPTIONS } from "@/lib/staff";
 import { textHas } from "@/lib/search";
@@ -64,6 +65,7 @@ type StaffRow = {
   birth: string;
   birthPlace: string;
   nid: string;
+  fingerprintNo: string;
   address: string;
   job: string;
   marital: string;
@@ -631,6 +633,11 @@ function StaffForm({
               placeholder="أرقام فقط"
               style={{ ...inputStyle(), textAlign: "right" }}
             />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>رقم البصمة</label>
+            {/* رقمه في البصّامة — لتقرير «حضور الموظفين» */}
+            <NumberField name="fingerprintNo" defaultValue={initial?.fingerprintNo ?? ""} placeholder="رقمه في البصّامة" />
           </div>
           <Field label="عنوان السكن" name="address" defaultValue={initial?.address} required={req} />
           <Field label="العمل الحالي" name="job" defaultValue={initial?.job} required={req} />

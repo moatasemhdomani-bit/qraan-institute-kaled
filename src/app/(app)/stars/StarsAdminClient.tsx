@@ -89,7 +89,6 @@ export default function StarsAdminClient({
 
   const allHalaqat = halaqat.length > 0 && picked.length === halaqat.length;
   const allOfficers = officers.length > 0 && picked.length === officers.length;
-  const one = op === "student" && picked.length === 1 ? byId[picked[0]] : null;
 
   const opBtn = {
     display: "flex",
@@ -271,7 +270,6 @@ export default function StarsAdminClient({
           title="نجوم الطلاب"
           subtitle="إيداع طالب أو أكثر أو سحب نجومهم — لا يمسّ رصيد الحلقة"
           canSubmit={picked.length > 0}
-          balance={one ? one.stars : picked.length > 0 ? Math.min(...picked.map((id) => byId[id]?.stars ?? 0)) : undefined}
           onSubmit={(v) => adminStudentsStars({ studentIds: picked, ...v })}
           onClose={() => setOp(null)}
         >

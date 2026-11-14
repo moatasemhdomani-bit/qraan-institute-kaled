@@ -51,3 +51,22 @@ export function certCycleLabel(result: { certArrived: boolean; certArchived: boo
   if (result.certArrived) return "وصلت — بانتظار الأرشفة";
   return "بانتظار وصول الشهادة";
 }
+
+/** تقرير علامات الأوقاف: الطلاب مجمَّعون تحت مدرّسيهم (المدرّس ثم طلابه، ثم الذي يليه…) */
+export function groupByTeacher<T extends { teacherName: string; fullName: string }>(rows: T[]): { teacherName: string; rows: T[] }[] {
+  const map = new Map<string, T[]>();
+  for (const r of rows) map.set(r.teacherName, [...(map.get(r.teacherName) ?? []), r]);
+  return [...map.entries()]
+    .sort(([a], [b]) => (a === "—" ? 1 : b === "—" ? -1 : a.localeCompare(b, "ar")))
+    .map(([teacherName, list]) => ({ teacherName, rows: [...list].sort((a, b) => a.fullName.localeCompare(b.fullName, "ar")) }));
+}
+
+/** إجمالي المتقدّمين والناجحين والإعادة ومن لم يحضر */
+export function awqafMarksSummary(rows: { passed: boolean | null; outcomeLabel?: string | null }[]) {
+  return {
+    total: rows.length,
+    passed: rows.filter((r) => r.passed === true).length,
+    repeat: rows.filter((r) => r.passed === false).length,
+    absent: rows.filter((r) => r.passed == null && r.outcomeLabel === "لم يحضر").length,
+  };
+}

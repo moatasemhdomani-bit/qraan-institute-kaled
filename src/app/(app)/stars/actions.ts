@@ -39,8 +39,8 @@ export async function adminStudentStars(input: { studentId: string; kind: StarKi
   try {
     await prisma.$transaction(async (tx) => {
       if (input.kind === "WITHDRAW") {
-        const r = await tx.student.updateMany({ where: { id: input.studentId, stars: { gte: input.amount } }, data: { stars: { decrement: input.amount } } });
-        if (r.count === 0) throw new StarError("نجوم الطالب أقل من ذلك");
+        // الإدارة تسحب حتى لو نزل رصيد الطالب تحت الصفر (رصيد سالب)
+        await tx.student.update({ where: { id: input.studentId }, data: { stars: { decrement: input.amount } } });
       } else {
         // الإيداع من رصيد النشاط الذي تودعه الإدارة
         const r = await tx.user.updateMany({ where: { id: session.userId, activityStars: { gte: input.amount } }, data: { activityStars: { decrement: input.amount } } });
@@ -83,16 +83,12 @@ export async function adminStudentsStars(input: { studentIds: string[]; kind: St
     const off = students.filter((s) => !s.active);
     if (off.length) return { error: `طلاب منقطعون — رصيدهم صفر ولا تُودَع لهم نجوم: ${off.map((s) => s.name).join("، ")}.` };
   }
-  if (input.kind === "WITHDRAW") {
-    const short = students.filter((s) => s.stars < input.amount);
-    if (short.length) return { error: `نجوم الطالب أقل من ذلك: ${short.map((s) => `${s.name} (${s.stars})`).join("، ")}.` };
-  }
   try {
     await prisma.$transaction(async (tx) => {
       for (const s of students) {
         if (input.kind === "WITHDRAW") {
-          const r = await tx.student.updateMany({ where: { id: s.id, stars: { gte: input.amount } }, data: { stars: { decrement: input.amount } } });
-          if (r.count === 0) throw new StarError(`نجوم الطالب أقل من ذلك: ${s.name}.`);
+          // الإدارة تسحب حتى لو نزل رصيد الطالب تحت الصفر (رصيد سالب)
+          await tx.student.update({ where: { id: s.id }, data: { stars: { decrement: input.amount } } });
         } else {
           await tx.student.update({ where: { id: s.id }, data: { stars: { increment: input.amount } } });
         }

@@ -37,6 +37,7 @@ export default async function UsersPage() {
     birth: u.birthDate || "",
     birthPlace: u.birthPlace || "",
     nid: u.nationalId || "",
+    fingerprintNo: u.fingerprintNo != null ? String(u.fingerprintNo) : "",
     address: u.address || "",
     job: u.currentJob || "",
     marital: u.maritalStatus || "",

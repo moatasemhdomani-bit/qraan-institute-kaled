@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dateOnly } from "@/lib/daily";
-import { buildHalaqatBlocks, buildTeachersRows, buildArabicHalaqatBlocks, buildArabicTeachersRows, buildStudentPreview, buildAwqafMarks, buildOrphans, buildHadithTeachersRows, ORPHAN_STATUS_LABELS, type OrphanStatus } from "@/lib/reports";
+import { buildHalaqatBlocks, buildTeachersRows, buildArabicHalaqatBlocks, buildArabicTeachersRows, buildStudentPreview, buildAwqafMarks, buildOrphans, buildHadithTeachersRows, buildFinanceReport, ORPHAN_STATUS_LABELS, type OrphanStatus } from "@/lib/reports";
 import { renderPdf } from "@/lib/pdf";
 import { buildRecitationLog } from "@/lib/recitationLog";
-import { halaqatReportHtml, teachersReportHtml, arabicHalaqatReportHtml, arabicTeachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml, recitationLogReportHtml, hadithReportHtml } from "@/lib/reportHtml";
+import { halaqatReportHtml, teachersReportHtml, arabicHalaqatReportHtml, arabicTeachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml, recitationLogReportHtml, hadithReportHtml, financeReportHtml } from "@/lib/reportHtml";
 
 /** يُعيد توليد PDF تقرير سابق من معطياته المحفوظة عند الطلب — لا يُخزَّن أي ملف. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -21,6 +21,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     include: { issuedBy: { select: { name: true } } },
   });
   if (!report) return new NextResponse("التقرير غير موجود.", { status: 404 });
+  // «حضور الموظفين» يُنزَّل Excel لا PDF
+  if (report.kind === "STAFF_ATTENDANCE") return NextResponse.redirect(new URL(`/reports/${id}/excel`, req.url));
 
   let params_: Record<string, unknown> = {};
   try {
@@ -57,6 +59,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     html = arabicTeachersReportHtml({ ...common, rows: rows.map((r) => ({ ...r, note: notes[r.teacherId] || "" })) });
   } else if (report.kind === "HADITH") {
     html = hadithReportHtml({ ...common, rows: await buildHadithTeachersRows(report.fromDate, report.toDate) });
+  } else if (report.kind === "FINANCE") {
+    html = financeReportHtml({ ...common, ...(await buildFinanceReport(report.fromDate, report.toDate)) });
   } else if (report.kind === "ORPHANS") {
     // القائمة المحفوظة يوم الإصدار (تقارير قديمة بلا قائمة محفوظة تُعرض بالأسماء الحالية)
     const names = Array.isArray(params_.names) ? (params_.names as string[]) : await buildOrphans();
@@ -69,7 +73,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   } else if (report.kind === "AWQAF_MARKS") {
     const marks = typeof params_.batchId === "string" ? await buildAwqafMarks(params_.batchId) : null;
     if (!marks) return new NextResponse("دفعة سبر الأوقاف لم تعد موجودة.", { status: 404 });
-    html = awqafMarksReportHtml({ name: report.name, batchDate: marks.date, issuedBy: common.issuedBy, issuedAt, rows: marks.rows });
+    html = awqafMarksReportHtml({ name: report.name, batchDate: marks.date, issuedBy: common.issuedBy, issuedAt, rows: marks.rows, teachersWithout: marks.teachersWithout });
     landscape = true;
   } else {
     const preview = report.studentId ? await buildStudentPreview(report.studentId, report.fromDate, report.toDate) : null;

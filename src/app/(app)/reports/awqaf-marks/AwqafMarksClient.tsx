@@ -1,5 +1,6 @@
 "use client";
 
+import { groupByTeacher, awqafMarksSummary } from "@/lib/awqaf";
 import { PdfButtons } from "../IssuedNotice";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
@@ -23,6 +24,7 @@ export default function AwqafMarksClient({
   const [batchId, setBatchId] = useState(initial?.batchId ?? "");
   const [name, setName] = useState(initial?.name ?? "");
   const [rows, setRows] = useState<AwqafMarksRow[] | null>(null);
+  const [teachersWithout, setTeachersWithout] = useState<string[]>([]);
   const [previewError, setPreviewError] = useState("");
   const [pending, startTransition] = useTransition();
   const [state, formAction, issuing] = useActionState(issueAwqafMarksReport, initialState);
@@ -37,6 +39,7 @@ export default function AwqafMarksClient({
         return;
       }
       setRows(res.rows);
+      setTeachersWithout(res.teachersWithout);
     });
   }
 
@@ -123,37 +126,60 @@ export default function AwqafMarksClient({
           {state.ok && state.reportId && <IssuedNotice reportId={state.reportId} name={name} duplicate={state.duplicate} />}
 
           <div style={{ ...cardStyle, overflow: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 820 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 480 }}>
               <thead>
                 <tr style={{ background: "var(--head-grad)", color: "var(--ink-2)" }}>
-                  <th style={{ ...th, textAlign: "start" }}>اسم الطالب الكامل</th>
-                  <th style={th}>رقمه</th>
+                  <th style={{ ...th, width: 42 }}>م</th>
+                  <th style={{ ...th, textAlign: "start" }}>الاسم</th>
                   <th style={th}>نوع السبر</th>
-                  <th style={th}>المدرس</th>
-                  <th style={th}>الحلقة</th>
-                  <th style={th}>الفوج</th>
                   <th style={th}>العلامة</th>
-                  <th style={th}>النتيجة</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {groupByTeacher(rows).flatMap((g) => [
+                  <tr key={`t-${g.teacherName}`} style={{ borderTop: "1px solid var(--line)", background: "var(--chip)" }}>
+                    <td colSpan={4} style={{ padding: "8px 10px", fontWeight: 800, textAlign: "center" }}>
+                      المدرس: {g.teacherName}
+                    </td>
+                  </tr>,
+                  ...g.rows.map((r, i) => (
                   <tr key={r.studentId} style={{ borderTop: "1px solid var(--line-2)" }}>
+                    <td style={{ ...td, color: "var(--ink-2)" }}>{i + 1}</td>
                     <td style={{ padding: 8, fontWeight: 600 }}>{r.fullName}</td>
-                    <td style={td}>{r.studentNo}</td>
                     <td style={td}>{r.examLabel}</td>
-                    <td style={td}>{r.teacherName}</td>
-                    <td style={td}>{r.halqaName}</td>
-                    <td style={td}>{r.cohortName}</td>
-                    <td style={{ ...td, fontWeight: 700 }}>{r.score ?? r.outcomeLabel ?? "—"}</td>
-                    <td style={{ ...td, fontWeight: 700, color: r.passed == null ? "var(--ink-3)" : r.passed ? "var(--ok)" : "var(--bad)" }}>
-                      {r.passed == null ? "—" : r.passed ? "ناجح" : "إعادة"}
+                    {/* العلامة بالأخضر للناجح، و«إعادة» بالأحمر، و«لم يحضر» بالأسود */}
+                    <td style={{ ...td, fontWeight: 700, color: r.passed === true ? "var(--ok)" : r.passed === false ? "var(--bad)" : "var(--ink)" }}>
+                      {r.passed === true ? r.score : r.passed === false ? "إعادة" : (r.outcomeLabel ?? "—")}
                     </td>
                   </tr>
-                ))}
+                  )),
+                ])}
               </tbody>
             </table>
           </div>
+          {(() => {
+            const s = awqafMarksSummary(rows);
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>
+                {[
+                  { label: "إجمالي المتقدّمين", value: s.total, color: "var(--ink)" },
+                  { label: "الناجحون", value: s.passed, color: "var(--ok)" },
+                  { label: "الإعادة", value: s.repeat, color: "var(--bad)" },
+                  { label: "لم يحضر", value: s.absent, color: "var(--ink)" },
+                ].map((c) => (
+                  <div key={c.label} style={{ ...cardStyle, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{c.label}</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: c.color }}>{c.value}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+          {teachersWithout.length > 0 && (
+            <div style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.8 }}>
+              <b>ملاحظة:</b> مدرّسو القرآن الذين ليس لديهم طلاب في هذا السبر: {teachersWithout.join("، ")}.
+            </div>
+          )}
         </form>
       )}
     </div>

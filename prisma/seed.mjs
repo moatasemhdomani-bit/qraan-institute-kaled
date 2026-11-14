@@ -14,9 +14,17 @@ async function main() {
     create: { id: 1, days: JSON.stringify([]) },
   });
 
+  // حساب المدير الأول يُنشأ مرة واحدة فقط عند تشغيل النظام لأول مرة (قاعدة بلا مدير معهد نشط).
+  // كان يُبحث سابقًا عن اسم المستخدم «director» وحده — فإن حُذف الحساب أو غُيّر اسم مستخدمه عاد مع كل نشر.
   const directorUsername = "director";
-  const existing = await prisma.user.findUnique({ where: { username: directorUsername } });
-  if (!existing) {
+  const activeDirectors = await prisma.user.count({
+    where: {
+      deletedAt: null,
+      OR: [{ role: "DIRECTOR" }, { assignments: { some: { role: "DIRECTOR" } } }],
+    },
+  });
+  const usernameTaken = await prisma.user.findUnique({ where: { username: directorUsername } });
+  if (activeDirectors === 0 && !usernameTaken) {
     const passwordHash = await bcrypt.hash("Khaled@2026", 10);
     await prisma.user.create({
       data: { name: "مدير المعهد", username: directorUsername, passwordHash, role: "DIRECTOR" },

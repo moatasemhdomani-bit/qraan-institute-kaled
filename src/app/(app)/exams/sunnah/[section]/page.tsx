@@ -3,7 +3,8 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { today } from "@/lib/daily";
-import { sunnahSectionFromSlug } from "@/lib/sunnah";
+import { sunnahSectionFromSlug, sunnahSlug } from "@/lib/sunnah";
+import { softButtonStyle } from "@/lib/ui";
 import PageHeader from "@/components/PageHeader";
 import SunnahClient from "../SunnahClient";
 import { loadSunnahExamRows, loadSunnahStudents, workDatesThisWeek } from "../data";
@@ -43,9 +44,17 @@ export default async function SunnahSectionPage({ params }: { params: Promise<{ 
         title={sec.label}
         subtitle="تسميع بالأرقام ← سبر المرحلة ← سبر القسم (في المستويات المقسَّمة) ← سبر المستوى المحلي (النجاح من 80) — وسبر ترشيح الأوقاف في شاشته."
         action={
-          <Link href="/exams/sunnah" style={{ fontSize: 13, color: "var(--ink-2)" }}>
-            {role === "SUNNAH_EXAMINER" ? "← رجوع إلى السبر المحلي" : "← رجوع إلى السنة النبوية"}
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {/* متابعة التسميع: للحديث الشريف وحده */}
+            {sec.id === "HADITH" && (
+              <Link href={`/exams/sunnah/${sunnahSlug(sec.id)}/monitor`} style={{ ...softButtonStyle, fontSize: 13, textDecoration: "none", fontWeight: 600 }}>
+                متابعة التسميع
+              </Link>
+            )}
+            <Link href="/exams/sunnah" style={{ fontSize: 13, color: "var(--ink-2)" }}>
+              {role === "SUNNAH_EXAMINER" ? "← رجوع إلى السبر المحلي" : "← رجوع إلى السنة النبوية"}
+            </Link>
+          </div>
         }
       />
       <SunnahClient

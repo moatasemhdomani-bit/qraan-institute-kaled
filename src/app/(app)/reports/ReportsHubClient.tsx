@@ -31,6 +31,8 @@ const REVIEW_PATHS: Record<string, string> = {
   ORPHANS: "/reports/orphans",
   RECITATION_LOG: "/reports/recitation-log",
   HADITH: "/reports/hadith",
+  FINANCE: "/reports/finance",
+  STAFF_ATTENDANCE: "/reports/staff-attendance",
 };
 
 const FILTERS = [
@@ -44,6 +46,8 @@ const FILTERS = [
   { id: "ORPHANS", label: "الأيتام" },
   { id: "RECITATION_LOG", label: "سجل التسميع والحضور" },
   { id: "HADITH", label: "تقرير الحديث الشريف" },
+  { id: "FINANCE", label: "تقرير المالية" },
+  { id: "STAFF_ATTENDANCE", label: "حضور الموظفين" },
 ];
 
 function DeleteButton({ id }: { id: string }) {
