@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import type { Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -67,7 +68,9 @@ export async function joinCompetition(competitionId: string, studentId: string):
   if (!student) return { error: "الطالب غير موجود." };
   if (!student.active) return { error: "الطالب منقطع — لا يشارك في المسابقات." };
 
-  const mine = (await loadEntries(competitionId)).filter((e) => e.studentId === studentId);
+  const all = (await loadEntries(competitionId)).filter((e) => e.studentId === studentId);
+  // المشاركة المحذوفة لا تُحسب: لا تمنع عودته ولا تُعدّ من مرّتيه
+  const mine = all.filter((e) => !e.removedAt);
   const states = mine.map((e) => entryState(e.results, comp.levels).status);
   if (states.includes("ACTIVE")) return { error: "الطالب مشارك في هذه المسابقة الآن." };
   if (states.includes("WON")) return { error: "الطالب فاز بهذه المسابقة." };
@@ -90,7 +93,7 @@ export async function joinCompetition(competitionId: string, studentId: string):
           },
         });
       }
-      await tx.competitionEntry.create({ data: { competitionId, studentId, attempt: mine.length + 1 } });
+      await tx.competitionEntry.create({ data: { competitionId, studentId, attempt: Math.max(0, ...all.map((e) => e.attempt)) + 1 } });
     });
   } catch (e) {
     if (e instanceof CompError) return { error: e.message };
@@ -122,6 +125,7 @@ export async function recordMatch(competitionId: string, winnerNos: number[], lo
   for (const n of all) {
     const entry = entries[n - 1];
     if (!entry) return { error: `لا مشارك برقم ${n}.` };
+    if (entry.removedAt) return { error: `المشارك رقم ${n} محذوف من المسابقة.` };
     if (entryState(entry.results, comp.levels).status !== "ACTIVE") return { error: `المشارك رقم ${n} لم يعد في المسابقة.` };
   }
 
@@ -158,6 +162,73 @@ export async function undoLastMatch(competitionId: string): Promise<CompResult> 
     prisma.competition.update({ where: { id: competitionId }, data: { lastUndoAt: new Date() } }),
   ]);
   await logAction(session.userId, `مسابقة «${last.entry.competition.name}»: تراجع عن آخر مباراة`);
+  done();
+  return { ok: true };
+}
+
+/** إعادة نجوم المشاركة لأصحاب المشاركات المحذوفة (شحن في سجل النجوم بسببه) */
+async function refundEntries(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  entries: { id: string; studentId: string; refunded: boolean; student: { halqaId: string | null } }[],
+  comp: { name: string; cost: number },
+  byId: string,
+  byRole: Role
+) {
+  if (comp.cost <= 0) return;
+  for (const e of entries) {
+    if (e.refunded) continue;
+    await tx.student.update({ where: { id: e.studentId }, data: { stars: { increment: comp.cost } } });
+    await tx.starTxn.create({
+      data: { kind: "CHARGE", amount: comp.cost, studentId: e.studentId, halqaId: e.student.halqaId, byId, byRole, reason: `إعادة نجوم المشاركة في مسابقة «${comp.name}» بعد حذفها` },
+    });
+  }
+}
+
+/** حذف مسابقات بمشاركاتها ونتائجها — مع إعادة نجوم المشاركة للطلاب إن اختار ذلك */
+export async function deleteCompetitions(ids: string[], refund: boolean): Promise<CompResult> {
+  const session = await officer();
+  if (!session) return { error: "المسابقات من صلاحية مسؤول النشاط." };
+  if (!ids.length) return { error: "لا مسابقات للحذف." };
+  const comps = await prisma.competition.findMany({
+    where: { id: { in: ids } },
+    include: { entries: { select: { id: true, studentId: true, refunded: true, student: { select: { halqaId: true } } } } },
+  });
+  if (!comps.length) return { error: "المسابقة غير موجودة." };
+  await prisma.$transaction(async (tx) => {
+    for (const c of comps) {
+      if (refund) await refundEntries(tx, c.entries, c, session.userId, session.role);
+      await tx.competition.delete({ where: { id: c.id } });
+    }
+  });
+  for (const c of comps) {
+    await logAction(session.userId, `حذف المسابقة «${c.name}» (${c.entries.length} مشاركة)${refund && c.cost > 0 && c.entries.length ? ` وأعاد ${c.cost} نجمة لكل مشارك` : ""}`);
+  }
+  done();
+  return { ok: true };
+}
+
+/** حذف مشاركين من مسابقة: تُحذف نتائجهم وحدهم وتبقى نتائج خصومهم — مع إعادة نجوم المشاركة إن اختار ذلك */
+export async function deleteEntries(competitionId: string, studentIds: string[], refund: boolean): Promise<CompResult> {
+  const session = await officer();
+  if (!session) return { error: "المسابقات من صلاحية مسؤول النشاط." };
+  if (!studentIds.length) return { error: "لا طلاب للحذف." };
+  const comp = await prisma.competition.findUnique({ where: { id: competitionId } });
+  if (!comp) return { error: "المسابقة غير موجودة." };
+  const entries = await prisma.competitionEntry.findMany({
+    where: { competitionId, studentId: { in: studentIds }, removedAt: null },
+    select: { id: true, studentId: true, refunded: true, student: { select: { name: true, halqaId: true } } },
+  });
+  if (!entries.length) return { error: "الطالب غير مشارك في المسابقة." };
+  // لم تجرِ أي مباراة: يُحذف سطره وتُزاح الأرقام بعده — وإلا يبقى سطره ورقمه ونتائجه ويُكتب عليه «هذا الطالب محذوف»
+  const played = (await prisma.competitionResult.count({ where: { entry: { competitionId } } })) > 0;
+  await prisma.$transaction(async (tx) => {
+    if (refund) await refundEntries(tx, entries, comp, session.userId, session.role);
+    const ids = entries.map((e) => e.id);
+    if (played) await tx.competitionEntry.updateMany({ where: { id: { in: ids } }, data: { removedAt: new Date(), ...(refund ? { refunded: true } : {}) } });
+    else await tx.competitionEntry.deleteMany({ where: { id: { in: ids } } });
+  });
+  const names = [...new Set(entries.map((e) => e.student.name))].join("، ");
+  await logAction(session.userId, `مسابقة «${comp.name}»: حذف ${names} (${entries.length} مشاركة)${refund && comp.cost > 0 ? ` وأعاد ${comp.cost} نجمة لكل مشاركة` : ""}`);
   done();
   return { ok: true };
 }

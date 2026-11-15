@@ -9,7 +9,7 @@ import { STATUS_LABELS, WINS_TO_ADVANCE, LOSSES_TO_EXIT, type EntryState } from 
 import Drawer from "@/components/Drawer";
 import NumberField from "@/components/NumberField";
 import StarBadge from "../stars/StarBadge";
-import { createCompetition, joinCompetition, recordMatch, undoLastMatch, type CompResult } from "./actions";
+import { createCompetition, joinCompetition, recordMatch, undoLastMatch, deleteCompetitions, deleteEntries, type CompResult } from "./actions";
 
 type Entry = EntryState & {
   no: number;
@@ -19,6 +19,8 @@ type Entry = EntryState & {
   cohortName: string;
   teacherName: string;
   attempt: number;
+  /** محذوف بعد أن جرت مباريات: يبقى سطره ورقمه */
+  removed: boolean;
 };
 type Competition = { id: string; name: string; cost: number; levels: number; matchSize: number; canUndo: boolean; entries: Entry[] };
 type StudentRow = { id: string; name: string; no: number; stars: number; halqaName: string | null };
@@ -29,6 +31,7 @@ export default function CompetitionsClient({ competitions, students }: { competi
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
 
@@ -69,7 +72,7 @@ export default function CompetitionsClient({ competitions, students }: { competi
   if (open) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <button type="button" onClick={() => { setOpenId(null); setNotice(null); }} style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer", padding: 0 }}>
+        <button type="button" onClick={() => { setOpenId(null); setNotice(null); setDeleting(false); }} style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer", padding: 0 }}>
           ← رجوع إلى المسابقات
         </button>
         <div style={{ ...cardStyle, padding: "16px 18px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -81,11 +84,14 @@ export default function CompetitionsClient({ competitions, students }: { competi
               </span>
               <span>{open.levels} مستويات</span>
               <span>{open.matchSize} طلاب في المباراة</span>
-              <span>{open.entries.filter((e) => e.status === "ACTIVE").length} مستمر من {open.entries.length}</span>
+              <span>{open.entries.filter((e) => e.status === "ACTIVE" && !e.removed).length} مستمر من {open.entries.length}</span>
             </div>
           </div>
           <button type="button" onClick={() => setAdding(true)} style={primaryButtonStyle}>
             إضافة طالب
+          </button>
+          <button type="button" onClick={() => setDeleting(true)} style={dangerButton}>
+            حذف طالب
           </button>
         </div>
         {noticeBox}
@@ -100,15 +106,39 @@ export default function CompetitionsClient({ competitions, students }: { competi
             onClose={() => setAdding(false)}
           />
         )}
+        {deleting && (
+          <DeleteDrawer
+            title="حذف طالب"
+            subtitle={
+              open.entries.some((e) => e.cells.length)
+                ? `${open.name} — جرت مباريات: يبقى سطر الطالب ورقمه ونتائجه ويُكتب عليه «هذا الطالب محذوف»`
+                : `${open.name} — لم تجرِ أي مباراة: يُحذف الطالب وتُزاح أرقام من بعده`
+            }
+            empty="لا مشاركون في المسابقة."
+            cost={open.cost}
+            items={[...new Map(open.entries.filter((e) => !e.removed).map((e) => [e.studentId, e])).values()].map((e) => {
+              const n = open.entries.filter((x) => x.studentId === e.studentId && !x.removed).length;
+              return { id: e.studentId, label: e.name, sub: `#${e.studentNo} · فوج ${e.cohortName}${n > 1 ? " · مشاركتان" : ""}`, entries: n };
+            })}
+            pending={pending}
+            onDelete={(ids, refund, label) =>
+              run(() => deleteEntries(open.id, ids, refund), `حُذف ${label} من المسابقة${refund && open.cost > 0 ? " وأُعيدت نجوم المشاركة" : ""}.`, () => ids.length > 1 && setDeleting(false))
+            }
+            onClose={() => setDeleting(false)}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button type="button" onClick={() => setAdding(true)} style={primaryButtonStyle}>
           إضافة مسابقة
+        </button>
+        <button type="button" onClick={() => setDeleting(true)} style={dangerButton}>
+          حذف مسابقة
         </button>
       </div>
       {noticeBox}
@@ -135,14 +165,95 @@ export default function CompetitionsClient({ competitions, students }: { competi
                 <span>{c.matchSize} في المباراة</span>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
-                {c.entries.length} مشاركة · {c.entries.filter((e) => e.status === "ACTIVE").length} مستمر
+                {c.entries.filter((e) => !e.removed).length} مشاركة · {c.entries.filter((e) => e.status === "ACTIVE" && !e.removed).length} مستمر
               </div>
             </button>
           ))}
         </div>
       )}
       {adding && <NewCompetitionDrawer pending={pending} onSubmit={(v) => run(() => createCompetition(v), `أُضيفت مسابقة «${v.name.trim()}».`, () => setAdding(false))} onClose={() => setAdding(false)} />}
+      {deleting && (
+        <DeleteDrawer
+          title="حذف مسابقة"
+          subtitle="تُحذف المسابقة بكل مشاركاتها ونتائج مبارياتها"
+          empty="لا مسابقات."
+          items={competitions.map((c) => ({ id: c.id, label: c.name, sub: `${c.entries.filter((e) => !e.removed).length} مشاركة · المشاركة ${c.cost} نجمة`, entries: c.entries.length, cost: c.cost }))}
+          pending={pending}
+          onDelete={(ids, refund, label) =>
+            run(() => deleteCompetitions(ids, refund), `حُذف ${label}${refund ? " وأُعيدت نجوم المشاركة للطلاب" : ""}.`, () => ids.length > 1 && setDeleting(false))
+          }
+          onClose={() => setDeleting(false)}
+        />
+      )}
     </div>
+  );
+}
+
+const dangerButton: React.CSSProperties = { ...softButtonStyle, color: "var(--bad)", border: "1px solid var(--bad)" };
+
+type DeleteItem = { id: string; label: string; sub: string; entries: number; cost?: number };
+
+/** قائمة الموجود مع حذف كل عنصر وحذف الكل — وخيار إعادة نجوم المشاركة للطلاب */
+function DeleteDrawer({
+  title,
+  subtitle,
+  empty,
+  items,
+  cost,
+  pending,
+  onDelete,
+  onClose,
+}: {
+  title: string;
+  subtitle: string;
+  empty: string;
+  items: DeleteItem[];
+  cost?: number;
+  pending: boolean;
+  onDelete: (ids: string[], refund: boolean, label: string) => void;
+  onClose: () => void;
+}) {
+  // إعادة النجوم غير مفعَّلة افتراضيًا — يختارها مسؤول النشاط بنفسه
+  const [refund, setRefund] = useState(false);
+  const stars = (list: DeleteItem[]) => list.reduce((n, i) => n + i.entries * (i.cost ?? cost ?? 0), 0);
+  const ask = (list: DeleteItem[], label: string) => {
+    const back = stars(list);
+    const note = back > 0 ? (refund ? `\nتُعاد ${back} نجمة إلى أرصدة الطلاب.` : "\nلا تُعاد نجوم المشاركة.") : "";
+    if (window.confirm(`حذف ${label}؟ لا يمكن التراجع.${note}`)) onDelete(list.map((i) => i.id), refund, label);
+  };
+  return (
+    <Drawer
+      open
+      title={title}
+      subtitle={subtitle}
+      onClose={onClose}
+      footer={
+        items.length > 0 ? (
+          <button type="button" disabled={pending} onClick={() => ask(items, `الكل (${items.length})`)} style={{ ...dangerButton, width: "100%", opacity: pending ? 0.7 : 1 }}>
+            {pending ? "جارٍ الحذف…" : `حذف الكل (${items.length})`}
+          </button>
+        ) : undefined
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, cursor: "pointer", padding: "10px 12px", borderRadius: 11, border: "1px solid var(--line)" }}>
+          <input type="checkbox" checked={refund} onChange={(e) => setRefund(e.target.checked)} />
+          إعادة نجوم المشاركة إلى أرصدة الطلاب
+        </label>
+        {items.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>{empty}</div>}
+        {items.map((i) => (
+          <div key={i.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 600 }}>{i.label}</div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{i.sub}</div>
+            </div>
+            <button type="button" disabled={pending} onClick={() => ask([i], `«${i.label}»`)} style={{ ...dangerButton, fontSize: 12.5, padding: "6px 12px", opacity: pending ? 0.7 : 1 }}>
+              حذف
+            </button>
+          </div>
+        ))}
+      </div>
+    </Drawer>
   );
 }
 
@@ -205,7 +316,7 @@ function AddStudentDrawer({ comp, students, pending, onPick, onClose }: { comp: 
   }, [students, search]);
 
   const blockOf = (s: StudentRow): string | null => {
-    const mine = comp.entries.filter((e) => e.studentId === s.id);
+    const mine = comp.entries.filter((e) => e.studentId === s.id && !e.removed);
     if (mine.some((e) => e.status === "ACTIVE")) return "مشارك الآن";
     if (mine.some((e) => e.status === "WON")) return "فاز بالمسابقة";
     if (mine.length >= 2) return "شارك مرتين";
@@ -220,7 +331,7 @@ function AddStudentDrawer({ comp, students, pending, onPick, onClose }: { comp: 
         {search.trim() && matches.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-3)" }}>لا يوجد طالب نشط بهذا الاسم أو الرقم.</div>}
         {matches.map((s) => {
           const block = blockOf(s);
-          const second = comp.entries.some((e) => e.studentId === s.id);
+          const second = comp.entries.some((e) => e.studentId === s.id && !e.removed);
           return (
             <button
               key={s.id}
@@ -273,7 +384,7 @@ function MatchForm({ comp, pending, onRecord, onUndo }: { comp: Competition; pen
   const field = (list: string[], set: (v: string[]) => void, i: number) => (
     <ParticipantPicker
       key={i}
-      entries={comp.entries.filter((e) => e.status === "ACTIVE" && (!taken.has(String(e.no)) || String(e.no) === list[i]))}
+      entries={comp.entries.filter((e) => e.status === "ACTIVE" && !e.removed && (!taken.has(String(e.no)) || String(e.no) === list[i]))}
       value={list[i]}
       onChange={(v) => set(list.map((x, j) => (j === i ? v : x)))}
     />
@@ -394,7 +505,7 @@ function EntriesTable({ comp }: { comp: Competition }) {
         </thead>
         <tbody>
           {comp.entries.map((e) => (
-            <tr key={e.no} style={{ opacity: e.status === "OUT" ? 0.6 : 1 }}>
+            <tr key={e.no} style={{ opacity: e.removed ? 0.5 : e.status === "OUT" ? 0.6 : 1 }}>
               <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{e.no}</td>
               <td style={{ ...td, fontWeight: 600 }}>
                 {e.name}
@@ -426,13 +537,13 @@ function EntriesTable({ comp }: { comp: Competition }) {
                   ))}
                   {e.status === "OUT" && <span style={{ fontSize: 15, fontWeight: 800, color: "var(--bad)" }}>✕</span>}
                 </div>
-                {e.status === "ACTIVE" && (
+                {e.status === "ACTIVE" && !e.removed && (
                   <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
                     في هذا المستوى: {e.wins}/{WINS_TO_ADVANCE} ربح · {e.losses}/{LOSSES_TO_EXIT} خسارة
                   </div>
                 )}
               </td>
-              <td style={{ ...td, textAlign: "center", fontWeight: 700, color: STATUS_COLORS[e.status] }}>{STATUS_LABELS[e.status]}</td>
+              <td style={{ ...td, textAlign: "center", fontWeight: 700, color: e.removed ? "var(--bad)" : STATUS_COLORS[e.status] }}>{e.removed ? "هذا الطالب محذوف" : STATUS_LABELS[e.status]}</td>
             </tr>
           ))}
         </tbody>

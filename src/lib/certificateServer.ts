@@ -13,6 +13,8 @@ export type CertificateCandidate = {
   examDate: string;
   mark: number | null;
   cert: { id: string; number: number; date: string } | null;
+  /** «شهادة سابقة» أُضيفت يدويًا (بلا سبر في الموقع) */
+  prior: boolean;
 };
 
 /** السبورات التي تؤهّل لكل نوع */
@@ -36,36 +38,63 @@ async function latestPassByStudent(kind: CertificateKindId) {
   return byStudent;
 }
 
-/** كل الطلاب المستحقين لنوع من الشهادات، مع ما صدر منها */
+/** كل الطلاب المستحقين لنوع من الشهادات، مع ما صدر منها — ومعهم أصحاب «الشهادات السابقة» */
 export async function certificateCandidates(kind: CertificateKindId): Promise<CertificateCandidate[]> {
-  const passes = await latestPassByStudent(kind);
-  const ids = [...passes.keys()];
+  const [passes, priors] = await Promise.all([
+    latestPassByStudent(kind),
+    prisma.issuedCertificate.findMany({ where: { kind, prior: true }, select: { studentId: true } }),
+  ]);
+  const ids = [...new Set([...passes.keys(), ...priors.map((p) => p.studentId)])];
   if (ids.length === 0) return [];
   const [students, certs] = await Promise.all([
     prisma.student.findMany({
       where: { id: { in: ids } },
       select: { id: true, studentNo: true, name: true, active: true, halqa: { select: { name: true } } },
     }),
-    prisma.issuedCertificate.findMany({ where: { kind, studentId: { in: ids } }, select: { id: true, studentId: true, number: true, dataJson: true } }),
+    prisma.issuedCertificate.findMany({ where: { kind, studentId: { in: ids } }, select: { id: true, studentId: true, number: true, dataJson: true, prior: true } }),
   ]);
   const certBy = new Map(certs.map((c) => [c.studentId, c]));
   return students
     .map((s) => {
-      const e = passes.get(s.id)!;
+      const e = passes.get(s.id);
       const c = certBy.get(s.id);
+      const saved = c ? (JSON.parse(c.dataJson) as CertificateData) : null;
       return {
         studentId: s.id,
         no: s.studentNo,
         name: s.name,
         halqa: s.halqa?.name ?? "",
         active: s.active,
-        examId: e.id,
-        examDate: e.date,
-        mark: e.resultMark,
-        cert: c ? { id: c.id, number: c.number, date: (JSON.parse(c.dataJson) as CertificateData).issueDate } : null,
+        examId: e?.id ?? "",
+        examDate: e?.date ?? saved?.examDate ?? "",
+        mark: c?.prior ? (saved?.mark ?? null) : (e?.resultMark ?? null),
+        cert: c && saved ? { id: c.id, number: c.number, date: saved.issueDate } : null,
+        prior: !!c?.prior,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+}
+
+/** بيانات الطالب الشخصية كما تُكتب في الشهادة — من سجله في المعهد */
+export async function studentCertificateFields(kind: CertificateKindId, studentId: string) {
+  const s = await rawPrisma.student.findUnique({
+    where: { id: studentId },
+    select: { name: true, fatherName: true, familyName: true, birthDate: true, birthPlace: true },
+  });
+  if (!s) return null;
+  return {
+    // شهادة عمّ: الاسم الثلاثي؛ شهادة القراءة العربية فيها «ابن السيد» فيُكتب الاسم مع النسبة وحده
+    name: kind === "AMMA" ? studentFullName(s.name, s.fatherName, s.familyName) : nameWithNasab(s.name, s.familyName),
+    fatherName: s.fatherName?.trim() ?? "",
+    birthPlace: s.birthPlace?.trim() ?? "",
+    birthYear: s.birthDate?.match(/\d{4}/)?.[0] ?? "",
+  };
+}
+
+/** «شهادة سابقة»: بيانات الطالب الحالية من سجله، والعلامة وتاريخ الإصدار كما أُدخلا */
+export async function buildPriorCertificateData(kind: CertificateKindId, studentId: string, saved: CertificateData): Promise<CertificateData | null> {
+  const fields = await studentCertificateFields(kind, studentId);
+  return fields ? { ...saved, ...fields } : null;
 }
 
 /** يبني لقطة بيانات الشهادة لطالب مستحق — أو null إن لم يعد مستحقًا */

@@ -7,6 +7,7 @@ import { pageRange, surahsFor, type TrackId, type RecitationMode } from "@/lib/t
 import { validateEntry, validateSurahEntry, surahsLabel } from "@/lib/recitation";
 import { chipStyle } from "@/lib/ui";
 import NumberField from "@/components/NumberField";
+import { SUMMONS_LOCK_MESSAGE } from "@/lib/summonsText";
 import { PAST_KINDS, JUZ_COUNT, pastItemLabel, pastJuzTotal, formatJuz, validatePastItems, type PastKind } from "@/lib/pastRecitation";
 
 /** بند ماضٍ في النموذج: النوع، ورقم الجزء نصًّا (فارغ = لم يُختر بعد)، وتقديره. */
@@ -43,6 +44,8 @@ type Student = {
   surahsBefore: string[];
   /** «ملاحظة الطالب» الخاصة بالمدرّس — null = لا تظهر (المدير) */
   note: string | null;
+  /** استدعاء ولي أمر لم يحضر: تسميعه مقفل */
+  summoned?: boolean;
   /** «كل الحلقات»: حلقة الطالب ومستواها، واسمها عنوانًا قبل طلابها */
   halqaId?: string;
   track?: TrackId;
@@ -223,7 +226,10 @@ export default function RecitationClient({
     return (se.noNew || !!se.nf) && (se.noPast || se.past.length > 0);
   };
   const isComplete = (st: Student) => isSaved(st.id) && bothParts(st);
-  const savedCount = students.filter((st) => isComplete(st)).length;
+  // المقفلون (استدعاء ولي أمر) لا يُحسبون في العدّاد
+  const openStudents = students.filter((st) => !st.summoned);
+  const savedCount = openStudents.filter((st) => isComplete(st)).length;
+  const [lockMsg, setLockMsg] = useState<string | null>(null);
   // ما حُفظ تسميعه (الأخضر) في الأعلى، وما لم يُسمَّع بعد في الأسفل — مع بقاء طلاب كل حلقة معًا في «كل الحلقات»
   const groupOrder = [...new Set(students.map((st) => st.group ?? ""))];
   const ordered = students
@@ -459,6 +465,25 @@ export default function RecitationClient({
 
           // «كل الحلقات»: اسم الحلقة قبل أول طالب منها
           const heading = s.group && s.group !== ordered[idx - 1]?.group ? s.group : null;
+          if (s.summoned) {
+            return (
+              <div key={s.id}>
+                {heading && (
+                  <div style={{ padding: "9px 14px", fontSize: 13.5, fontWeight: 700, background: "var(--card-2-grad)", borderTop: idx ? "1px solid var(--line)" : undefined }}>{heading}</div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setLockMsg(lockMsg === s.id ? null : s.id)}
+                  style={{ width: "100%", display: "flex", flexDirection: "column", gap: 4, textAlign: "start", padding: "12px 14px", border: 0, borderTop: "1px solid var(--line-2)", cursor: "pointer", background: "var(--chip)", opacity: 0.75 }}
+                >
+                  <span style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>🔒 {s.name}</span>
+                  <span style={{ fontSize: 12.5, color: "var(--bad-ink)", fontWeight: lockMsg === s.id ? 700 : 400 }}>
+                    {lockMsg === s.id ? SUMMONS_LOCK_MESSAGE : "مقفل"}
+                  </span>
+                </button>
+              </div>
+            );
+          }
           return (
             <div key={s.id}>
               {heading && (
@@ -803,23 +828,23 @@ export default function RecitationClient({
         })}
       </div>
 
-      {students.length > 0 && (
+      {openStudents.length > 0 && (
         <div
           style={{
             padding: 14,
             borderRadius: 12,
             fontSize: 13.5,
-            border: savedCount === students.length ? "1px solid rgba(111,191,139,0.5)" : "1px dashed var(--line)",
+            border: savedCount === openStudents.length ? "1px solid rgba(111,191,139,0.5)" : "1px dashed var(--line)",
             background:
-              savedCount === students.length
+              savedCount === openStudents.length
                 ? "linear-gradient(135deg, rgba(111,191,139,0.16), rgba(111,191,139,0.03))"
                 : "var(--btn-soft)",
-            color: savedCount === students.length ? "var(--ink)" : "var(--ink-2)",
+            color: savedCount === openStudents.length ? "var(--ink)" : "var(--ink-2)",
           }}
         >
-          {savedCount === students.length
+          {savedCount === openStudents.length
             ? "تسميع هذا اليوم محفوظ لكل الطلاب — ظهر لأولياء الأمور."
-            : `حُفظ تسميع ${savedCount} من ${students.length} طالبًا — افتح بطاقة كل طالب واحفظ تسميعه.`}
+            : `حُفظ تسميع ${savedCount} من ${openStudents.length} طالبًا — افتح بطاقة كل طالب واحفظ تسميعه.`}
         </div>
       )}
     </div>

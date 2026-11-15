@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { prisma } from "@/lib/db";
+import { prisma, rawPrisma, nameWithNasab, studentFullName } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import { formatDateAr } from "@/lib/daily";
 import { passFailLabel } from "@/lib/exam";
@@ -53,12 +53,29 @@ export default async function AwqafBatchesPage({ searchParams }: { searchParams:
   );
 
   if (tab === "certs") {
-    const [amma, arabic] = await Promise.all([certificateCandidates("AMMA"), certificateCandidates("ARABIC")]);
+    const [amma, arabic, studentsRaw] = await Promise.all([
+      certificateCandidates("AMMA"),
+      certificateCandidates("ARABIC"),
+      // «شهادة سابقة»: كل طلاب المعهد — بياناتهم تُملأ في الشهادة تلقائيًا من سجلهم
+      rawPrisma.student.findMany({
+        select: { id: true, studentNo: true, name: true, fatherName: true, familyName: true, birthDate: true, birthPlace: true },
+        orderBy: { studentNo: "asc" },
+      }),
+    ]);
+    const priorStudents = studentsRaw.map((s) => ({
+      id: s.id,
+      no: s.studentNo,
+      name: studentFullName(s.name, s.fatherName, s.familyName),
+      nasabName: nameWithNasab(s.name, s.familyName),
+      father: s.fatherName?.trim() ?? "",
+      birthPlace: s.birthPlace?.trim() ?? "",
+      birthYear: s.birthDate?.match(/\d{4}/)?.[0] ?? "",
+    }));
     return (
       <>
         <PageHeader title={TITLE} subtitle="شهادات المعهد: اختاروا نوع الشهادة ثم الطلاب — تُملأ تلقائيًا من بيانات الطالب ونتيجة سبره، وتُحفظ برقم متسلسل." />
         {tabBar}
-        <CertificatesClient candidates={{ AMMA: amma, ARABIC: arabic }} />
+        <CertificatesClient candidates={{ AMMA: amma, ARABIC: arabic }} students={priorStudents} />
       </>
     );
   }

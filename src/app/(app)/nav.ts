@@ -28,10 +28,9 @@ export const NAV: { id: string; href: string; label: string; roles: RoleId[]; tr
   { id: "sunnah-nomination", href: "/exams/sunnah/nomination", label: "سبر ترشيح الأوقاف", roles: ["SUNNAH_EXAMINER"] },
   { id: "sunnah-reset", href: "/exams/sunnah/reset", label: "إعادة ضبط مستوى", roles: ["SUNNAH_EXAMINER"] },
   { id: "exam-monitor", href: "/exam-monitor", label: "متابعة السبر", roles: ["DIRECTOR", "ADMIN", "TEACHER", "EXAM_SUPERVISOR"] },
-  // ولي الأمر: ثلاث شاشات
+  // ولي الأمر: شاشتان
   { id: "parent", href: "/parent", label: "نظرة عامة", roles: ["GUARDIAN"] },
-  { id: "parent-recitation", href: "/parent/recitation", label: "جدول التسميع", roles: ["GUARDIAN"] },
-  { id: "parent-attendance", href: "/parent/attendance", label: "جدول الحضور", roles: ["GUARDIAN"] },
+  { id: "parent-recitation", href: "/parent/recitation", label: "جدول التسميع والحضور", roles: ["GUARDIAN"] },
   { id: "users", href: "/users", label: "إدارة المستخدمين", roles: ["DIRECTOR"] },
   { id: "audit", href: "/audit", label: "سجل التدقيق", roles: ["DIRECTOR"] },
   { id: "cohorts", href: "/cohorts", label: "إدارة الأفواج", roles: ["DIRECTOR", "ADMIN"] },

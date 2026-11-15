@@ -83,6 +83,7 @@ model User {
   permitsSet             Permit[]             @relation("PermitSetter")
   awqafBatchesMade       AwqafBatch[]         @relation("AwqafBatchCreator")
   behaviorChangesMade    StudentBehaviorLog[] @relation("BehaviorActor")
+  summonsesMade          GuardianSummons[]    @relation("SummonsBy")
   reportsIssued          IssuedReport[]       @relation("ReportIssuer")
   certificatesIssued     IssuedCertificate[]  @relation("CertificateIssuer")
   starTxnsMade           StarTxn[]            @relation("StarTxnBy")
@@ -229,6 +230,7 @@ model Student {
   competitionEntries CompetitionEntry[]
   awqafResults       AwqafResult[]
   behaviorLog        StudentBehaviorLog[]
+  summonses          GuardianSummons[]
   teacherNotes       TeacherMonthlyNote[]
   issuedReports      IssuedReport[]
   certificates       IssuedCertificate[]
@@ -529,6 +531,21 @@ model Recitation {
 // ==================== المرحلة ٥: التقارير ====================
 
 // سجل تغييرات سلوك الطالب — كل تغيير عن «ممتاز» (أو عودة إليها) يستوجب ملاحظة.
+/// استدعاء ولي أمر الطالب (تسجّله الإدارة بسببه): ما دام لم يحضر ولي الأمر تُقفل شاشتا تسميع الطالب وحضوره عند مدرّسه
+model GuardianSummons {
+  id         String    @id @default(cuid())
+  studentId  String
+  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  reason     String
+  byId       String
+  by         User      @relation("SummonsBy", fields: [byId], references: [id])
+  createdAt  DateTime  @default(now())
+  /// حضر ولي الأمر — يُفتح التسميع والحضور (ما لم يبقَ استدعاء آخر لم يحضر له)
+  attendedAt DateTime?
+
+  @@index([studentId, attendedAt])
+}
+
 model StudentBehaviorLog {
   id            String  @id @default(cuid())
   studentId     String
@@ -583,11 +600,14 @@ enum CertificateKind {
 // dataJson لقطة يوم الإصدار — تُستعمل فقط إن لم يعد الطالب مستحقًا.
 model IssuedCertificate {
   id        String          @id @default(cuid())
-  number    Int             @unique @default(autoincrement())
+  /// رقم الشهادة — تسلسل مستقل لكل نوع (عمّ 1، 2… والقراءة العربية 1، 2…)
+  number    Int
   kind      CertificateKind
   studentId String
   student   Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
   examId    String? // السبر الذي بُنيت عليه (للمرجع فقط)
+  /// «شهادة سابقة»: صدرت ورقيًا قبل الموقع — تُضاف لطالب مسجّل بتاريخ إصدارها (وعلامتها)، ورقمها من تسلسل الموقع
+  prior     Boolean         @default(false)
   dataJson  String // { name, fatherName, birthPlace, birthYear, grade, examDate, issueDate }
 
   issuedById String
@@ -596,6 +616,7 @@ model IssuedCertificate {
   createdAt DateTime @default(now())
 
   @@unique([kind, studentId])
+  @@unique([kind, number])
 }
 
 // سجل التقارير الصادرة — لا يحمل ملف PDF مخزَّنًا؛ يُعاد توليد التقرير عند الطلب من هذه المعطيات نفسها.
@@ -725,6 +746,10 @@ model CompetitionEntry {
   student       Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
   attempt       Int
   createdAt     DateTime            @default(now())
+  /// حُذف بعد أن جرت مباريات في المسابقة: يبقى سطره ورقمه ونتائجه، ويُكتب عليه «هذا الطالب محذوف» ولا يدخل مباراة
+  removedAt     DateTime?
+  /// أُعيدت له نجوم المشاركة (عند حذفه) — فلا تُعاد مرة أخرى عند حذف المسابقة
+  refunded      Boolean             @default(false)
   results       CompetitionResult[]
 
   @@unique([competitionId, studentId, attempt])
@@ -790,11 +815,18 @@ enum FinanceKind {
   WITHDRAW
 }
 
+enum FinanceCurrency {
+  SYP // ليرة سورية جديدة
+  USD // دولار
+}
+
 model FinanceTxn {
   id        String      @id @default(cuid())
   createdAt DateTime    @default(now())
   kind      FinanceKind
-  /// المبلغ بالليرة السورية (موجب دائمًا — النوع يحدد الإيداع أو السحب)
+  /// عملة العملية: الليرة السورية الجديدة أو الدولار — لكل عملة رصيدها
+  currency  FinanceCurrency @default(SYP)
+  /// المبلغ بعملته (موجب دائمًا — النوع يحدد الإيداع أو السحب)
   amount    Int
   /// تاريخ العملية YYYY-MM-DD
   date      String

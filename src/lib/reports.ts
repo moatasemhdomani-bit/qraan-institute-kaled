@@ -711,23 +711,28 @@ export async function buildOrphans(status: OrphanStatus = "active"): Promise<str
 
 // ==================== تقرير المالية ====================
 
-export type FinanceReportRow = { date: string; kind: "DEPOSIT" | "WITHDRAW"; amount: number; reason: string; byName: string };
-export type FinanceReport = { opening: number; deposits: number; withdrawals: number; closing: number; rows: FinanceReportRow[] };
+export type FinanceReportRow = { date: string; kind: "DEPOSIT" | "WITHDRAW"; currency: "SYP" | "USD"; amount: number; reason: string; byName: string };
+export type FinanceTotals = { opening: number; deposits: number; withdrawals: number; closing: number };
+/** لكل عملة رصيد أول الفترة وإيداعها وسحبها ورصيد آخرها */
+export type FinanceReport = { totals: Record<"SYP" | "USD", FinanceTotals>; rows: FinanceReportRow[] };
 
 /** عمليات صندوق المعهد في الفترة (الأقدم أولًا)، ورصيد الصندوق قبلها وبعدها. */
 export async function buildFinanceReport(from: string, to: string): Promise<FinanceReport> {
   const [before, txns] = await Promise.all([
-    prisma.financeTxn.groupBy({ by: ["kind"], where: { date: { lt: from } }, _sum: { amount: true } }),
+    prisma.financeTxn.groupBy({ by: ["kind", "currency"], where: { date: { lt: from } }, _sum: { amount: true } }),
     prisma.financeTxn.findMany({
       where: { date: { gte: from, lte: to } },
       include: { by: { select: { name: true } } },
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     }),
   ]);
-  const sumOf = (k: "DEPOSIT" | "WITHDRAW") => before.find((b) => b.kind === k)?._sum.amount ?? 0;
-  const opening = sumOf("DEPOSIT") - sumOf("WITHDRAW");
-  const rows: FinanceReportRow[] = txns.map((t) => ({ date: t.date, kind: t.kind, amount: t.amount, reason: t.reason, byName: t.by.name }));
-  const deposits = rows.filter((t) => t.kind === "DEPOSIT").reduce((n, t) => n + t.amount, 0);
-  const withdrawals = rows.filter((t) => t.kind === "WITHDRAW").reduce((n, t) => n + t.amount, 0);
-  return { opening, deposits, withdrawals, closing: opening + deposits - withdrawals, rows };
+  const rows: FinanceReportRow[] = txns.map((t) => ({ date: t.date, kind: t.kind, currency: t.currency, amount: t.amount, reason: t.reason, byName: t.by.name }));
+  const totalsOf = (c: "SYP" | "USD"): FinanceTotals => {
+    const sumOf = (k: "DEPOSIT" | "WITHDRAW") => before.find((b) => b.kind === k && b.currency === c)?._sum.amount ?? 0;
+    const opening = sumOf("DEPOSIT") - sumOf("WITHDRAW");
+    const deposits = rows.filter((t) => t.currency === c && t.kind === "DEPOSIT").reduce((n, t) => n + t.amount, 0);
+    const withdrawals = rows.filter((t) => t.currency === c && t.kind === "WITHDRAW").reduce((n, t) => n + t.amount, 0);
+    return { opening, deposits, withdrawals, closing: opening + deposits - withdrawals };
+  };
+  return { totals: { SYP: totalsOf("SYP"), USD: totalsOf("USD") }, rows };
 }

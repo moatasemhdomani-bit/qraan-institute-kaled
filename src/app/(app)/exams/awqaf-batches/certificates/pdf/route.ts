@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 import { renderPagePdf } from "@/lib/pdf";
 import { certificatesHtml } from "@/lib/certificateHtml";
 import { CERTIFICATE_LABELS, type CertificateData } from "@/lib/certificate";
-import { buildCertificateData } from "@/lib/certificateServer";
+import { buildCertificateData, buildPriorCertificateData } from "@/lib/certificateServer";
 
 /** يولّد ملف PDF لشهادة أو أكثر من لقطاتها المحفوظة: ?ids=a,b,c (كل شهادة في صفحة) */
 export async function GET(req: Request) {
@@ -27,8 +27,9 @@ export async function GET(req: Request) {
   const list = await Promise.all(
     certs.map(async (c) => {
       const saved = JSON.parse(c.dataJson) as CertificateData;
-      const fresh = await buildCertificateData(c.kind, c.studentId, saved.issueDate);
-      return { kind: c.kind, number: c.number, data: fresh?.data ?? saved };
+      // «شهادة سابقة»: بيانات الطالب الحالية، والعلامة وتاريخ الإصدار كما أُدخلا
+      const fresh = c.prior ? await buildPriorCertificateData(c.kind, c.studentId, saved) : (await buildCertificateData(c.kind, c.studentId, saved.issueDate))?.data;
+      return { kind: c.kind, number: c.number, data: fresh ?? saved };
     })
   );
   const fileName =

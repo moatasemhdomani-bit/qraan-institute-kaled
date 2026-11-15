@@ -8,6 +8,7 @@ import { today, isValidDate, dayLockReason, rotationSlot, timeRangeLabel, format
 import PageHeader from "@/components/PageHeader";
 import DailyShell from "@/components/DailyShell";
 import AttendanceClient from "./AttendanceClient";
+import { summonedStudentIds } from "@/lib/summons";
 
 export default async function AttendancePage({
   searchParams,
@@ -40,6 +41,7 @@ export default async function AttendancePage({
         (x, y) => (order.get(x.halqaId ?? "") ?? 0) - (order.get(y.halqaId ?? "") ?? 0)
       )
     : [];
+  const allSummoned = await summonedStudentIds(allStudents.map((s) => s.id));
   const allSaved = all ? await prisma.attendance.findMany({ where: { halqaId: { in: halaqat.map((h) => h.id) }, date } }) : [];
 
   return (
@@ -71,7 +73,7 @@ export default async function AttendancePage({
             key={"all" + date}
             halqaId={halaqat.map((h) => h.id)}
             date={date}
-            students={allStudents.map((st) => ({ id: st.id, no: st.studentNo, name: st.name, group: halqaName[st.halqaId ?? ""] ?? "" }))}
+            students={allStudents.map((st) => ({ id: st.id, no: st.studentNo, name: st.name, group: halqaName[st.halqaId ?? ""] ?? "", summoned: allSummoned.has(st.id) }))}
             saved={Object.fromEntries(allSaved.map((x) => [x.studentId, x.status as string]))}
             alreadyUploaded={allSaved.length > 0}
           />
@@ -111,6 +113,7 @@ async function HalqaAttendance({
     ? await prisma.attendance.findMany({ where: { halqaId: halqa.id, date } })
     : [];
   const savedMap = Object.fromEntries(saved.map((a) => [a.studentId, a.status as string]));
+  const summoned = await summonedStudentIds(students.map((s) => s.id));
   const duty = showDuty ? dutyNoteFor(halqa, date) : "";
   return (
     <>
@@ -119,7 +122,7 @@ async function HalqaAttendance({
             key={halqa.id + date}
             halqaId={halqa.id}
             date={date}
-            students={students.map((s) => ({ id: s.id, no: s.studentNo, name: s.name }))}
+            students={students.map((s) => ({ id: s.id, no: s.studentNo, name: s.name, summoned: summoned.has(s.id) }))}
             saved={savedMap}
             alreadyUploaded={saved.length > 0}
           />

@@ -89,6 +89,40 @@ export type StaffAttendanceResult = {
 /** قبل البصمة بأكثر من هذا عن بداية الدوام لا تُحسب لهذا الوقت */
 const EARLY_WINDOW = 30;
 
+type Slot = { start: number; end: number };
+/** يوم واحد لموظف: الحضور (0.5 لكل فوج) والتأخيرات — البصمات بالدقائق بعد استبعاد أوقات الأفواج غير المحتسبة */
+export function daySessions(punches: number[], sessions: Slot[], skippedSlots: Slot[]): { present: number; delays: number[] } {
+  let present = 0;
+  const delays: number[] = [];
+  sessions.sort((a, b) => a.start - b.start);
+  // الموظف يبصم مرتين: دخولًا (أول بصمة) وخروجًا (آخرها) — بصمة الخروج لا تُعدّ وصولًا ولا تأخيرًا
+  let arrival: number | null = punches.length ? punches[0] : null;
+  let exit: number | null = punches.length > 1 ? punches[punches.length - 1] : null;
+  const last = sessions[sessions.length - 1];
+  // بصمة وحيدة في آخر نصف ساعة من آخر فوج له (أو بعده) = بصمة خروج نسي قبلها بصمة الدخول
+  if (punches.length === 1 && punches[0] >= last.end - EARLY_WINDOW) {
+    exit = punches[0];
+    arrival = null;
+  }
+  for (const s of sessions) {
+    // نافذة الفوج: من نصف ساعة قبل بدايته — ولا تمتد إلى ما قبل نهاية فوج غير محتسب سبقه
+    const floor = Math.max(s.start - EARLY_WINDOW, ...skippedSlots.filter((k) => k.end <= s.start).map((k) => k.end + 1));
+    if (arrival != null && arrival >= floor && arrival <= s.end) {
+      // وصل في وقت هذا الفوج: التأخير من بدايته
+      present += 0.5;
+      const late = arrival - s.start;
+      if (late > 0) delays.push(late);
+    } else if (arrival != null && arrival < floor) {
+      // وصل قبله (لفوج سابق) وبقي: حاضر بلا تأخير — ومن خرج عند نهاية الفوج الأول (أو في أول نصف ساعة من هذا) لم يحضره
+      if (exit == null || exit > s.start + EARLY_WINDOW) present += 0.5;
+    } else if (arrival == null && exit != null && s === last) {
+      // بصمة خروج وحيدة: حاضر في آخر أفواجه بلا تأخير
+      present += 0.5;
+    }
+  }
+  return { present, delays };
+}
+
 /**
  * حضور الموظفين من ملف البصّامة: لكل موظف له «رقم بصمة» — في كل يوم دوام (بلا العطل) ولكل فوج له فيه دور
  * بوقت دوام محدد: حاضر إن بصم بين (بداية الدوام − نصف ساعة) ونهايته، والتأخير = أول بصمة − بداية الدوام.
@@ -170,15 +204,9 @@ export async function buildStaffAttendance(file: FingerprintFile, cohortIds?: st
         continue;
       }
       expected += 0.5 * sessions.length;
-      for (const s of sessions) {
-        // نافذة الفوج: من نصف ساعة قبل بدايته — ولا تمتد إلى ما قبل نهاية فوج غير محتسب سبقه
-        const floor = Math.max(s.start - EARLY_WINDOW, ...skippedSlots.filter((k) => k.end <= s.start).map((k) => k.end + 1));
-        const inWin = punches.filter((p) => p >= floor && p <= s.end);
-        if (!inWin.length) continue;
-        present += 0.5;
-        const late = inWin[0] - s.start;
-        if (late > 0) delays.push(late);
-      }
+      const r = daySessions(punches, sessions, skippedSlots);
+      present += r.present;
+      delays.push(...r.delays);
     }
     const round = (n: number) => Math.round(n * 100) / 100;
     rows.push({

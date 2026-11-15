@@ -18,13 +18,14 @@ export default async function FinancePage() {
 
   return (
     <>
-      <PageHeader title="المالية" subtitle="صندوق المعهد: إيداع وسحب بالليرة السورية — مع سبب كل عملية." />
+      <PageHeader title="المالية" subtitle="صندوق المعهد: إيداع وسحب بالليرة السورية الجديدة والدولار — لكل عملة رصيدها، مع سبب كل عملية." />
       <FinanceClient
         today={today()}
         canDelete={session.role === "DIRECTOR"}
         txns={txns.map((t) => ({
           id: t.id,
           kind: t.kind,
+          currency: t.currency,
           amount: t.amount,
           date: t.date,
           reason: t.reason,

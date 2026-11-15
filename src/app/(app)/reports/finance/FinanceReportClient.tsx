@@ -6,7 +6,7 @@ import Link from "next/link";
 import { cardStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import DateField from "@/components/DateField";
 import { today, monthStart, currentMonthNo } from "@/lib/daily";
-import { formatSyp } from "@/lib/finance";
+import { formatMoney, CURRENCIES, CURRENCY_LABEL, type Currency } from "@/lib/finance";
 import type { ReviewInputs, FinanceReport } from "@/lib/reports";
 import IssuedNotice from "../IssuedNotice";
 import { previewFinanceReport, issueFinanceReport, type FormState } from "./actions";
@@ -46,12 +46,13 @@ export default function FinanceReportClient({ initial }: { initial: ReviewInputs
   }, []);
 
   const cell = { padding: 8, textAlign: "center" as const };
-  const stat = (label: string, value: number, color?: string) => (
+  const stat = (label: string, value: number, c: Currency, color?: string) => (
     <div style={{ ...cardStyle, padding: "12px 14px" }}>
       <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{label}</div>
-      <div style={{ fontSize: 17, fontWeight: 800, color, fontVariantNumeric: "tabular-nums" }}>{formatSyp(value)}</div>
+      <div style={{ fontSize: 17, fontWeight: 800, color, fontVariantNumeric: "tabular-nums" }}>{formatMoney(value, c)}</div>
     </div>
   );
+  const used = report ? CURRENCIES.filter((c) => report.rows.some((r) => r.currency === c)) : [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -104,12 +105,17 @@ export default function FinanceReportClient({ initial }: { initial: ReviewInputs
           )}
           {state.ok && state.reportId && <IssuedNotice reportId={state.reportId} name={name} duplicate={state.duplicate} />}
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
-            {stat("رصيد أول الفترة", report.opening)}
-            {stat("إجمالي الإيداع", report.deposits, "var(--ok)")}
-            {stat("إجمالي السحب", report.withdrawals, "var(--bad)")}
-            {stat("الصندوق آخر الفترة", report.closing)}
-          </div>
+          {CURRENCIES.map((c) => (
+            <div key={c} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink-2)" }}>{CURRENCY_LABEL[c]}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
+                {stat("رصيد أول الفترة", report.totals[c].opening, c)}
+                {stat("إجمالي الإيداع", report.totals[c].deposits, c, "var(--ok)")}
+                {stat("إجمالي السحب", report.totals[c].withdrawals, c, "var(--bad)")}
+                {stat("الصندوق آخر الفترة", report.totals[c].closing, c)}
+              </div>
+            </div>
+          ))}
 
           {report.rows.length === 0 ? (
             <div style={{ ...cardStyle, padding: 30, textAlign: "center", color: "var(--ink-2)" }}>لا عمليات في هذه الفترة.</div>
@@ -135,17 +141,19 @@ export default function FinanceReportClient({ initial }: { initial: ReviewInputs
                       <td style={{ ...cell, fontWeight: 700, color: r.kind === "DEPOSIT" ? "var(--ok)" : "var(--bad)" }}>{r.kind === "DEPOSIT" ? "إيداع" : "سحب"}</td>
                       <td style={{ padding: 8 }}>{r.reason}</td>
                       <td style={cell}>{r.byName}</td>
-                      <td style={{ ...cell, whiteSpace: "nowrap" }}>{r.kind === "DEPOSIT" ? formatSyp(r.amount) : ""}</td>
-                      <td style={{ ...cell, whiteSpace: "nowrap" }}>{r.kind === "WITHDRAW" ? formatSyp(r.amount) : ""}</td>
+                      <td style={{ ...cell, whiteSpace: "nowrap" }}>{r.kind === "DEPOSIT" ? formatMoney(r.amount, r.currency) : ""}</td>
+                      <td style={{ ...cell, whiteSpace: "nowrap" }}>{r.kind === "WITHDRAW" ? formatMoney(r.amount, r.currency) : ""}</td>
                     </tr>
                   ))}
-                  <tr style={{ borderTop: "2px solid var(--line)", background: "var(--chip)", fontWeight: 700 }}>
-                    <td style={{ padding: 8 }} colSpan={5}>
-                      المجموع
-                    </td>
-                    <td style={{ ...cell, color: "var(--ok)", whiteSpace: "nowrap" }}>{formatSyp(report.deposits)}</td>
-                    <td style={{ ...cell, color: "var(--bad)", whiteSpace: "nowrap" }}>{formatSyp(report.withdrawals)}</td>
-                  </tr>
+                  {used.map((c) => (
+                    <tr key={c} style={{ borderTop: "2px solid var(--line)", background: "var(--chip)", fontWeight: 700 }}>
+                      <td style={{ padding: 8 }} colSpan={5}>
+                        المجموع — {CURRENCY_LABEL[c]}
+                      </td>
+                      <td style={{ ...cell, color: "var(--ok)", whiteSpace: "nowrap" }}>{formatMoney(report.totals[c].deposits, c)}</td>
+                      <td style={{ ...cell, color: "var(--bad)", whiteSpace: "nowrap" }}>{formatMoney(report.totals[c].withdrawals, c)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

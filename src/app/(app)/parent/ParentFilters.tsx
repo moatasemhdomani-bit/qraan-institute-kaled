@@ -23,8 +23,7 @@ export default function ParentFilters({
   const q = `?child=${activeId}&from=${from}&to=${to}`;
   const tabs = [
     { href: "/parent", label: "نظرة عامة" },
-    { href: "/parent/recitation", label: "جدول التسميع" },
-    { href: "/parent/attendance", label: "جدول الحضور" },
+    { href: "/parent/recitation", label: "جدول التسميع والحضور" },
   ];
 
   return (

@@ -4,7 +4,8 @@ import { toWesternDigits, cleanPhone2 } from "@/lib/numbers";
 import { useEffect, useMemo, useState, useActionState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveStudent, resetGuardianPassword, deleteStudent, type FormState } from "./actions";
-import { saveBehavior, editBehaviorLog, deleteBehaviorLog, type BehaviorState, type BehaviorEditResult } from "./behaviorActions";
+import { saveBehavior, editBehaviorLog, deleteBehaviorLog, type BehaviorState, type BehaviorEditResult, type BehaviorLogEntry } from "./behaviorActions";
+import { addSummons, setSummonsAttended, deleteSummons, type SummonsEntry, type SummonsResult } from "./summonsActions";
 import { arrowNav } from "@/lib/arrowNav";
 import Link from "next/link";
 import { copyToClipboard } from "@/lib/clipboard";
@@ -59,6 +60,8 @@ type StudentRow = {
   guardianPassword: string;
   behavior: string;
   behaviorLog: { id: string; previousValue: string; newValue: string; note: string; by: string; date: string }[];
+  /** استدعاءات ولي الأمر (الأحدث أولًا) */
+  summonses: SummonsEntry[];
 };
 
 const BEHAVIOR = ["ممتاز", "جيد جدًا", "جيد", "ضعيف"] as const;
@@ -779,6 +782,15 @@ function BehaviorSection({ student }: { student: StudentRow }) {
   }, [state, router]);
 
   return (
+    <>
+    <SummonsSection
+      student={student}
+      onBehavior={(b, entry) => {
+        setBehavior(b);
+        setLog((prev) => [entry, ...prev]);
+        router.refresh();
+      }}
+    />
     <div style={{ padding: 14, borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 600 }}>سلوك الطالب</div>
@@ -944,6 +956,158 @@ function BehaviorSection({ student }: { student: StudentRow }) {
           </div>
         )}
       </div>
+    </div>
+    </>
+  );
+}
+
+/**
+ * استدعاء ولي أمر: سبب إلزامي، ويسأل هل يُعدَّل سلوك الطالب (يُحفظ في سجل السلوك بالسبب نفسه).
+ * ما دام لم يحضر ولي الأمر تُقفل شاشتا تسميع الطالب وحضوره عند مدرّسه.
+ */
+function SummonsSection({ student, onBehavior }: { student: StudentRow; onBehavior: (behavior: string, entry: BehaviorLogEntry) => void }) {
+  const router = useRouter();
+  const [list, setList] = useState<SummonsEntry[]>(student.summonses);
+  const [adding, setAdding] = useState(false);
+  const [reason, setReason] = useState("");
+  const [changeBehavior, setChangeBehavior] = useState<boolean | null>(null);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const pendingCount = list.filter((x) => !x.attended).length;
+  const btn = { padding: "4px 10px", borderRadius: 7, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" } as const;
+
+  const apply = (res: SummonsResult) => {
+    if (res.error) return setError(res.error);
+    setError("");
+    if (res.summonses) setList(res.summonses);
+    if (res.behavior && res.logEntry) onBehavior(res.behavior, res.logEntry);
+    setDeleting(null);
+    router.refresh();
+  };
+
+  function save() {
+    if (!reason.trim()) return setError("سبب الاستدعاء إلزامي.");
+    if (changeBehavior === null) return setError("هل تريد تعديل سلوك الطالب؟ اختاروا نعم أو لا.");
+    if (changeBehavior && !value) return setError("اختاروا درجة السلوك الجديدة.");
+    start(async () => {
+      const res = await addSummons(student.id, reason, changeBehavior ? value : null);
+      apply(res);
+      if (!res.error) {
+        setAdding(false);
+        setReason("");
+        setChangeBehavior(null);
+        setValue("");
+      }
+    });
+  }
+
+  return (
+    <div style={{ padding: 14, borderRadius: 12, border: `1px solid ${pendingCount ? "var(--notice-line)" : "var(--line)"}`, background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>
+          استدعاء ولي أمر
+          {pendingCount > 0 && <span style={{ marginInlineStart: 8, fontSize: 12, color: "var(--bad)" }}>— لم يحضر ({pendingCount}) · التسميع والحضور مقفلان عند المدرّس</span>}
+        </div>
+        {!adding && (
+          <button type="button" onClick={() => { setAdding(true); setError(""); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}>
+            + استدعاء ولي أمر
+          </button>
+        )}
+      </div>
+
+      {error && <div style={{ padding: "9px 12px", borderRadius: 9, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 12.5 }}>{error}</div>}
+
+      {adding && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 5 }}>سبب الاستدعاء — إلزامي</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={2}
+              maxLength={500}
+              style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--input-grad)", color: "var(--ink)", fontSize: 13, resize: "vertical", fontFamily: "inherit" }}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>هل تريد تعديل سلوك الطالب؟</span>
+            {[true, false].map((v) => (
+              <button key={String(v)} type="button" onClick={() => setChangeBehavior(v)} style={{ ...chipStyle(changeBehavior === v), padding: "5px 14px" }}>
+                {v ? "نعم" : "لا"}
+              </button>
+            ))}
+          </div>
+          {changeBehavior && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {BEHAVIOR.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => setValue(b)}
+                    style={{
+                      padding: "6px 13px", borderRadius: 999, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit",
+                      border: `1px solid ${value === b ? BEHAVIOR_COLORS[b] : "var(--line)"}`,
+                      background: value === b ? `color-mix(in srgb, ${BEHAVIOR_COLORS[b]} 13%, transparent)` : "transparent",
+                      color: value === b ? BEHAVIOR_COLORS[b] : "var(--ink-2)",
+                      fontWeight: value === b ? 600 : 400,
+                    }}
+                  >
+                    {b}
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>يُحفظ في سجل السلوك بسبب الاستدعاء نفسه.</div>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" onClick={save} disabled={pending} style={{ ...primaryButtonStyle, padding: "8px 16px", fontSize: 12.5, opacity: pending ? 0.7 : 1 }}>
+              {pending ? "جارٍ الحفظ…" : "حفظ الاستدعاء"}
+            </button>
+            <button type="button" onClick={() => { setAdding(false); setError(""); }} style={{ padding: "8px 16px", borderRadius: 9, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 12.5, cursor: "pointer" }}>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
+
+      {list.length === 0 ? (
+        !adding && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>لا استدعاءات.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {list.map((x) => (
+            <div key={x.id} style={{ padding: "8px 10px", borderRadius: 9, border: `1px solid ${x.attended ? "var(--line-2)" : "var(--notice-line)"}`, fontSize: 12 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 160, color: "var(--ink)" }}>{x.reason}</div>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: pending ? "default" : "pointer", fontWeight: 600, color: x.attended ? "var(--ok)" : "var(--bad)" }}>
+                  <input type="checkbox" checked={x.attended} disabled={pending} onChange={(e) => { const v = e.target.checked; start(async () => apply(await setSummonsAttended(x.id, v))); }} />
+                  حضر ولي أمره
+                </label>
+                {deleting === x.id ? (
+                  <>
+                    <button type="button" disabled={pending} onClick={() => start(async () => apply(await deleteSummons(x.id)))} style={{ ...btn, border: "1px solid var(--danger-line)", color: "var(--danger)" }}>
+                      {pending ? "…" : "تأكيد الحذف"}
+                    </button>
+                    <button type="button" onClick={() => setDeleting(null)} style={btn}>
+                      تراجع
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => setDeleting(x.id)} style={btn}>
+                    حذف
+                  </button>
+                )}
+              </div>
+              <div style={{ color: "var(--ink-3)", fontSize: 11, marginTop: 3 }}>
+                {x.by} · {x.date}
+                {x.attended ? ` · حضر ${x.attendedDate}` : " · لم يحضر بعد"}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

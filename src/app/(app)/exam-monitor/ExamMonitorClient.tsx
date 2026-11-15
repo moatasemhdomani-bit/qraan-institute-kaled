@@ -9,6 +9,7 @@ import { formatDateAr } from "@/lib/daily";
 import { awqafPassed, awqafResultLabel, certCycleLabel } from "@/lib/awqaf";
 import ExamFormDrawer, { type ExistingExam } from "../exams/ExamFormDrawer";
 import Select from "@/components/Select";
+import DateField from "@/components/DateField";
 import { useCohortTeacherFilter } from "@/components/useCohortTeacherFilter";
 import DeleteExamButton from "../exams/DeleteExamButton";
 import { textHas } from "@/lib/search";
@@ -81,6 +82,9 @@ export default function ExamMonitorClient({
   const [typeFilter, setTypeFilter] = useState<"all" | RowType>("all");
   const [examinerFilter, setExaminerFilter] = useState("all");
   const [search, setSearch] = useState("");
+  // الفترة: من تاريخ – إلى تاريخ (شاملة الطرفين، YYYY-MM-DD) — فارغة = بلا تقييد
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   // حالة الطالب: سُبِر / لم يُسبَر (بنوع السبر المختار، أو أي سبر قرآن/قراءة عربية)
   const [status, setStatus] = useState<"all" | "done" | "never">("all");
   const [examMenu, setExamMenu] = useState(false);
@@ -96,6 +100,9 @@ export default function ExamMonitorClient({
   const byType = (x: Row) => typeFilter === "all" || x.type === typeFilter;
   const byExaminer = (x: Row) => examinerFilter === "all" || x.examinerName === examinerFilter;
   const bySearch = (x: Row) => !q || textHas(x.studentName, q);
+  const hasRange = !!(from || to);
+  const badRange = !!(from && to && from > to);
+  const byDate = (x: Row) => (!from || x.date >= from) && (!to || x.date <= to);
   const { shown: cohortTeacherBlocks, selects } = useCohortTeacherFilter(blocks);
   const filteredBlocks = cohortTeacherBlocks
     .map((b) => ({
@@ -104,17 +111,21 @@ export default function ExamMonitorClient({
         (r) =>
           (typeFilter === "all" || r.type === typeFilter) &&
           (examinerFilter === "all" || r.examinerName === examinerFilter) &&
-          (!q || textHas(r.studentName, q))
+          (!q || textHas(r.studentName, q)) &&
+          byDate(r)
       ),
     }))
-    // عند البحث باسم طالب تُخفى الحلقات التي لا نتيجة فيها
-    .filter((b) => !q || b.rows.length > 0 || status === "never")
+    // عند البحث باسم طالب أو تحديد فترة تُخفى الحلقات التي لا نتيجة فيها
+    .filter((b) => !(q || hasRange) || b.rows.length > 0 || status === "never")
     .filter((b) => status !== "done" || b.rows.length > 0);
 
   // «لم يُسبَر»: طلاب كل حلقة بلا سبر من النوع المختار (أو بلا سبر مستوى أصلًا — لا السنة النبوية)
+  // ومع تحديد فترة: بلا سبر داخل هذه الفترة
   const neverOf = (b: Block) => {
     const sobred = new Set(
-      b.rows.filter((r) => (typeFilter === "all" ? !isSunnahType(r.type) && r.type !== "AWQAF_ACTUAL" : r.type === typeFilter)).map((r) => r.studentId)
+      b.rows
+        .filter((r) => byDate(r) && (typeFilter === "all" ? !isSunnahType(r.type) && r.type !== "AWQAF_ACTUAL" : r.type === typeFilter))
+        .map((r) => r.studentId)
     );
     return b.students.filter((s) => !sobred.has(s.id) && (!q || textHas(s.name, q)));
   };
@@ -189,13 +200,34 @@ export default function ExamMonitorClient({
           />
           {selects}
         </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <DateField label="من تاريخ" value={from} onChange={setFrom} width={160} />
+          <DateField label="إلى تاريخ" value={to} onChange={setTo} width={160} />
+          {hasRange && (
+            <button
+              type="button"
+              onClick={() => {
+                setFrom("");
+                setTo("");
+              }}
+              style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+            >
+              مسح الفترة
+            </button>
+          )}
+        </div>
+        {badRange && (
+          <div style={{ padding: "9px 12px", borderRadius: 9, border: "1px solid var(--notice-line)", background: "var(--notice-soft)", fontSize: 12.5 }}>
+            تاريخ البداية بعد تاريخ النهاية — لن تظهر نتائج. صحّحوا الفترة.
+          </div>
+        )}
       </div>
 
 
       {status === "never" ? (
         <>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>
-            عدد النتائج: {neverBlocks.reduce((n, x) => n + x.list.length, 0)} طالبًا لم يُسبَر{typeFilter !== "all" ? ` ${typeFilter === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[typeFilter]}` : ""} في {neverBlocks.length} حلقة
+            عدد النتائج: {neverBlocks.reduce((n, x) => n + x.list.length, 0)} طالبًا لم يُسبَر{typeFilter !== "all" ? ` ${typeFilter === "AWQAF_ACTUAL" ? "سبر الأوقاف الفعلي" : TYPE_LABELS[typeFilter]}` : ""}{hasRange ? " في الفترة المحددة" : ""} في {neverBlocks.length} حلقة
           </div>
           {neverBlocks.length === 0 && <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا يوجد طالب لم يُسبَر.</div>}
           {neverBlocks.map(({ b, list }) => (
@@ -220,7 +252,11 @@ export default function ExamMonitorClient({
 
       {filteredBlocks.length === 0 && (
         <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-2)" }}>
-          {q ? `لا سبر مسجّل لطالب باسم «${q}».` : "لا توجد حلقات بعد."}
+          {q
+            ? `لا سبر مسجّل لطالب باسم «${q}»${hasRange ? " في هذه الفترة" : ""}.`
+            : hasRange
+              ? "لا يوجد سبر مسجّل في هذه الفترة."
+              : "لا توجد حلقات بعد."}
         </div>
       )}
 

@@ -11,6 +11,7 @@ import PageHeader from "@/components/PageHeader";
 import DailyShell from "@/components/DailyShell";
 import RecitationClient from "./RecitationClient";
 import { recitationMode, TRACK_LABELS } from "@/lib/track";
+import { summonedStudentIds } from "@/lib/summons";
 import { passedArabicStage6 } from "@/lib/arabicProgress";
 
 export default async function RecitationPage({
@@ -140,6 +141,7 @@ async function recitationRows(halqa: Halqa & { cohort: Cohort }, date: string, i
   for (const st of students) {
     lastPages[st.id] = { newTo: maxNewToMap[st.id] ?? null };
   }
+  const summoned = await summonedStudentIds(students.map((s) => s.id));
   const rows = students.map((s) => ({
               id: s.id,
               no: s.studentNo,
@@ -164,6 +166,8 @@ async function recitationRows(halqa: Halqa & { cohort: Cohort }, date: string, i
               surahsBefore: surahsBefore[s.id] ?? [],
               // «ملاحظة الطالب» للمدرّس وحده — لا تُرسَل للمدير
               note: isDirector ? null : (s.teacherNote ?? ""),
+              // استدعاء ولي أمر لم يحضر: تسميعه مقفل
+              summoned: summoned.has(s.id),
             }));
   return { rows, savedCount: saved.length };
 }

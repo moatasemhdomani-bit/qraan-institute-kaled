@@ -9,7 +9,7 @@ import { TYPE_LABELS, resultLabel, passFailLabel, examKindLabel, type ExamTypeId
  * وما لم يعد صحيحًا (رُفع الحضور، عُدّل الغياب إلى حاضر) يُحذف.
  *
  * المدرّس: تذكير برفع الحضور/التسميع بعد ساعة التذكير في فوجه، نتيجة سبر طالب من طلابه، نجوم الإدارة في رصيد حلقته.
- * المدير والإداري: الحلقات التي لم ترفع الحضور بعد ساعة التذكير، وطالب غاب 5 أيام متتالية فأكثر.
+ * المدير والإداري: الحلقات التي لم ترفع الحضور بعد ساعة التذكير، وطالب غاب 5 أيام متتالية فأكثر، وطالب لم يدفع أو لم يستكمل الدفع بعد أسبوع من تسجيله.
  * ولي الأمر: غياب ابنه أو تأخّره (بعد انتهاء دوام آخر فوج)، ونتيجة سبر ابنه.
  * والإعلانات تُكتب للمستلمين عند إرسالها (announcements).
  */
@@ -18,6 +18,11 @@ import { TYPE_LABELS, resultLabel, passFailLabel, examKindLabel, type ExamTypeId
 const LAUNCH = new Date("2026-11-10T00:00:00+02:00");
 const LOOKBACK_DAYS = 3;
 export const ABSENCE_STREAK = 5;
+/** إشعار «لم يدفع» بعد هذا العدد من الأيام من تسجيل الطالب */
+const UNPAID_AFTER_DAYS = 7;
+
+/** تاريخ اليوم بتوقيت دمشق (YYYY-MM-DD) */
+const damascusDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Damascus" }).format(d);
 
 /** لا يُعاد البناء لكل صفحة: مرة كل دقيقتين لكل مستخدم */
 const SYNC_EVERY_MS = 2 * 60 * 1000;
@@ -174,6 +179,25 @@ async function syncStaff(userId: string, date: string, time: string, open: boole
   }
   await reconcile(userId, wants, [`att-pending:`]);
 
+  // طالب «لم يدفع» أو «متبقٍّ» عليه بعد أسبوع من تسجيله — يبقى حتى تُعدَّل حالة رسومه (أو يُصبح منقطعًا) فيُحذف
+  const unpaid = await prisma.student.findMany({
+    // الأيتام مستثنون: المعهد لا يأخذ منهم رسومًا
+    where: { active: true, isOrphan: false, feeStatus: { in: ["UNPAID", "REMAINING"] }, registeredAt: { not: null, lte: new Date(Date.now() - UNPAID_AFTER_DAYS * 86400000) } },
+    select: { id: true, name: true, registeredAt: true, feeStatus: true, feeAmount: true },
+    orderBy: { registeredAt: "asc" },
+  });
+  await reconcile(
+    userId,
+    unpaid.map((s) => {
+      const day = damascusDate(s.registeredAt as Date).split("-").reverse().join("/");
+      // «متبقٍّ»: لم يستكمل الدفع — ومعه المبلغ المتبقي إن كُتب
+      return s.feeStatus === "REMAINING"
+        ? { key: `unpaid:${s.id}:rest`, title: `سجّل الطالب ${s.name} منذ ${day} ولم يستكمل الدفع إلى الآن.`, body: s.feeAmount ? `المبلغ المتبقي: ${s.feeAmount.toLocaleString("en-US")}` : null, href: "/students" }
+        : { key: `unpaid:${s.id}`, title: `سجّل الطالب ${s.name} منذ ${day} ولم يدفع إلى الآن.`, href: "/students" };
+    }),
+    [`unpaid:`]
+  );
+
   // غياب 5 أيام متتالية فأكثر: آخر سجلات حضور الطالب كلها «غائب»
   const windowStart = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
   const rows = await prisma.attendance.findMany({
@@ -226,7 +250,7 @@ async function syncGuardian(userId: string, date: string, time: string) {
     att.map((a) => ({
       key: `att:${a.studentId}:${a.date}`,
       title: `${nameOf.get(a.studentId)} ${a.status === "ABSENT" ? "غائب" : "متأخر"} ${a.date === date ? "اليوم" : `يوم ${a.date.split("-").reverse().join("/")}`}`,
-      href: "/parent/attendance",
+      href: "/parent/recitation",
     })),
     // ما عُدّل إلى حاضر أو إذن يُحذف — لأيام النافذة وحدها
     dates.flatMap((d) => ids.map((id) => `att:${id}:${d}`))

@@ -3,7 +3,7 @@ import path from "path";
 import { formatDateAr, formatTime12 } from "./daily";
 import { formatJuz } from "./pastRecitation";
 import { groupByTeacher, awqafMarksSummary } from "./awqaf";
-import { formatSyp } from "./finance";
+import { formatMoney, CURRENCIES, CURRENCY_LABEL, type Currency } from "./finance";
 
 const LOGO_DATA_URI = (() => {
   const p = path.join(process.cwd(), "public", "logo-mark.png");
@@ -613,19 +613,24 @@ export function recitationLogReportHtml(input: {
 
 export function financeReportHtml(input: {
   name: string; from: string; to: string; issuedBy: string; issuedAt: string;
-  opening: number; deposits: number; withdrawals: number; closing: number;
-  rows: { date: string; kind: "DEPOSIT" | "WITHDRAW"; amount: number; reason: string; byName: string }[];
+  totals: Record<Currency, { opening: number; deposits: number; withdrawals: number; closing: number }>;
+  rows: { date: string; kind: "DEPOSIT" | "WITHDRAW"; currency: Currency; amount: number; reason: string; byName: string }[];
 }): string {
   const summary = `
     <table style="margin-bottom:14px">
-      <thead><tr><th>رصيد أول الفترة</th><th>إجمالي الإيداع</th><th>إجمالي السحب</th><th>الصندوق آخر الفترة</th></tr></thead>
-      <tbody><tr style="font-weight:700">
-        <td>${formatSyp(input.opening)}</td>
-        <td class="pass">${formatSyp(input.deposits)}</td>
-        <td class="fail">${formatSyp(input.withdrawals)}</td>
-        <td>${formatSyp(input.closing)}</td>
-      </tr></tbody>
+      <thead><tr><th>العملة</th><th>رصيد أول الفترة</th><th>إجمالي الإيداع</th><th>إجمالي السحب</th><th>الصندوق آخر الفترة</th></tr></thead>
+      <tbody>${CURRENCIES.map((c) => {
+        const t = input.totals[c];
+        return `<tr style="font-weight:700">
+        <td>${CURRENCY_LABEL[c]}</td>
+        <td>${formatMoney(t.opening, c)}</td>
+        <td class="pass">${formatMoney(t.deposits, c)}</td>
+        <td class="fail">${formatMoney(t.withdrawals, c)}</td>
+        <td>${formatMoney(t.closing, c)}</td>
+      </tr>`;
+      }).join("")}</tbody>
     </table>`;
+  const used = CURRENCIES.filter((c) => input.rows.some((r) => r.currency === c));
   const table = input.rows.length
     ? `
     <table>
@@ -639,16 +644,20 @@ export function financeReportHtml(input: {
               <td class="${r.kind === "DEPOSIT" ? "pass" : "fail"}">${r.kind === "DEPOSIT" ? "إيداع" : "سحب"}</td>
               <td class="name">${escapeHtml(r.reason)}</td>
               <td>${escapeHtml(r.byName)}</td>
-              <td>${r.kind === "DEPOSIT" ? formatSyp(r.amount) : ""}</td>
-              <td>${r.kind === "WITHDRAW" ? formatSyp(r.amount) : ""}</td>
+              <td style="white-space:nowrap">${r.kind === "DEPOSIT" ? formatMoney(r.amount, r.currency) : ""}</td>
+              <td style="white-space:nowrap">${r.kind === "WITHDRAW" ? formatMoney(r.amount, r.currency) : ""}</td>
             </tr>`
           )
           .join("")}
-        <tr style="font-weight:700;background:#f6f1e1">
-          <td class="name" colspan="5">المجموع</td>
-          <td class="pass">${formatSyp(input.deposits)}</td>
-          <td class="fail">${formatSyp(input.withdrawals)}</td>
-        </tr>
+        ${used
+          .map(
+            (c) => `<tr style="font-weight:700;background:#f6f1e1">
+          <td class="name" colspan="5">المجموع — ${CURRENCY_LABEL[c]}</td>
+          <td class="pass" style="white-space:nowrap">${formatMoney(input.totals[c].deposits, c)}</td>
+          <td class="fail" style="white-space:nowrap">${formatMoney(input.totals[c].withdrawals, c)}</td>
+        </tr>`
+          )
+          .join("")}
       </tbody>
     </table>`
     : `<div style="padding:20px;text-align:center;color:#666">لا عمليات في هذه الفترة.</div>`;

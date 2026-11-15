@@ -3,14 +3,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cardStyle, chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
-import { FINANCE_REASONS, formatSyp } from "@/lib/finance";
+import { FINANCE_REASONS, CURRENCIES, CURRENCY_LABEL, CURRENCY_SIGN, formatMoney, groupDigits, type Currency } from "@/lib/finance";
 import NumberField from "@/components/NumberField";
 import DateField from "@/components/DateField";
 import Select from "@/components/Select";
 import { addFinanceTxn, deleteFinanceTxn } from "./actions";
 
 type Kind = "DEPOSIT" | "WITHDRAW";
-type Txn = { id: string; kind: Kind; amount: number; date: string; reason: string; byName: string; at: string };
+type Txn = { id: string; kind: Kind; currency: Currency; amount: number; date: string; reason: string; byName: string; at: string };
 
 const KIND_LABEL: Record<Kind, string> = { DEPOSIT: "إيداع", WITHDRAW: "سحب" };
 
@@ -20,6 +20,7 @@ export default function FinanceClient({ txns, today, canDelete }: { txns: Txn[];
 
   // نموذج العملية
   const [kind, setKind] = useState<Kind | "">("");
+  const [currency, setCurrency] = useState<Currency>("SYP");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
   const [reason, setReason] = useState("");
@@ -30,6 +31,7 @@ export default function FinanceClient({ txns, today, canDelete }: { txns: Txn[];
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [kindFilter, setKindFilter] = useState("all");
+  const [currencyFilter, setCurrencyFilter] = useState("all");
   const [byFilter, setByFilter] = useState("all");
   const [reasonFilter, setReasonFilter] = useState("all");
   const uniq = (xs: string[]) => [...new Set(xs)].sort((a, b) => a.localeCompare(b, "ar"));
@@ -42,17 +44,21 @@ export default function FinanceClient({ txns, today, canDelete }: { txns: Txn[];
   ];
   const byOptions = [{ value: "all", label: "الكل" }, ...uniq(txns.map((t) => t.byName)).map((n) => ({ value: n, label: n }))];
 
-  const sum = (rows: Txn[], k: Kind) => rows.filter((t) => t.kind === k).reduce((s, t) => s + t.amount, 0);
-  const balance = sum(txns, "DEPOSIT") - sum(txns, "WITHDRAW");
+  const sum = (rows: Txn[], k: Kind, c: Currency) => rows.filter((t) => t.kind === k && t.currency === c).reduce((s, t) => s + t.amount, 0);
+  const balanceOf = (c: Currency) => sum(txns, "DEPOSIT", c) - sum(txns, "WITHDRAW", c);
 
   const shown = txns.filter(
     (t) =>
-      (!from || t.date >= from) && (!to || t.date <= to) && (kindFilter === "all" || t.kind === kindFilter) &&
+      (!from || t.date >= from) && (!to || t.date <= to) && (kindFilter === "all" || t.kind === kindFilter) && (currencyFilter === "all" || t.currency === currencyFilter) &&
       (byFilter === "all" || t.byName === byFilter) &&
       (reasonFilter === "all" || (reasonFilter === "other" ? !readyReasons.includes(t.reason) : t.reason === reasonFilter))
   );
-  const shownDep = sum(shown, "DEPOSIT");
-  const shownWd = sum(shown, "WITHDRAW");
+  // ملخّص الفلترة لكل عملة فيها عمليات
+  const shownSummary = CURRENCIES.filter((c) => shown.some((t) => t.currency === c)).map((c) => {
+    const dep = sum(shown, "DEPOSIT", c);
+    const wd = sum(shown, "WITHDRAW", c);
+    return `${CURRENCY_LABEL[c]}: إيداع ${formatMoney(dep, c)}، سحب ${formatMoney(wd, c)}، الصافي ${formatMoney(dep - wd, c)}`;
+  });
 
   function submit() {
     setError("");
@@ -62,19 +68,21 @@ export default function FinanceClient({ txns, today, canDelete }: { txns: Txn[];
     if (!n || n < 1) return setError("اكتبوا المبلغ.");
     if (!date) return setError("اختاروا تاريخ العملية.");
     if (!reason.trim()) return setError("سبب العملية إجباري.");
-    if (kind === "WITHDRAW" && n > balance) return setError(`رصيد الصندوق لا يكفي — الرصيد الحالي ${formatSyp(balance)}.`);
+    if (kind === "WITHDRAW" && n > balanceOf(currency)) return setError(`رصيد ${CURRENCY_LABEL[currency]} لا يكفي — الرصيد الحالي ${formatMoney(balanceOf(currency), currency)}.`);
     startTransition(async () => {
-      const res = await addFinanceTxn({ kind, amount: n, date, reason });
+      const res = await addFinanceTxn({ kind, currency, amount: n, date, reason });
       if (res.error) return setError(res.error);
-      setDone(`تم تسجيل ${KIND_LABEL[kind]} ${formatSyp(n)}.`);
+      setDone(`تم تسجيل ${KIND_LABEL[kind]} ${formatMoney(n, currency)}.`);
       setAmount("");
       setReason("");
+      // العملة تعود إلى الليرة السورية بعد كل عملية
+      setCurrency("SYP");
       router.refresh();
     });
   }
 
   function remove(t: Txn) {
-    if (!window.confirm(`حذف عملية ${KIND_LABEL[t.kind]} ${formatSyp(t.amount)} — «${t.reason}»؟`)) return;
+    if (!window.confirm(`حذف عملية ${KIND_LABEL[t.kind]} ${formatMoney(t.amount, t.currency)} — «${t.reason}»؟`)) return;
     startTransition(async () => {
       const res = await deleteFinanceTxn(t.id);
       if (res.error) window.alert(res.error);
@@ -95,7 +103,9 @@ export default function FinanceClient({ txns, today, canDelete }: { txns: Txn[];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-        {stat("الصندوق: ما في الخزنة حاليًا", formatSyp(balance), balance < 0 ? "var(--bad)" : "var(--ink)")}
+        {CURRENCIES.map((c) => (
+          <div key={c}>{stat(`الصندوق (${CURRENCY_LABEL[c]}): ما في الخزنة حاليًا`, formatMoney(balanceOf(c), c), balanceOf(c) < 0 ? "var(--bad)" : "var(--ink)")}</div>
+        ))}
       </div>
 
       {/* عملية جديدة */}
@@ -120,8 +130,19 @@ export default function FinanceClient({ txns, today, canDelete }: { txns: Txn[];
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
           <div>
-            <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>المبلغ (ل.س)</div>
-            <NumberField value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="مثلًا 50000" style={{ width: 180, minHeight: 44, padding: 10, fontSize: 16 }} />
+            <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>العملة</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {CURRENCIES.map((c) => (
+                <button key={c} type="button" onClick={() => { setCurrency(c); setError(""); }} style={{ ...chipStyle(currency === c), padding: "10px 14px", fontWeight: 600 }}>
+                  {CURRENCY_LABEL[c]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>المبلغ ({CURRENCY_SIGN[currency]})</div>
+            {/* الرقم يظهر بفاصلة كل 3 أرقام أثناء الكتابة، ويُحفظ بلا فواصل */}
+            <NumberField value={amount ? groupDigits(amount) : ""} onChange={(e) => setAmount(e.target.value)} placeholder="مثلًا 50" style={{ width: 180, minHeight: 44, padding: 10, fontSize: 16 }} />
           </div>
           <div>
             <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>التاريخ</div>
@@ -187,6 +208,13 @@ export default function FinanceClient({ txns, today, canDelete }: { txns: Txn[];
             ]}
           />
         </div>
+        <div style={{ width: 170 }}>
+          <Select
+            value={currencyFilter}
+            onChange={setCurrencyFilter}
+            options={[{ value: "all", label: "كل العملات" }, ...CURRENCIES.map((c) => ({ value: c, label: CURRENCY_LABEL[c] }))]}
+          />
+        </div>
         <div style={{ width: 200 }}>
           <Select value={reasonFilter} onChange={setReasonFilter} options={reasonOptions} />
         </div>
@@ -196,7 +224,7 @@ export default function FinanceClient({ txns, today, canDelete }: { txns: Txn[];
       </div>
 
       <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>
-        عدد النتائج: {shown.length} عملية — إيداع {formatSyp(shownDep)}، سحب {formatSyp(shownWd)}، الصافي {formatSyp(shownDep - shownWd)}
+        عدد النتائج: {shown.length} عملية{shownSummary.length ? ` — ${shownSummary.join(" · ")}` : ""}
       </div>
 
       {shown.length === 0 ? (
@@ -219,7 +247,7 @@ export default function FinanceClient({ txns, today, canDelete }: { txns: Txn[];
                 <tr key={t.id}>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>{t.date.replace(/-/g, "/")}</td>
                   <td style={{ ...td, fontWeight: 700, color: t.kind === "DEPOSIT" ? "var(--ok)" : "var(--bad)" }}>{KIND_LABEL[t.kind]}</td>
-                  <td style={{ ...td, fontWeight: 700, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{formatSyp(t.amount)}</td>
+                  <td style={{ ...td, fontWeight: 700, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{formatMoney(t.amount, t.currency)}</td>
                   <td style={td}>{t.reason}</td>
                   <td style={{ ...td, fontSize: 12, color: "var(--ink-2)" }}>
                     {t.byName}

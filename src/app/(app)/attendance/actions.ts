@@ -7,6 +7,7 @@ import { dayLockReason, isValidDate, ATT_STATES, formatDateAr } from "@/lib/dail
 import { revalidatePath } from "next/cache";
 import { invalidateNotifications } from "@/lib/notifications";
 import type { AttendanceStatus } from "@prisma/client";
+import { summonedStudentIds } from "@/lib/summons";
 
 export type FormState = { error?: string; ok?: boolean; missing?: number };
 
@@ -41,8 +42,10 @@ export async function uploadAttendance(_prev: FormState, formData: FormData): Pr
     return { error: "هذه ليست حلقتك." };
   }
 
+  // من له استدعاء ولي أمر لم يحضر: حضوره مقفل — لا يُسجَّل ولا يُطلب
+  const summoned = await summonedStudentIds(halaqat.flatMap((h) => h.students.map((st) => st.id)));
   const entries = halaqat.flatMap((h) =>
-    h.students.map((st) => ({
+    h.students.filter((st) => !summoned.has(st.id)).map((st) => ({
       studentId: st.id,
       halqaId: h.id,
       status: String(formData.get(`att_${st.id}`) || "") as AttendanceStatus,

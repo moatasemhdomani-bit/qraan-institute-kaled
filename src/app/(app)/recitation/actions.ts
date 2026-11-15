@@ -9,6 +9,7 @@ import { validatePastItems } from "@/lib/pastRecitation";
 import { recitationMode, hasPastRecitation } from "@/lib/track";
 import { passedArabicStage6 } from "@/lib/arabicProgress";
 import { revalidatePath } from "next/cache";
+import { summonedStudentIds, SUMMONS_LOCK_MESSAGE } from "@/lib/summons";
 import { invalidateNotifications } from "@/lib/notifications";
 
 const PAST_ORDER = ["JUZ", "HIZB1", "HIZB2"];
@@ -67,6 +68,7 @@ export async function saveStudentRecitation(input: StudentRecitationInput): Prom
 
   const student = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true, halqaId: true } });
   if (!student || student.halqaId !== halqaId) return { error: "الطالب ليس في هذه الحلقة." };
+  if ((await summonedStudentIds([studentId])).size) return { error: SUMMONS_LOCK_MESSAGE + "." };
 
   // التسميع بالسور: عمَّ غيباً، وطالب القراءة العربية بعد نجاحه في المرحلة 6 («بينة للناس»)
   const stage6 = halqa.track === "ARABIC" ? await passedArabicStage6([studentId]) : new Set<string>();

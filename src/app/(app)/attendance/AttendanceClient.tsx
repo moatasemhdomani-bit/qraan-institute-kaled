@@ -4,11 +4,12 @@ import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { uploadAttendance, type FormState } from "./actions";
 import { ATT_STATES } from "@/lib/daily";
 import { chipStyle } from "@/lib/ui";
+import { SUMMONS_LOCK_MESSAGE } from "@/lib/summonsText";
 
 const initialState: FormState = {};
 
 /** group: اسم حلقة الطالب — في «كل الحلقات» يظهر عنوانًا قبل طلاب كل حلقة */
-type Student = { id: string; no: number; name: string; group?: string };
+type Student = { id: string; no: number; name: string; group?: string; summoned?: boolean };
 
 export default function AttendanceClient({
   halqaId,
@@ -40,10 +41,13 @@ export default function AttendanceClient({
     if (state.error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [state.error]);
 
-  const missing = useMemo(() => students.filter((s) => !marks[s.id]), [students, marks]);
-  const done = students.length - missing.length;
+  // من له استدعاء ولي أمر لم يحضر: مقفل — لا يُسجَّل حضوره ولا يُحسب في الناقص
+  const [lockMsg, setLockMsg] = useState<string | null>(null);
+  const open = useMemo(() => students.filter((s) => !s.summoned), [students]);
+  const missing = useMemo(() => open.filter((s) => !marks[s.id]), [open, marks]);
+  const done = open.length - missing.length;
   const shown = onlyMissing ? missing : students;
-  const complete = missing.length === 0 && students.length > 0;
+  const complete = missing.length === 0 && open.length > 0;
   const edited = !!uploaded && students.some((s) => (marks[s.id] ?? "") !== (uploaded[s.id] ?? ""));
 
   return (
@@ -52,7 +56,7 @@ export default function AttendanceClient({
         <input key={id} type="hidden" name="halqaId" value={id} />
       ))}
       <input type="hidden" name="date" value={date} />
-      {students.map((s) => (
+      {open.map((s) => (
         <input key={s.id} type="hidden" name={`att_${s.id}`} value={marks[s.id] || ""} />
       ))}
 
@@ -70,7 +74,7 @@ export default function AttendanceClient({
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 13, color: "var(--ink-2)" }}>سُجِّل</span>
           <span style={{ fontSize: 15, fontWeight: 700 }}>
-            {done} من {students.length} طالبًا
+            {done} من {open.length} طالبًا
           </span>
         </div>
         <div style={{ height: 7, borderRadius: 99, background: "var(--line-2)", overflow: "hidden" }}>
@@ -111,6 +115,28 @@ export default function AttendanceClient({
         {shown.map((s, i) => {
           const cur = marks[s.id];
           const heading = s.group && s.group !== shown[i - 1]?.group ? s.group : null;
+          if (s.summoned) {
+            return (
+              <div key={s.id}>
+                {heading && (
+                  <div style={{ padding: "9px 14px", fontSize: 13.5, fontWeight: 700, background: "var(--card-2-grad)", borderTop: i ? "1px solid var(--line)" : undefined }}>{heading}</div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setLockMsg(lockMsg === s.id ? null : s.id)}
+                  style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6, padding: "12px 14px", border: 0, borderTop: "1px solid var(--line-2)", background: "var(--chip)", cursor: "pointer", textAlign: "start", color: "var(--ink)", opacity: 0.75 }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 14.5, fontWeight: 600 }}>🔒 {s.name}</span>
+                    <span style={{ fontSize: 11, color: "var(--ink-3)", direction: "ltr" }}>#{s.no}</span>
+                    <span style={{ marginInlineStart: "auto", fontSize: 11, color: "var(--bad-ink)" }}>مقفل</span>
+                  </span>
+                  {lockMsg === s.id && <span style={{ fontSize: 13, color: "var(--bad-ink)", fontWeight: 600 }}>{SUMMONS_LOCK_MESSAGE}</span>}
+                </button>
+              </div>
+            );
+          }
+          
           return (
             <div key={s.id}>
             {heading && (
@@ -208,7 +234,7 @@ export default function AttendanceClient({
 
       <button
         type="submit"
-        disabled={pending || students.length === 0}
+        disabled={pending || open.length === 0}
         onClick={(e) => {
           if (!complete) {
             e.preventDefault();

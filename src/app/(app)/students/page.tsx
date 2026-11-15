@@ -21,6 +21,7 @@ export default async function StudentsPage() {
         halqa: { include: { cohort: true, teacher: true } },
         guardianUser: true,
         behaviorLog: { include: { actor: { select: { name: true, familyName: true } } }, orderBy: { createdAt: "desc" } },
+        summonses: { include: { by: { select: { name: true, familyName: true } } }, orderBy: { createdAt: "desc" } },
       },
       orderBy: { studentNo: "asc" },
     }),
@@ -63,6 +64,14 @@ export default async function StudentsPage() {
     promoted: !!s.promotedAt,
     stars: s.stars,
     sunnahLevels: sunnahLevels[s.id] ?? [],
+    summonses: s.summonses.map((x) => ({
+      id: x.id,
+      reason: x.reason,
+      by: nameWithNasab(x.by.name, x.by.familyName),
+      date: formatDateAr(dateOnly(x.createdAt)),
+      attended: x.attendedAt != null,
+      attendedDate: x.attendedAt ? formatDateAr(dateOnly(x.attendedAt)) : "",
+    })),
     behaviorLog: s.behaviorLog.map((l) => ({
       id: l.id,
       previousValue: l.previousValue,

@@ -57,6 +57,7 @@ export default async function CompetitionsPage() {
             cohortName: e.student.halqa?.cohort.name ?? "—",
             teacherName: e.student.halqa?.teacher.name ?? "—",
             attempt: e.attempt,
+            removed: !!e.removedAt,
             ...entryState(e.results, c.levels),
           })),
         }))}
