@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
@@ -66,7 +67,7 @@ export default async function PermitsPage() {
       time2Start: h.cohort.time2Start,
       time2End: h.cohort.time2End,
     },
-    students: h.students.map((s) => ({ id: s.id, no: s.studentNo, name: s.name })),
+    students: h.students.map((s) => ({ id: s.id, no: s.studentNo, name: orphanMark(s.name, s.isOrphan) })),
     permits: h.students.flatMap((s) => permitsByStudent[s.id] ?? []),
   }));
 

@@ -10,6 +10,8 @@ type Row = {
   name: string;
   no: number;
   photoUrl: string | null;
+  /** رقم تواصل ولي الأمر (والثاني إن وُجد) */
+  phones: string[];
   halqaId: string;
   halqaName: string;
   cohortName: string;
@@ -18,6 +20,8 @@ type Row = {
   hadiths: number;
   repeats: number;
   last: string;
+  /** موضعه في منهج الحديث: المستوى والقسم والمرحلة */
+  place: { started: boolean; finished: boolean; level: number | null; part: number | null; stage: number | null; awaiting: boolean; label: string };
 };
 
 const uniq = (xs: string[]) => [...new Set(xs)].sort((a, b) => a.localeCompare(b, "ar"));
@@ -28,6 +32,9 @@ export default function HadithMonitorClient({ rows, from, to, basePath }: { rows
   const [cohort, setCohort] = useState("all");
   const [teacher, setTeacher] = useState("all");
   const [halqa, setHalqa] = useState("all");
+  const [level, setLevel] = useState("all");
+  const [part, setPart] = useState("all");
+  const [stage, setStage] = useState("all");
 
   const go = (f: string, t: string) => router.push(`${basePath}?from=${f}&to=${t}`);
 
@@ -35,6 +42,24 @@ export default function HadithMonitorClient({ rows, from, to, basePath }: { rows
   const inTeacher = (r: Row) => teacher === "all" || r.teacherName === teacher;
   const inHalqa = (r: Row) => halqa === "all" || r.halqaId === halqa;
   const inStatus = (r: Row) => status === "all" || (status === "done" ? r.times > 0 : r.times === 0);
+  // المستوى: رقمه، أو «لم يبدأ» / «أنهى المنهج» — والقسم والمرحلة داخل المستوى («ينتظر السبر» لمن أنهى مراحل قسم أو مستوى)
+  const inLevel = (r: Row) =>
+    level === "all" || (level === "none" ? !r.place.started : level === "done" ? r.place.finished : r.place.level === Number(level));
+  const inPart = (r: Row) => part === "all" || r.place.part === Number(part);
+  const inStage = (r: Row) => stage === "all" || (stage === "wait" ? r.place.awaiting : !r.place.awaiting && r.place.stage === Number(stage));
+  const nums = (xs: (number | null)[]) => [...new Set(xs.filter((x): x is number => x != null))].sort((a, b) => a - b);
+  const levelOptions = [
+    { value: "all", label: "كل المستويات" },
+    { value: "none", label: "لم يبدأ بعد" },
+    ...nums(rows.map((r) => r.place.level)).map((n) => ({ value: String(n), label: `المستوى ${n}` })),
+    { value: "done", label: "أنهى المنهج" },
+  ];
+  const partOptions = [{ value: "all", label: "كل الأقسام" }, ...nums(rows.filter(inLevel).map((r) => r.place.part)).map((n) => ({ value: String(n), label: `القسم ${n}` }))];
+  const stageOptions = [
+    { value: "all", label: "كل المراحل" },
+    ...nums(rows.filter((r) => inLevel(r) && inPart(r) && !r.place.awaiting).map((r) => r.place.stage)).map((n) => ({ value: String(n), label: `المرحلة ${n}` })),
+    { value: "wait", label: "ينتظر السبر" },
+  ];
 
   const cohortOptions = [{ value: "all", label: "كل الأفواج" }, ...uniq(rows.map((r) => r.cohortName)).map((n) => ({ value: n, label: n === "—" ? "بلا فوج" : `فوج ${n}` }))];
   const teacherOptions = [{ value: "all", label: "كل المدرّسين" }, ...uniq(rows.filter(inCohort).map((r) => r.teacherName)).map((n) => ({ value: n, label: n === "—" ? "بلا مدرّس" : n }))];
@@ -44,7 +69,7 @@ export default function HadithMonitorClient({ rows, from, to, basePath }: { rows
     ...[...halqaMap.entries()].sort((a, b) => a[1].localeCompare(b[1], "ar")).map(([id, name]) => ({ value: id, label: name })),
   ];
 
-  const shown = rows.filter((r) => inCohort(r) && inTeacher(r) && inHalqa(r) && inStatus(r));
+  const shown = rows.filter((r) => inCohort(r) && inTeacher(r) && inHalqa(r) && inStatus(r) && inLevel(r) && inPart(r) && inStage(r));
   const doneCount = shown.filter((r) => r.times > 0).length;
 
   const th: React.CSSProperties = { padding: "9px 10px", fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)", textAlign: "start", borderBottom: "1px solid var(--line)", whiteSpace: "nowrap" };
@@ -98,6 +123,24 @@ export default function HadithMonitorClient({ rows, from, to, basePath }: { rows
             options={teacherOptions}
           />
           <Select value={halqa} onChange={setHalqa} options={halqaOptions} />
+          <Select
+            value={level}
+            onChange={(v) => {
+              setLevel(v);
+              setPart("all");
+              setStage("all");
+            }}
+            options={levelOptions}
+          />
+          <Select
+            value={part}
+            onChange={(v) => {
+              setPart(v);
+              setStage("all");
+            }}
+            options={partOptions}
+          />
+          <Select value={stage} onChange={setStage} options={stageOptions} />
         </div>
       </div>
 
@@ -109,14 +152,16 @@ export default function HadithMonitorClient({ rows, from, to, basePath }: { rows
         <div style={{ padding: "32px 24px", textAlign: "center", color: "var(--ink-2)" }}>لا طلاب مطابقون للفلترة.</div>
       ) : (
         <div style={{ overflowX: "auto", border: "1px solid var(--line)", borderRadius: 13, background: "var(--card)" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1020 }}>
             <thead>
               <tr>
                 <th style={{ ...th, width: 42 }}>م</th>
                 <th style={th}>الطالب</th>
+                <th style={th}>رقم التواصل</th>
                 <th style={th}>الحلقة</th>
                 <th style={th}>المدرّس</th>
                 <th style={th}>الفوج</th>
+                <th style={th}>المستوى</th>
                 <th style={th}>الحالة</th>
                 <th style={th}>أحاديث ناجحة</th>
                 <th style={th}>إعادة</th>
@@ -156,9 +201,13 @@ export default function HadithMonitorClient({ rows, from, to, basePath }: { rows
                       </span>
                     </span>
                   </td>
+                  <td style={{ ...td, direction: "ltr", textAlign: "right", whiteSpace: "nowrap" }}>
+                    {r.phones.length ? r.phones.map((p) => <div key={p}><a href={`tel:${p}`} style={{ color: "var(--ink)" }}>{p}</a></div>) : "—"}
+                  </td>
                   <td style={td}>{r.halqaName}</td>
                   <td style={td}>{r.teacherName}</td>
                   <td style={td}>{r.cohortName}</td>
+                  <td style={{ ...td, fontSize: 12, color: "var(--ink-2)", minWidth: 180 }}>{r.place.label}</td>
                   <td style={{ ...td, fontWeight: 700, color: r.times > 0 ? "var(--ok)" : "var(--bad)" }}>{r.times > 0 ? "سمّع" : "لم يسمّع"}</td>
                   <td style={td}>{r.times > 0 ? r.hadiths : "—"}</td>
                   <td style={td}>{r.times > 0 ? r.repeats : "—"}</td>

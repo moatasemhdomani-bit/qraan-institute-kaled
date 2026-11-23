@@ -206,3 +206,28 @@ export async function holidayDaysIn(from: string, to: string): Promise<Map<strin
   }
   return out;
 }
+
+/**
+ * عدد أيام الدوام الفعلي في فترة: أيام الدوام الرسمية بلا العطل، وحتى اليوم على الأكثر (ما لم يأتِ لا يُحسب).
+ * إن لم تُضبط أيام الدوام الرسمية تُحسب كل الأيام بلا العطل. الفترة حتى سنة على الأكثر.
+ */
+export async function workDaysCount(from: string, to: string): Promise<number> {
+  const end = to < today() ? to : today();
+  if (from > end) return 0;
+  const [holidays, working] = await Promise.all([prisma.holiday.findMany(), prisma.workingDays.findUnique({ where: { id: 1 } })]);
+  let days: string[] = [];
+  try {
+    days = JSON.parse(working?.days || "[]");
+  } catch {
+    days = [];
+  }
+  let n = 0;
+  for (let d = new Date(`${from}T12:00:00Z`), k = 0; k < 370; d = new Date(d.getTime() + 86400000), k++) {
+    const iso = d.toISOString().slice(0, 10);
+    if (iso > end) break;
+    if (days.length && !days.includes(weekdayName(iso))) continue;
+    if (holidays.some((h) => inHoliday(iso, h))) continue;
+    n++;
+  }
+  return n;
+}

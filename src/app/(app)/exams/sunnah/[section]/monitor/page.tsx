@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
@@ -6,6 +7,7 @@ import { today, isValidDate } from "@/lib/daily";
 import { sunnahSectionFromSlug, sunnahSlug, SUNNAH_REPEAT_GRADE } from "@/lib/sunnah";
 import PageHeader from "@/components/PageHeader";
 import HadithMonitorClient from "./HadithMonitorClient";
+import { sunnahPlacesFor } from "@/lib/sunnahServer";
 
 /**
  * متابعة تسميع الحديث الشريف: كل الطلاب النشطين، ومن سمّع منهم ومن لم يسمّع في فترة (من تاريخ إلى تاريخ)،
@@ -38,7 +40,10 @@ export default async function SunnahMonitorPage({
         id: true,
         name: true,
         studentNo: true,
+        isOrphan: true,
         photoUrl: true,
+        guardianPhone: true,
+        guardianPhone2: true,
         halqa: { select: { id: true, name: true, cohort: { select: { name: true } }, teacher: { select: { name: true } } } },
       },
       orderBy: { studentNo: "asc" },
@@ -59,11 +64,15 @@ export default async function SunnahMonitorPage({
     if (r.date > a.last) a.last = r.date;
   }
 
+  // مستوى كل طالب في الحديث وقسمه ومرحلته — للفلترة
+  const places = await sunnahPlacesFor(students.map((s) => s.id), "HADITH");
   const rows = students.map((s) => ({
     id: s.id,
-    name: s.name,
+    name: orphanMark(s.name, s.isOrphan),
     no: s.studentNo,
     photoUrl: s.photoUrl,
+    // رقم التواصل: رقم ولي الأمر (والثاني إن وُجد)
+    phones: [s.guardianPhone, s.guardianPhone2].filter((p): p is string => !!p && !!p.trim()),
     halqaId: s.halqa?.id ?? "",
     halqaName: s.halqa?.name ?? "بلا حلقة",
     cohortName: s.halqa?.cohort.name ?? "—",
@@ -72,6 +81,7 @@ export default async function SunnahMonitorPage({
     hadiths: agg[s.id]?.hadiths ?? 0,
     repeats: agg[s.id]?.repeats ?? 0,
     last: agg[s.id]?.last ?? "",
+    place: places[s.id],
   }));
 
   return (

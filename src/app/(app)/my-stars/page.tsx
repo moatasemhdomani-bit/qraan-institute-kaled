@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { defaultHalqa } from "@/lib/cohortNow";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
@@ -20,7 +21,7 @@ export default async function MyStarsPage() {
     where: { teacherId: session.userId, ...cohortScope(session) },
     include: {
       cohort: true,
-      students: { select: { id: true, name: true, studentNo: true, stars: true }, orderBy: { studentNo: "asc" } },
+      students: { select: { id: true, name: true, studentNo: true, stars: true, isOrphan: true }, orderBy: { studentNo: "asc" } },
     },
     orderBy: { name: "asc" },
   });
@@ -36,7 +37,7 @@ export default async function MyStarsPage() {
     name: h.name,
     cohortName: h.cohort.name,
     stars: h.stars,
-    students: h.students.map((s) => ({ id: s.id, name: s.name, no: s.studentNo, stars: s.stars })),
+    students: h.students.map((s) => ({ id: s.id, name: orphanMark(s.name, s.isOrphan), no: s.studentNo, stars: s.stars })),
   }));
 
   return (

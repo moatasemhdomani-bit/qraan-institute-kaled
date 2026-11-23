@@ -1,5 +1,5 @@
 import { prisma, rawPrisma, studentFullName } from "./db";
-import { countedNewPages } from "./daily";
+import { countedNewPages, workDaysCount } from "./daily";
 import { passFailLabel } from "./exam";
 import { sunnahBranchLabel, stageName, type SunnahSectionId } from "./sunnah";
 import { sunnahLevelsFor } from "./sunnahServer";
@@ -467,6 +467,8 @@ export type StudentPreview = {
   halqaName: string;
   cohortName: string;
   attendance: { present: number; late: number; excused: number; absent: number };
+  /** أيام الدوام الفعلي في الفترة (أيام الدوام الرسمية بلا العطل، حتى اليوم) */
+  workDays: number;
   newPages: number;
   pastJuz: number;
   locPass: number; locFail: number;
@@ -508,6 +510,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     prisma.exam.findMany({ where: { studentId, type: "PAST_GHAIB", date: { gte: from, lte: to } } }),
   ]);
 
+  const workDays = await workDaysCount(from, to);
   const pages = pagesSummary(recitations);
   const arabicMarks = arabic ? arabicExamMarks(localExams) : [];
   const loc = arabic
@@ -523,6 +526,7 @@ export async function buildStudentPreview(studentId: string, from: string, to: s
     studentNo: String(student.studentNo),
     halqaName: student.halqa?.name ?? "غير مفروز",
     cohortName: student.halqa?.cohort.name ?? "—",
+    workDays,
     attendance: {
       present: attendance.filter((a) => a.status === "PRESENT").length,
       late: attendance.filter((a) => a.status === "LATE").length,

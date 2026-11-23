@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
     name: "معهد خالد بن الوليد",
-    short_name: "معهد خالد",
+    short_name: "معهد القرآن",
     description: "نظام إدارة معهد الصحابي الجليل خالد بن الوليد",
     lang: "ar",
     dir: "rtl",

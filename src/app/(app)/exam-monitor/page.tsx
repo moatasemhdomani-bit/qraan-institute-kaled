@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
@@ -21,17 +22,17 @@ export default async function ExamMonitorPage() {
           : session.role === "EXAM_SUPERVISOR" || quranExaminer
             ? { track: { in: ["AMMA", "QURAN", "QURAN_GHAIB"] }, ...cohortScope(session) }
             : undefined,
-      include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { select: { id: true, name: true, studentNo: true }, orderBy: { studentNo: "asc" } } },
+      include: { teacher: { select: { name: true } }, cohort: { select: { name: true } }, students: { select: { id: true, name: true, studentNo: true, isOrphan: true }, orderBy: { studentNo: "asc" } } },
       orderBy: { name: "asc" },
     }),
     prisma.exam.findMany({
       where: { student: { halqaId: { not: null } } },
-      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, halqaId: true, studentNo: true } } },
+      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, halqaId: true, studentNo: true, isOrphan: true } } },
       orderBy: { date: "desc" },
     }),
     prisma.awqafResult.findMany({
       where: { student: { halqaId: { not: null } }, sunnahSection: null },
-      include: { batch: { select: { date: true } }, student: { select: { id: true, name: true, halqaId: true, studentNo: true } } },
+      include: { batch: { select: { date: true } }, student: { select: { id: true, name: true, halqaId: true, studentNo: true, isOrphan: true } } },
       orderBy: { batch: { date: "desc" } },
     }),
   ]);
@@ -42,7 +43,7 @@ export default async function ExamMonitorPage() {
       .map((e) => ({
         id: e.id,
         studentId: e.studentId,
-        studentName: e.student.name,
+        studentName: orphanMark(e.student.name, e.student.isOrphan),
         studentNo: e.student.studentNo,
         type: e.type as (typeof e.type) | "AWQAF_ACTUAL",
         examinerId: e.examinerId,
@@ -73,7 +74,7 @@ export default async function ExamMonitorPage() {
       .map((r) => ({
         id: r.id,
         studentId: r.studentId,
-        studentName: r.student.name,
+        studentName: orphanMark(r.student.name, r.student.isOrphan),
         studentNo: r.student.studentNo,
         type: "AWQAF_ACTUAL" as const,
         examinerId: "",
@@ -111,7 +112,7 @@ export default async function ExamMonitorPage() {
       cohortName: h.cohort.name,
       rows,
       // «لم يُسبَر»: طلاب الحلقة لعرض من لا سبر له
-      students: h.students.map((s) => ({ id: s.id, name: s.name, no: s.studentNo })),
+      students: h.students.map((s) => ({ id: s.id, name: orphanMark(s.name, s.isOrphan), no: s.studentNo })),
       neverLabel: neverCount > 0 ? `${neverCount} طالبًا لم يُسبَر بعد` : "",
     };
   });

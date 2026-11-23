@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
@@ -24,7 +25,7 @@ export default async function MonitorPage({
     include: {
       teacher: { select: { name: true } },
       cohort: { select: { name: true } },
-      students: { select: { id: true, name: true }, orderBy: { studentNo: "asc" } },
+      students: { select: { id: true, name: true, isOrphan: true }, orderBy: { studentNo: "asc" } },
       attendance: { where: { date } },
     },
     orderBy: { name: "asc" },
@@ -49,7 +50,7 @@ export default async function MonitorPage({
       tally,
       rows: h.students.map((st) => ({
         id: st.id,
-        name: st.name,
+        name: orphanMark(st.name, st.isOrphan),
         status: byStudent[st.id] ?? "",
         label: byStudent[st.id] ? ATT_LABELS[byStudent[st.id]] : "—",
       })),

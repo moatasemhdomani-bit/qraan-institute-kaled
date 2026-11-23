@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
@@ -18,7 +19,7 @@ export default async function AwqafBatchDetailPage({ params }: { params: Promise
     where: { id },
     include: {
       createdBy: { select: { name: true } },
-      results: { include: { student: { select: { id: true, name: true, studentNo: true } } } },
+      results: { include: { student: { select: { id: true, name: true, studentNo: true, isOrphan: true } } } },
     },
   });
 
@@ -27,7 +28,7 @@ export default async function AwqafBatchDetailPage({ params }: { params: Promise
   const results = batch.results
     .map((r) => ({
       id: r.id,
-      student: { id: r.student.id, no: r.student.studentNo, name: r.student.name },
+      student: { id: r.student.id, no: r.student.studentNo, name: orphanMark(r.student.name, r.student.isOrphan) },
       score: r.score,
       outcome: r.outcome,
       sunnahSection: r.sunnahSection,

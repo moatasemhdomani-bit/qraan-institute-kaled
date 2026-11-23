@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useActionState, useTransition } from "rea
 import { useRouter } from "next/navigation";
 import { saveStudent, resetGuardianPassword, deleteStudent, type FormState } from "./actions";
 import { saveBehavior, editBehaviorLog, deleteBehaviorLog, type BehaviorState, type BehaviorEditResult, type BehaviorLogEntry } from "./behaviorActions";
-import { addSummons, setSummonsAttended, deleteSummons, type SummonsEntry, type SummonsResult } from "./summonsActions";
+import { addSummons, setSummonsAttended, deleteSummons, setActivityBan, type SummonsEntry, type SummonsResult } from "./summonsActions";
 import { arrowNav } from "@/lib/arrowNav";
 import Link from "next/link";
 import { copyToClipboard } from "@/lib/clipboard";
@@ -62,6 +62,8 @@ type StudentRow = {
   behaviorLog: { id: string; previousValue: string; newValue: string; note: string; by: string; date: string }[];
   /** استدعاءات ولي الأمر (الأحدث أولًا) */
   summonses: SummonsEntry[];
+  /** ممنوع من النشاط */
+  activityBanned: boolean;
 };
 
 const BEHAVIOR = ["ممتاز", "جيد جدًا", "جيد", "ضعيف"] as const;
@@ -147,12 +149,6 @@ export default function StudentsClient({
   return (
     <>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-        <Link
-          href="/students/import"
-          style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 14, textDecoration: "none" }}
-        >
-          استيراد من Google Sheets
-        </Link>
         {halaqat.length > 0 && (
           <button onClick={openNew} style={primaryButtonStyle}>
             طالب جديد
@@ -791,6 +787,7 @@ function BehaviorSection({ student }: { student: StudentRow }) {
         router.refresh();
       }}
     />
+    <ActivityBanSection student={student} />
     <div style={{ padding: 14, borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 600 }}>سلوك الطالب</div>
@@ -958,6 +955,38 @@ function BehaviorSection({ student }: { student: StudentRow }) {
       </div>
     </div>
     </>
+  );
+}
+
+/** منع الطالب من النشاط: لا يسحب منه مسؤول النشاط نجومًا للنشاط ما دام ممنوعًا */
+function ActivityBanSection({ student }: { student: StudentRow }) {
+  const router = useRouter();
+  const [banned, setBanned] = useState(student.activityBanned);
+  const [error, setError] = useState("");
+  const [pending, start] = useTransition();
+  return (
+    <div style={{ padding: 14, borderRadius: 12, border: `1px solid ${banned ? "var(--danger-line)" : "var(--line)"}`, background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 8 }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 600, cursor: pending ? "wait" : "pointer" }}>
+        <input
+          type="checkbox"
+          checked={banned}
+          disabled={pending}
+          onChange={(e) => {
+            const v = e.target.checked;
+            start(async () => {
+              const res = await setActivityBan(student.id, v);
+              if (res.error) return setError(res.error);
+              setError("");
+              setBanned(v);
+              router.refresh();
+            });
+          }}
+        />
+        منع الطالب من النشاط
+        {banned && <span style={{ fontSize: 12, color: "var(--bad)", fontWeight: 500 }}>— لا يسحب منه مسؤول النشاط نجومًا للنشاط</span>}
+      </label>
+      {error && <div style={{ fontSize: 12, color: "var(--danger)" }}>{error}</div>}
+    </div>
   );
 }
 

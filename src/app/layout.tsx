@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: "نظام إدارة معهد الصحابي الجليل خالد بن الوليد",
   applicationName: "معهد خالد بن الوليد",
   // التثبيت كتطبيق على آيفون (إضافة إلى الشاشة الرئيسية) — البيان نفسه في app/manifest.ts
-  appleWebApp: { capable: true, title: "معهد خالد", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "معهد القرآن", statusBarStyle: "default" },
   icons: { apple: "/icons/apple-touch-icon.png?v=6" },
 };
 

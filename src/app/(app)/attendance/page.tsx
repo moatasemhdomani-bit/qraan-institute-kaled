@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import type { Halqa, Cohort } from "@prisma/client";
 import { defaultHalqa } from "@/lib/cohortNow";
 import { getSession } from "@/lib/session";
@@ -73,7 +74,7 @@ export default async function AttendancePage({
             key={"all" + date}
             halqaId={halaqat.map((h) => h.id)}
             date={date}
-            students={allStudents.map((st) => ({ id: st.id, no: st.studentNo, name: st.name, group: halqaName[st.halqaId ?? ""] ?? "", summoned: allSummoned.has(st.id) }))}
+            students={allStudents.map((st) => ({ id: st.id, no: st.studentNo, name: orphanMark(st.name, st.isOrphan), group: halqaName[st.halqaId ?? ""] ?? "", summoned: allSummoned.has(st.id) }))}
             saved={Object.fromEntries(allSaved.map((x) => [x.studentId, x.status as string]))}
             alreadyUploaded={allSaved.length > 0}
           />
@@ -122,7 +123,7 @@ async function HalqaAttendance({
             key={halqa.id + date}
             halqaId={halqa.id}
             date={date}
-            students={students.map((s) => ({ id: s.id, no: s.studentNo, name: s.name, summoned: summoned.has(s.id) }))}
+            students={students.map((s) => ({ id: s.id, no: s.studentNo, name: orphanMark(s.name, s.isOrphan), summoned: summoned.has(s.id) }))}
             saved={savedMap}
             alreadyUploaded={saved.length > 0}
           />

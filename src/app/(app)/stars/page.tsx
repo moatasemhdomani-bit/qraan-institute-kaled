@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { starTxnRow, STAR_TXN_INCLUDE } from "@/lib/starsServer";
@@ -24,7 +25,7 @@ export default async function StarsPage() {
       orderBy: { name: "asc" },
     }),
     prisma.student.findMany({
-      select: { id: true, name: true, studentNo: true, stars: true, active: true, halqaId: true },
+      select: { id: true, name: true, studentNo: true, stars: true, active: true, halqaId: true, isOrphan: true },
       orderBy: { studentNo: "asc" },
     }),
     prisma.starTxn.findMany({
@@ -45,7 +46,7 @@ export default async function StarsPage() {
   const halqaNames = Object.fromEntries(halaqatRaw.map((h) => [h.id, h.name]));
   const students = studentsRaw.map((s) => ({
     id: s.id,
-    name: s.name,
+    name: orphanMark(s.name, s.isOrphan),
     no: s.studentNo,
     stars: s.stars,
     active: s.active,

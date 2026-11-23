@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { entryState } from "@/lib/competition";
@@ -18,7 +19,7 @@ export default async function CompetitionsPage() {
         entries: {
           orderBy: { createdAt: "asc" },
           include: {
-            student: { select: { name: true, studentNo: true, halqa: { select: { teacher: { select: { name: true } }, cohort: { select: { name: true } } } } } },
+            student: { select: { name: true, studentNo: true, isOrphan: true, halqa: { select: { teacher: { select: { name: true } }, cohort: { select: { name: true } } } } } },
             results: { orderBy: { createdAt: "asc" }, select: { won: true, opponentNo: true, opponents: true, createdAt: true } },
           },
         },
@@ -26,7 +27,7 @@ export default async function CompetitionsPage() {
     }),
     prisma.student.findMany({
       where: { active: true },
-      select: { id: true, name: true, studentNo: true, stars: true, halqa: { select: { name: true } } },
+      select: { id: true, name: true, studentNo: true, stars: true, isOrphan: true, halqa: { select: { name: true } } },
       orderBy: { studentNo: "asc" },
     }),
   ]);
@@ -52,7 +53,7 @@ export default async function CompetitionsPage() {
           entries: c.entries.map((e, i) => ({
             no: i + 1,
             studentId: e.studentId,
-            name: e.student.name,
+            name: orphanMark(e.student.name, e.student.isOrphan),
             studentNo: e.student.studentNo,
             cohortName: e.student.halqa?.cohort.name ?? "—",
             teacherName: e.student.halqa?.teacher.name ?? "—",
@@ -61,7 +62,7 @@ export default async function CompetitionsPage() {
             ...entryState(e.results, c.levels),
           })),
         }))}
-        students={students.map((s) => ({ id: s.id, name: s.name, no: s.studentNo, stars: s.stars, halqaName: s.halqa?.name ?? null }))}
+        students={students.map((s) => ({ id: s.id, name: orphanMark(s.name, s.isOrphan), no: s.studentNo, stars: s.stars, halqaName: s.halqa?.name ?? null }))}
       />
     </>
   );

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
@@ -27,7 +28,7 @@ export default async function LocalExamViewPage() {
     name: h.name,
     teacherName: h.teacher.name,
     cohortName: h.cohort.name,
-    students: h.students.map((s) => ({ id: s.id, no: s.studentNo, name: s.name })),
+    students: h.students.map((s) => ({ id: s.id, no: s.studentNo, name: orphanMark(s.name, s.isOrphan) })),
   }));
 
   const examsByStudent: Record<string, ReturnType<typeof mapExam>[]> = {};

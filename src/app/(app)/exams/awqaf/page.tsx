@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { examinerTrack, examinerLike, cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
@@ -24,7 +25,7 @@ export default async function AwqafExamPage({ searchParams }: { searchParams: Pr
     }),
     prisma.exam.findMany({
       where: { type: "WAQF_NOMINATION" },
-      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, studentNo: true } } },
+      include: { examiner: { select: { id: true, name: true } }, student: { select: { id: true, name: true, studentNo: true, isOrphan: true } } },
       orderBy: { date: "desc" },
     }),
     prisma.awqafResult.findMany({ where: { sunnahSection: null }, include: { batch: { select: { date: true } } }, orderBy: { createdAt: "desc" } }),
@@ -49,7 +50,7 @@ export default async function AwqafExamPage({ searchParams }: { searchParams: Pr
     const passed = passFailLabel({ type: "WAQF_NOMINATION", resultMark: e.resultMark, nominationPresent: e.nominationPresent }) === "ناجح";
     // رشّحه المدير/الإداري إلى دفعة سبر أوقاف بعد هذا الترشيح → لم يعد «جاهزًا» عند المختبِرين
     const alreadyInBatch = awqafResultsRaw.some((r) => r.studentId === e.studentId && r.batch.date >= e.date);
-    if (passed && !alreadyInBatch) readyMap.set(e.studentId, { id: e.student.id, no: e.student.studentNo, name: e.student.name, date: e.date });
+    if (passed && !alreadyInBatch) readyMap.set(e.studentId, { id: e.student.id, no: e.student.studentNo, name: orphanMark(e.student.name, e.student.isOrphan), date: e.date });
   }
   const readyStudents = Array.from(readyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
 
@@ -58,7 +59,7 @@ export default async function AwqafExamPage({ searchParams }: { searchParams: Pr
     name: h.name,
     teacherName: h.teacher.name,
     cohortName: h.cohort.name,
-    students: h.students.map((s) => ({ id: s.id, no: s.studentNo, name: s.name })),
+    students: h.students.map((s) => ({ id: s.id, no: s.studentNo, name: orphanMark(s.name, s.isOrphan) })),
   }));
 
   const examsByStudent: Record<string, ReturnType<typeof mapExam>[]> = {};

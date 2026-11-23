@@ -262,9 +262,10 @@ export async function activityStudentStars(input: { studentId: string; kind: Sta
   const bad = checkInput(input.kind, input.amount);
   if (bad) return { error: bad };
 
-  const student = await prisma.student.findUnique({ where: { id: input.studentId }, select: { name: true, halqaId: true, active: true } });
+  const student = await prisma.student.findUnique({ where: { id: input.studentId }, select: { name: true, halqaId: true, active: true, activityBanned: true } });
   if (!student) return { error: "الطالب غير موجود." };
   if (!student.active) return { error: "الطالب منقطع." };
+  if (input.kind === "WITHDRAW" && student.activityBanned) return { error: "هذا الطالب ممنوع من النشاط." };
 
   try {
     await prisma.$transaction(async (tx) => {

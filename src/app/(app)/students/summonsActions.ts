@@ -104,3 +104,15 @@ export async function deleteSummons(id: string): Promise<SummonsResult> {
   await logAction(session.userId, `حذف استدعاء ولي أمر الطالب ${await studentRef(s.studentId)}: ${s.reason}`);
   return { ok: true, summonses: await changed(s.studentId) };
 }
+
+/** منع الطالب من النشاط أو إلغاء المنع — الإدارة والمدير */
+export async function setActivityBan(studentId: string, banned: boolean): Promise<{ error?: string; ok?: boolean }> {
+  const session = await staff();
+  if (!session) return { error: "غير مصرَّح لك بهذا الإجراء." };
+  const r = await prisma.student.updateMany({ where: { id: studentId }, data: { activityBanned: banned } });
+  if (r.count === 0) return { error: "لم يُعثر على الطالب." };
+  await logAction(session.userId, `${banned ? "منع" : "إلغاء منع"} الطالب ${await studentRef(studentId)} ${banned ? "من" : "من"} النشاط`);
+  revalidatePath("/students");
+  revalidatePath("/activity-stars");
+  return { ok: true };
+}

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { prisma, rawPrisma, nameWithNasab, studentFullName } from "@/lib/db";
 import { halqaWithTrack } from "@/lib/track";
@@ -35,7 +36,7 @@ export default async function StudentsPage() {
     id: s.id,
     no: String(s.studentNo),
     name: s.name,
-    fullName: studentFullName(s.name, s.fatherName, s.familyName),
+    fullName: orphanMark(studentFullName(s.name, s.fatherName, s.familyName), s.isOrphan),
     father: s.fatherName || "",
     mother: s.motherName || "",
     familyName: s.familyName || "",
@@ -64,6 +65,7 @@ export default async function StudentsPage() {
     promoted: !!s.promotedAt,
     stars: s.stars,
     sunnahLevels: sunnahLevels[s.id] ?? [],
+    activityBanned: s.activityBanned,
     summonses: s.summonses.map((x) => ({
       id: x.id,
       reason: x.reason,

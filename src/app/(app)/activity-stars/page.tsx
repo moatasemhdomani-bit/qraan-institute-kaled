@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { starTxnRow, STAR_TXN_INCLUDE } from "@/lib/starsServer";
@@ -17,7 +18,7 @@ export default async function ActivityStarsPage() {
     prisma.user.findUnique({ where: { id: session.userId }, select: { activityStars: true } }),
     prisma.student.findMany({
       where: { active: true },
-      select: { id: true, name: true, studentNo: true, stars: true, halqaId: true },
+      select: { id: true, name: true, studentNo: true, stars: true, halqaId: true, activityBanned: true, isOrphan: true },
       orderBy: { studentNo: "asc" },
     }),
     prisma.halqa.findMany({ select: { id: true, name: true } }),
@@ -37,9 +38,10 @@ export default async function ActivityStarsPage() {
       <ActivityStarsClient
         students={studentsRaw.map((s) => ({
           id: s.id,
-          name: s.name,
+          name: orphanMark(s.name, s.isOrphan),
           no: s.studentNo,
           stars: s.stars,
+          banned: s.activityBanned,
           halqaName: s.halqaId ? (halqaNames[s.halqaId] ?? null) : null,
         }))}
         archive={txns.map(starTxnRow)}

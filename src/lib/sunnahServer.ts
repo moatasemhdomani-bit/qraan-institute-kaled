@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { SUNNAH_SECTIONS, positionFromExams, sunnahPositionLabel, sunnahReadyForAwqaf, type SunnahSectionId } from "./sunnah";
+import { SUNNAH_SECTIONS, positionFromExams, sunnahPositionLabel, sunnahReadyForAwqaf, stagePart, type SunnahSectionId } from "./sunnah";
 
 /** مستوى الطالب في كل منهج من مناهج السنة النبوية الثلاثة: «المستوى 1 (…) — المرحلة 2 من 4 …» أو «لم يبدأ بعد». */
 export type SunnahLevelLine = { section: SunnahSectionId; label: string; status: string };
@@ -63,4 +63,54 @@ export async function sunnahAwqafCandidates(): Promise<
       return { studentId: n.studentId, name: e.student.name, no: e.student.studentNo, section: n.section as SunnahSectionId, level: n.branch as number, nominationDate: n.date, mark: n.mark };
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+}
+
+/** موضع الطالب في منهج واحد للفلترة: المستوى والقسم والمرحلة (داخل القسم) — أو «لم يبدأ» / «أنهى» */
+export type SunnahPlace = {
+  started: boolean;
+  finished: boolean;
+  level: number | null;
+  part: number | null;
+  stage: number | null;
+  /** أنهى مراحل قسم أو مستوى وينتظر سبره */
+  awaiting: boolean;
+  label: string;
+};
+
+export async function sunnahPlacesFor(studentIds: string[], section: SunnahSectionId): Promise<Record<string, SunnahPlace>> {
+  if (studentIds.length === 0) return {};
+  const [exams, starts, recs] = await Promise.all([
+    prisma.exam.findMany({
+      where: { studentId: { in: studentIds }, sunnahSection: section, type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_AWQAF", "SUNNAH_STAGE", "SUNNAH_PART"] } },
+      select: { studentId: true, type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true, createdAt: true },
+    }),
+    prisma.sunnahStart.findMany({ where: { studentId: { in: studentIds }, section } }),
+    prisma.sunnahRecitation.groupBy({ by: ["studentId"], where: { studentId: { in: studentIds }, section }, _count: { _all: true } }),
+  ]);
+  const recited = new Set(recs.map((r) => r.studentId));
+  const out: Record<string, SunnahPlace> = {};
+  for (const id of studentIds) {
+    const mine = exams.filter((e) => e.studentId === id);
+    const start = starts.find((x) => x.studentId === id);
+    if (!start && !recited.has(id) && mine.length === 0) {
+      out[id] = { started: false, finished: false, level: null, part: null, stage: null, awaiting: false, label: "لم يبدأ بعد" };
+      continue;
+    }
+    const pos = positionFromExams(
+      section,
+      mine.map((e) => ({ type: e.type, section: e.sunnahSection, branch: e.stage, mark: e.resultMark, repeat: e.repeat, grade: e.grade, stageNo: e.sunnahStage, createdAt: e.createdAt })),
+      start ? { level: start.level, stage: start.stage, startNo: start.startNo, resetAt: start.resetAt?.toISOString() ?? null } : null
+    );
+    const sp = pos.stage ? stagePart(section, pos.level, pos.stage) : null;
+    out[id] = {
+      started: true,
+      finished: pos.finished,
+      level: pos.finished ? null : pos.level,
+      part: sp ? sp.part : pos.awaitingPart,
+      stage: sp ? sp.stage : pos.stage,
+      awaiting: pos.awaitingLevelExam || pos.awaitingPart != null,
+      label: sunnahPositionLabel(pos),
+    };
+  }
+  return out;
 }

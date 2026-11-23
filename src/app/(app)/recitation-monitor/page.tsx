@@ -1,4 +1,5 @@
 import { surahsLabel } from "@/lib/recitation";
+import { orphanMark } from "@/lib/orphan";
 import { parsePastItems, pastSummary, pastJuzTotal } from "@/lib/pastRecitation";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
@@ -27,7 +28,7 @@ export default async function RecitationMonitorPage({
     include: {
       teacher: { select: { name: true } },
       cohort: { select: { name: true } },
-      students: { where: { active: true }, select: { id: true, name: true, studentNo: true }, orderBy: { studentNo: "asc" } },
+      students: { where: { active: true }, select: { id: true, name: true, studentNo: true, isOrphan: true }, orderBy: { studentNo: "asc" } },
       recitations: { where: { date } },
     },
     orderBy: { name: "asc" },
@@ -59,11 +60,11 @@ export default async function RecitationMonitorPage({
       totalPastJuz,
       rows: h.students.map((st) => {
         const r = byStudent[st.id];
-        if (!r) return { id: st.id, name: st.name, no: st.studentNo, state: "none" as const, lines: [] };
-        if (r.none) return { id: st.id, name: st.name, no: st.studentNo, state: "blank" as const, lines: [] };
+        if (!r) return { id: st.id, name: orphanMark(st.name, st.isOrphan), no: st.studentNo, state: "none" as const, lines: [] };
+        if (r.none) return { id: st.id, name: orphanMark(st.name, st.isOrphan), no: st.studentNo, state: "blank" as const, lines: [] };
         return {
           id: st.id,
-          name: st.name,
+          name: orphanMark(st.name, st.isOrphan),
           no: st.studentNo,
           state: "done" as const,
           lines: [

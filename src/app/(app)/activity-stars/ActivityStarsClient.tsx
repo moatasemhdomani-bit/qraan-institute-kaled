@@ -10,7 +10,7 @@ import StarBadge from "../stars/StarBadge";
 import { activityReturnStars, activityStudentStars } from "../stars/actions";
 import { textHas } from "@/lib/search";
 
-type StudentRow = { id: string; name: string; no: number; stars: number; halqaName: string | null };
+type StudentRow = { id: string; name: string; no: number; stars: number; halqaName: string | null; banned: boolean };
 
 export default function ActivityStarsClient({
   students,
@@ -59,6 +59,7 @@ export default function ActivityStarsClient({
                 {s.name} <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 500 }}>#{s.no}</span>
               </div>
               <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{s.halqaName ?? "غير مفروز"}</div>
+              {s.banned && <div style={{ fontSize: 12, color: "var(--bad)", fontWeight: 700, marginTop: 2 }}>هذا الطالب ممنوع من النشاط</div>}
             </div>
             <StarBadge n={s.stars} />
           </button>
@@ -72,10 +73,11 @@ export default function ActivityStarsClient({
           title="نجوم الطالب"
           subtitle={op.name}
           balance={op.stars}
-          defaultKind="WITHDRAW"
+          defaultKind={op.banned ? "CHARGE" : "WITHDRAW"}
           chargeLimit={balance}
           info={
             <div style={{ padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)", fontSize: 13.5 }}>
+              {op.banned && <div style={{ fontSize: 13, color: "var(--bad)", fontWeight: 700, marginBottom: 6 }}>هذا الطالب ممنوع من النشاط — لا يُسحب منه نجوم للنشاط.</div>}
               رصيد الطالب: <StarBadge n={op.stars} /> — {op.halqaName ?? "غير مفروز"}
               <div style={{ fontSize: 12.5, color: "var(--ink-3)", marginTop: 4 }}>
                 رصيد النشاط: <StarBadge n={balance} /> — أقصى إيداع الآن

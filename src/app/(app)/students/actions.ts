@@ -123,7 +123,9 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
   let studentId = id;
   if (id) {
     const before = await prisma.student.findUnique({ where: { id } });
-    await prisma.student.update({ where: { id }, data });
+    // نُقل إلى حلقة أخرى: تُمحى «ملاحظة الطالب» الخاصة بمدرّسه السابق، ويبدأ عدّاد تسميعه في حلقته الجديدة من جديد
+    const moved = !!before && !!halqaId && before.halqaId !== halqaId;
+    await prisma.student.update({ where: { id }, data: moved ? { ...data, teacherNote: null } : data });
 
     // فرز طالب أضافه مختبِر عبر تحديد المستوى (بلا حلقة ولا حساب ولي أمر) — يُنشأ حساب ولي الأمر الآن فقط.
     if (before && !before.guardianUserId && halqaId) {

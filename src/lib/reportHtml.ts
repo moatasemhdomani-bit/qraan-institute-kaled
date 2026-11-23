@@ -360,6 +360,7 @@ export function studentReportHtml(input: {
   name: string; from: string; to: string; issuedBy: string; issuedAt: string;
   studentName: string; studentNo: string; halqaName: string; cohortName: string;
   attendance: { present: number; late: number; excused: number; absent: number };
+  workDays?: number;
   newPages: number;
   pastJuz: number;
   locPass: number; locFail: number;
@@ -386,9 +387,9 @@ export function studentReportHtml(input: {
 
     <h3 class="section">حضور الطالب</h3>
     <table>
-      <thead><tr><th>حاضر</th><th>متأخر</th><th>إذن</th><th>غائب</th></tr></thead>
+      <thead><tr><th>أيام الدوام الفعلي</th><th>حاضر</th><th>متأخر</th><th>إذن</th><th>غائب</th></tr></thead>
       <tbody><tr>
-        <td>${input.attendance.present}</td><td>${input.attendance.late}</td>
+        <td style="font-weight:700">${input.workDays ?? "—"}</td><td>${input.attendance.present}</td><td>${input.attendance.late}</td>
         <td>${input.attendance.excused}</td><td>${input.attendance.absent}</td>
       </tr></tbody>
     </table>

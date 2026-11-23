@@ -1,4 +1,5 @@
 import { parsePastItems } from "@/lib/pastRecitation";
+import { orphanMark } from "@/lib/orphan";
 import { logAction } from "@/lib/audit";
 import { defaultHalqa } from "@/lib/cohortNow";
 import { redirect } from "next/navigation";
@@ -121,17 +122,18 @@ async function recitationRows(halqa: Halqa & { cohort: Cohort }, date: string, i
   const studentIds = students.map((s) => s.id);
   const maxNewToRows = await prisma.recitation.groupBy({
     by: ["studentId"],
-    where: { studentId: { in: studentIds }, date: { lt: date }, none: false, noNew: false, NOT: { gradeNew: REPEAT_GRADE }, OR: [{ pageDone: null }, { pageDone: true }] },
+    // تسميع الطالب في حلقته هذه وحدها: المنقول من حلقة أخرى يبدأ عدّاده فيها من جديد
+    where: { studentId: { in: studentIds }, halqaId: halqa.id, date: { lt: date }, none: false, noNew: false, NOT: { gradeNew: REPEAT_GRADE }, OR: [{ pageDone: null }, { pageDone: true }] },
     _max: { newTo: true },
   });
   // طلاب القراءة العربية الناجحون في المرحلة 6 يسمّعون «بينة للناس» بالسور
   const stage6 = halqa?.track === "ARABIC" ? await passedArabicStage6(studentIds) : new Set<string>();
   const maxNewToMap = Object.fromEntries(maxNewToRows.map((r) => [r.studentId, r._max.newTo]));
   // التسميع بالسور: السور التي أنهاها الطالب قبل هذا اليوم — تظهر بلون باهت ويجوز إعادة تسميعها.
-  // ما سمّعه في مستوى آخر لا يُحسب: المنتقل من القراءة العربية إلى عمّ غيباً يعيد «البينة إلى الناس» من جديد
+  // ما سمّعه في حلقة أخرى لا يُحسب: المنقول (أو المنتقل إلى مستوى آخر) يبدأ في حلقته الجديدة من جديد
   const surahRows = halqa && (halqa.track === "AMMA" || stage6.size > 0)
     ? await prisma.recitation.findMany({
-        where: { studentId: { in: studentIds }, date: { lt: date }, none: false, halqa: { track: halqa.track } },
+        where: { studentId: { in: studentIds }, halqaId: halqa.id, date: { lt: date }, none: false },
         select: { studentId: true, surahsDone: true },
       })
     : [];
@@ -145,7 +147,7 @@ async function recitationRows(halqa: Halqa & { cohort: Cohort }, date: string, i
   const rows = students.map((s) => ({
               id: s.id,
               no: s.studentNo,
-              name: s.name,
+              name: orphanMark(s.name, s.isOrphan),
               mode: recitationMode(halqa.track, stage6.has(s.id)),
               saved: savedMap[s.id]
                 ? {

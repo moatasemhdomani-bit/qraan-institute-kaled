@@ -24,6 +24,10 @@ export default function StudentReportPreview({ preview }: { preview: StudentPrev
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10, marginBottom: 14 }}>
         <div style={box}>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{preview.workDays}</div>
+          <div style={{ fontSize: 11, color: "var(--ink-2)" }}>أيام الدوام الفعلي</div>
+        </div>
+        <div style={box}>
           <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ok)" }}>{preview.attendance.present}</div>
           <div style={{ fontSize: 11, color: "var(--ink-2)" }}>حاضر</div>
         </div>

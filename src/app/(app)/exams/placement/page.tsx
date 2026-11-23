@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { examinerTrack, examinerLike } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
@@ -15,14 +16,14 @@ export default async function PlacementExamPage() {
   if (track === "ARABIC") redirect("/exams/arabic");
   const examsRaw = await prisma.exam.findMany({
     where: { type: "PLACEMENT", student: { halqaId: null, active: true, track: { not: "GRADUATED" } } },
-    include: { examiner: { select: { id: true, name: true } }, student: { select: { name: true, studentNo: true } } },
+    include: { examiner: { select: { id: true, name: true } }, student: { select: { name: true, studentNo: true, isOrphan: true } } },
     orderBy: { date: "desc" },
   });
 
   const rows = examsRaw.map((e) => ({
     id: e.id,
     studentId: e.studentId,
-    studentName: e.student.name,
+    studentName: orphanMark(e.student.name, e.student.isOrphan),
     studentNo: e.student.studentNo,
     examinerId: e.examinerId,
     examinerName: e.examiner.name,
