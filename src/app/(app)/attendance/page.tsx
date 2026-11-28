@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { excusedStudentIds } from "@/lib/absencePermit";
 import { orphanMark } from "@/lib/orphan";
 import type { Halqa, Cohort } from "@prisma/client";
 import { defaultHalqa } from "@/lib/cohortNow";
@@ -43,6 +44,7 @@ export default async function AttendancePage({
       )
     : [];
   const allSummoned = await summonedStudentIds(allStudents.map((s) => s.id));
+  const allExcused = await excusedStudentIds(allStudents.map((s) => s.id), date);
   const allSaved = all ? await prisma.attendance.findMany({ where: { halqaId: { in: halaqat.map((h) => h.id) }, date } }) : [];
 
   return (
@@ -74,7 +76,7 @@ export default async function AttendancePage({
             key={"all" + date}
             halqaId={halaqat.map((h) => h.id)}
             date={date}
-            students={allStudents.map((st) => ({ id: st.id, no: st.studentNo, name: orphanMark(st.name, st.isOrphan), group: halqaName[st.halqaId ?? ""] ?? "", summoned: allSummoned.has(st.id) }))}
+            students={allStudents.map((st) => ({ id: st.id, no: st.studentNo, name: orphanMark(st.name, st.isOrphan), group: halqaName[st.halqaId ?? ""] ?? "", summoned: allSummoned.has(st.id), excused: allExcused.has(st.id) }))}
             saved={Object.fromEntries(allSaved.map((x) => [x.studentId, x.status as string]))}
             alreadyUploaded={allSaved.length > 0}
           />
@@ -115,6 +117,7 @@ async function HalqaAttendance({
     : [];
   const savedMap = Object.fromEntries(saved.map((a) => [a.studentId, a.status as string]));
   const summoned = await summonedStudentIds(students.map((s) => s.id));
+  const excused = await excusedStudentIds(students.map((s) => s.id), date);
   const duty = showDuty ? dutyNoteFor(halqa, date) : "";
   return (
     <>
@@ -123,7 +126,7 @@ async function HalqaAttendance({
             key={halqa.id + date}
             halqaId={halqa.id}
             date={date}
-            students={students.map((s) => ({ id: s.id, no: s.studentNo, name: orphanMark(s.name, s.isOrphan), summoned: summoned.has(s.id) }))}
+            students={students.map((s) => ({ id: s.id, no: s.studentNo, name: orphanMark(s.name, s.isOrphan), summoned: summoned.has(s.id), excused: excused.has(s.id) }))}
             saved={savedMap}
             alreadyUploaded={saved.length > 0}
           />

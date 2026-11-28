@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { excusedStudentIds } from "@/lib/absencePermit";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { dayLockReason, isValidDate, ATT_STATES, formatDateAr } from "@/lib/daily";
@@ -44,11 +45,13 @@ export async function uploadAttendance(_prev: FormState, formData: FormData): Pr
 
   // من له استدعاء ولي أمر لم يحضر: حضوره مقفل — لا يُسجَّل ولا يُطلب
   const summoned = await summonedStudentIds(halaqat.flatMap((h) => h.students.map((st) => st.id)));
+  // إذن غياب من الإدارة (يوم أو فترة): «إذن» لازم لا يُغيَّر
+  const excused = await excusedStudentIds(halaqat.flatMap((h) => h.students.map((st) => st.id)), date);
   const entries = halaqat.flatMap((h) =>
     h.students.filter((st) => !summoned.has(st.id)).map((st) => ({
       studentId: st.id,
       halqaId: h.id,
-      status: String(formData.get(`att_${st.id}`) || "") as AttendanceStatus,
+      status: (excused.has(st.id) ? "EXCUSED" : String(formData.get(`att_${st.id}`) || "")) as AttendanceStatus,
     }))
   );
 

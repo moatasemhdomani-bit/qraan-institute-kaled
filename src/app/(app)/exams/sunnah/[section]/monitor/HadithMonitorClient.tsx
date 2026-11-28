@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Select from "@/components/Select";
 import DateField from "@/components/DateField";
+import { toWesternDigits } from "@/lib/numbers";
 
 type Row = {
   id: string;
@@ -23,6 +24,15 @@ type Row = {
   /** موضعه في منهج الحديث: المستوى والقسم والمرحلة */
   place: { started: boolean; finished: boolean; level: number | null; part: number | null; stage: number | null; awaiting: boolean; label: string };
 };
+
+/** رابط محادثة واتساب: الرقم المحلي (09…) يُحوَّل إلى الدولي السوري (9639…) */
+function whatsapp(phone: string): string {
+  let d = toWesternDigits(phone).replace(/\D/g, "");
+  if (d.startsWith("00")) d = d.slice(2);
+  else if (d.startsWith("0")) d = "963" + d.slice(1);
+  else if (d.length === 9 && d.startsWith("9")) d = "963" + d;
+  return `https://wa.me/${d}`;
+}
 
 const uniq = (xs: string[]) => [...new Set(xs)].sort((a, b) => a.localeCompare(b, "ar"));
 
@@ -202,7 +212,7 @@ export default function HadithMonitorClient({ rows, from, to, basePath }: { rows
                     </span>
                   </td>
                   <td style={{ ...td, direction: "ltr", textAlign: "right", whiteSpace: "nowrap" }}>
-                    {r.phones.length ? r.phones.map((p) => <div key={p}><a href={`tel:${p}`} style={{ color: "var(--ink)" }}>{p}</a></div>) : "—"}
+                    {r.phones.length ? r.phones.map((p) => <div key={p}><a href={whatsapp(p)} target="_blank" rel="noopener noreferrer" style={{ color: "var(--ink)" }}>{p}</a></div>) : "—"}
                   </td>
                   <td style={td}>{r.halqaName}</td>
                   <td style={td}>{r.teacherName}</td>

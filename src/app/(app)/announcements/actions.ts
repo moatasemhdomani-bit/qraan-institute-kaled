@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db";
+import { prisma, nameWithNasab, studentFullName } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction } from "@/lib/audit";
 import { ROLE_LABELS } from "@/lib/ui";
@@ -18,8 +18,33 @@ const ACTIVE_USER: Prisma.UserWhereInput = {
   OR: [{ role: { not: "GUARDIAN" } }, { guardianOf: { some: { active: true } } }],
 };
 
-/** مستلمو الإعلان بحسب جمهوره: «all» أو «role:X,Y» (دور أو أكثر) أو «cohort:<id>» */
+/** اسم المستلم في الإعلان الموجّه: الموظف باسمه، وولي الأمر «ولي أمر الطالب …» */
+async function personLabels(ids: string[]): Promise<Map<string, string>> {
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids }, deletedAt: null },
+    select: { id: true, name: true, familyName: true, role: true, guardianOf: { select: { name: true, fatherName: true, familyName: true }, take: 1 } },
+  });
+  return new Map(
+    users.map((u) => [
+      u.id,
+      u.role === "GUARDIAN" && u.guardianOf[0]
+        ? `ولي أمر الطالب ${studentFullName(u.guardianOf[0].name, u.guardianOf[0].fatherName, u.guardianOf[0].familyName)}`
+        : nameWithNasab(u.name, u.familyName),
+    ])
+  );
+}
+
+/** مستلمو الإعلان بحسب جمهوره: «all» أو «role:X,Y» (دور أو أكثر) أو «cohort:<id>» أو «user:<id>,<id>» (موجّه لشخص أو أكثر بعينه) */
 async function recipientsOf(audience: string): Promise<{ ids: string[]; label: string } | null> {
+  if (audience.startsWith("user:")) {
+    const wanted = [...new Set(audience.slice(5).split(",").filter(Boolean))].slice(0, 100);
+    if (!wanted.length) return null;
+    const labels = await personLabels(wanted);
+    const ids = wanted.filter((id) => labels.has(id));
+    if (!ids.length) return null;
+    const names = ids.map((id) => labels.get(id)!);
+    return { ids, label: `موجّه: ${names.slice(0, 3).join("، ")}${names.length > 3 ? ` و${names.length - 3} آخرين` : ""}` };
+  }
   if (audience === "all") {
     const users = await prisma.user.findMany({ where: ACTIVE_USER, select: { id: true } });
     return { ids: users.map((u) => u.id), label: "كل المعهد" };

@@ -7,7 +7,8 @@ import { examinerTrack, examinerLike } from "@/lib/examinerTrack";
 import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { validateExam, PAST_GHAIB_FAIL, passFailLabel, LOCAL_KIND_LABELS, isArabicMarkStage, arabicStageLabel, ARABIC_FINAL_STAGE, isSunnahType, TYPE_LABELS, type ExamTypeId, type LocalKindId } from "@/lib/exam";
-import { examFamily } from "@/lib/track";
+import { examFamily, LEVEL_LABELS } from "@/lib/track";
+import { examSequenceBlock } from "@/lib/examSequence";
 import { promoteStudent } from "@/lib/promotion";
 import { awardStars, examStarsNet, withdrawExamStars } from "@/lib/starsServer";
 import { sunnahBranchLabel } from "@/lib/sunnah";
@@ -175,7 +176,19 @@ export async function saveExam(_prev: FormState, formData: FormData): Promise<Fo
     if (type === "ARABIC" && target && examFamily(target.track) !== "ARABIC") return { error: "سبر القراءة العربية لطلاب القراءة العربية فقط." };
     if (type !== "ARABIC" && target && examFamily(target.track) === "ARABIC") return { error: "طالب القراءة العربية يُسبر بسبر القراءة العربية فقط." };
     if (type === "PAST_GHAIB" && target && target.track !== "QURAN_GHAIB") return { error: "سبر ماضٍ غيباً لطلاب «قرآن غيباً» فقط." };
+    // السبر المحلي على مستوى الطالب: قرآن حاضراً ← حاضراً، قرآن غيباً ← غيباً، عمَّ غيباً ← عمّ غيباً
+    if (type === "LOCAL" && target && localKind) {
+      const allowed: Partial<Record<string, LocalKindId>> = { QURAN: "HADIRAN", QURAN_GHAIB: "GHAYBAN", AMMA: "AMMA_GHAYBAN" };
+      const want = allowed[target.track];
+      if (want && want !== localKind) return { error: `مستوى الطالب «${LEVEL_LABELS[target.track]}» — يُسبر سبرًا محليًا «${LOCAL_KIND_LABELS[want]}» فقط.` };
+    }
     if (track && (type === "ARABIC") !== (track === "ARABIC")) return { error: "هذا السبر ليس من نوع اختبارك." };
+  }
+
+  // قيود التسلسل ومهلة «إعادة» — للسبر الجديد فقط
+  if (!id && studentId) {
+    const blocked = await examSequenceBlock({ studentId, type, localKind: type === "LOCAL" ? localKind : null, juz, stage, nominationParts, nominationPresent, date });
+    if (blocked) return { error: blocked };
   }
 
   let finalStudentId = studentId;

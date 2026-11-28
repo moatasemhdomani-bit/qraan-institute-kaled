@@ -299,3 +299,24 @@ export async function loadNotifications(userId: string): Promise<{ items: Notifi
     items: rows.map((n) => ({ id: n.id, title: n.title, body: n.body, href: n.href, at: n.createdAt.toISOString(), read: n.readAt != null })),
   };
 }
+
+/**
+ * إشعار فوري لولي أمر الطالب ومدرّس حلقته (استدعاء ولي الأمر وحضوره، المنع من النشاط والسماح به).
+ * يُكتب لحظة الحدث ولا يُحذف بعدها.
+ */
+export async function notifyStudentPeople(studentId: string, key: string, title: string, body?: string | null): Promise<void> {
+  try {
+    const s = await prisma.student.findUnique({
+      where: { id: studentId },
+      select: { guardianUserId: true, halqa: { select: { teacherId: true } } },
+    });
+    if (!s) return;
+    const rows: { userId: string; key: string; title: string; body: string | null; href: string | null }[] = [];
+    if (s.guardianUserId) rows.push({ userId: s.guardianUserId, key: `stu:${key}`, title, body: body ?? null, href: "/parent" });
+    if (s.halqa?.teacherId) rows.push({ userId: s.halqa.teacherId, key: `stu:${key}`, title, body: body ?? null, href: null });
+    if (rows.length) await prisma.notification.createMany({ data: rows, skipDuplicates: true });
+  } catch (e) {
+    // الإشعار لا يُعطّل الإجراء
+    console.error("notifyStudentPeople", e);
+  }
+}

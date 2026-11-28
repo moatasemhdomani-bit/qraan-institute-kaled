@@ -7,6 +7,7 @@ import { saveStudent, resetGuardianPassword, deleteStudent, type FormState } fro
 import { saveBehavior, editBehaviorLog, deleteBehaviorLog, type BehaviorState, type BehaviorEditResult, type BehaviorLogEntry } from "./behaviorActions";
 import { addSummons, setSummonsAttended, deleteSummons, setActivityBan, type SummonsEntry, type SummonsResult } from "./summonsActions";
 import { arrowNav } from "@/lib/arrowNav";
+import { deleteFeePayment, type FeePayment } from "./feeActions";
 import Link from "next/link";
 import { copyToClipboard } from "@/lib/clipboard";
 import { inputStyle, primaryButtonStyle, cardStyle, chipStyle } from "@/lib/ui";
@@ -27,10 +28,12 @@ type StudentRow = {
   fullName: string;
   active: boolean;
   isOrphan: boolean;
-  /** الرسوم: PAID | UNPAID | REMAINING، أو "" = لم تُحدَّد */
+  /** الرسوم: PAID | UNPAID (و REMAINING القديم يُعرض «لم يدفع»)، أو "" = لم تُحدَّد */
   feeStatus: string;
   /** المبلغ المدفوع (PAID) أو المتبقي (REMAINING) بالعملة الجديدة */
   feeAmount: string;
+  /** دفعات الرسوم المودَعة في الصندوق */
+  feePayments: FeePayment[];
   track: TrackId;
   /** أُخرج من حلقته بترفّعه إلى مستوى جديد (لا طالبًا جديدًا) */
   promoted: boolean;
@@ -72,7 +75,6 @@ const BEHAVIOR = ["ممتاز", "جيد جدًا", "جيد", "ضعيف"] as cons
 const FEE_OPTIONS = [
   { id: "PAID", label: "تم الدفع" },
   { id: "UNPAID", label: "لم يدفع" },
-  { id: "REMAINING", label: "متبقي" },
 ] as const;
 const BEHAVIOR_COLORS: Record<string, string> = {
   "ممتاز": "var(--ok)",
@@ -444,8 +446,10 @@ function StudentForm({
   const [isOrphan, setIsOrphan] = useState(initial?.isOrphan ?? false);
   const [track, setTrack] = useState<TrackId>(initial?.track ?? "QURAN");
   // الطالب الجديد يبدأ «تم الدفع» — ويمكن تغييرها
-  const [feeStatus, setFeeStatus] = useState(initial ? initial.feeStatus : "PAID");
-  const [feeAmount, setFeeAmount] = useState(initial?.feeAmount ?? "");
+  const [feeStatus, setFeeStatus] = useState(initial ? (initial.feeStatus === "REMAINING" ? "UNPAID" : initial.feeStatus) : "PAID");
+  const [paidNow, setPaidNow] = useState("");
+  // المبلغ المدفوع إلزامي عند اختيار «تم الدفع» لطالب جديد أو تغيّرت حالة رسومه — عدا اليتيم
+  const paidRequired = feeStatus === "PAID" && (!initial || initial.feeStatus !== feeStatus) && !isOrphan;
 
   useEffect(() => {
     if (state.ok) onClose();
@@ -503,7 +507,7 @@ function StudentForm({
         <input type="hidden" name="orphan" value={isOrphan ? "1" : "0"} />
         <input type="hidden" name="track" value={track} />
         <input type="hidden" name="feeStatus" value={feeStatus} />
-        <input type="hidden" name="feeAmount" value={feeStatus === "PAID" || feeStatus === "REMAINING" ? feeAmount : ""} />
+        <input type="hidden" name="paidNow" value={feeStatus === "PAID" ? paidNow : ""} />
 
         <PhotoField name="photo" label="صورة الطالب" existingUrl={initial?.photoUrl} />
 
@@ -629,8 +633,7 @@ function StudentForm({
                   key={f.id}
                   type="button"
                   onClick={() => {
-                    // يتغيّر معنى المبلغ بين «المدفوع» و«المتبقي» — يُفرَّغ عند تبديل الحالة
-                    if (f.id !== feeStatus) setFeeAmount("");
+                    if (f.id !== feeStatus) setPaidNow("");
                     setFeeStatus(f.id === feeStatus ? "" : f.id);
                   }}
                   style={chipStyle(feeStatus === f.id)}
@@ -639,18 +642,23 @@ function StudentForm({
                 </button>
               ))}
             </div>
-            {(feeStatus === "PAID" || feeStatus === "REMAINING") && (
-              <div style={{ marginTop: 8, maxWidth: 320 }}>
-                <NumberField
-                  value={feeAmount}
-                  onChange={(e) => setFeeAmount(e.target.value)}
-                  placeholder={feeStatus === "PAID" ? "ادخل المبلغ المدفوع بالعملة الجديدة (اختياري)" : "ادخل المبلغ المتبقي بالعملة الجديدة"}
-                  aria-label={feeStatus === "PAID" ? "المبلغ المدفوع" : "المبلغ المتبقي"}
-                  maxLength={4}
-                />
-                <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 4 }}>المبلغ من 50 إلى 2000 بالعملة الجديدة.</div>
+            {feeStatus === "PAID" && (
+              <div style={{ marginTop: 8, maxWidth: 320, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div>
+                  <NumberField
+                    value={paidNow}
+                    onChange={(e) => setPaidNow(e.target.value)}
+                    placeholder={`المبلغ المدفوع الآن بالعملة الجديدة${paidRequired ? "" : " (اختياري)"}`}
+                    aria-label="المبلغ المدفوع الآن"
+                    maxLength={4}
+                  />
+                  <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 4 }}>
+                    {paidRequired ? "إلزامي — " : ""}يُودَع في صندوق المعهد تلقائيًا باسمك عند الحفظ (ل.س.ج).
+                  </div>
+                </div>
               </div>
             )}
+            {initial && initial.feePayments.length > 0 && <FeePaymentsList studentId={initial.id} initial={initial.feePayments} />}
           </div>
         </div>
         {!active && (
@@ -1279,6 +1287,44 @@ function GuardianBox({ student }: { student: StudentRow }) {
           {busy ? "جارٍ التوليد…" : "توليد كلمة مرور جديدة"}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** دفعات رسوم الطالب المودَعة في الصندوق — حذف الدفعة يحذف إيداعها */
+function FeePaymentsList({ initial }: { studentId: string; initial: FeePayment[] }) {
+  const router = useRouter();
+  const [list, setList] = useState(initial);
+  const [error, setError] = useState("");
+  const [pending, start] = useTransition();
+  if (list.length === 0) return null;
+  return (
+    <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-2-grad)", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700 }}>دفعات الرسوم في الصندوق</div>
+      {list.map((p) => (
+        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5 }}>
+          <span style={{ fontWeight: 700 }}>{p.amount.toLocaleString("en-US")} ل.س.ج</span>
+          <span style={{ color: "var(--ink-2)" }}>{formatDateAr(p.date)} — {p.by}</span>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              if (!window.confirm(`حذف دفعة ${p.amount.toLocaleString("en-US")} ل.س.ج؟ يُحذف إيداعها من الصندوق معها.`)) return;
+              start(async () => {
+                const res = await deleteFeePayment(p.id);
+                if (res.error) return setError(res.error);
+                setError("");
+                setList(res.payments ?? []);
+                router.refresh();
+              });
+            }}
+            style={{ marginInlineStart: "auto", padding: "3px 9px", borderRadius: 7, border: "1px solid var(--danger-line)", background: "transparent", color: "var(--danger)", fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" }}
+          >
+            حذف
+          </button>
+        </div>
+      ))}
+      {error && <div style={{ fontSize: 12, color: "var(--danger)" }}>{error}</div>}
     </div>
   );
 }

@@ -33,6 +33,7 @@ const REVIEW_PATHS: Record<string, string> = {
   HADITH: "/reports/hadith",
   FINANCE: "/reports/finance",
   STAFF_ATTENDANCE: "/reports/staff-attendance",
+  TEACHER_COMMITMENT: "/reports/teacher-commitment",
 };
 
 const FILTERS = [
@@ -48,6 +49,7 @@ const FILTERS = [
   { id: "HADITH", label: "تقرير الحديث الشريف" },
   { id: "FINANCE", label: "تقرير المالية" },
   { id: "STAFF_ATTENDANCE", label: "حضور الموظفين" },
+  { id: "TEACHER_COMMITMENT", label: "التزام المدرّسين بالموقع" },
 ];
 
 function DeleteButton({ id }: { id: string }) {

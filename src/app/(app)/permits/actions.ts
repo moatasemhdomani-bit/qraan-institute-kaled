@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction, studentRef } from "@/lib/audit";
-import { today } from "@/lib/daily";
+import { today, isValidDate, formatDateAr } from "@/lib/daily";
 import { revalidatePath } from "next/cache";
 import { cohortWindows, withinCohort, cohortWindowsLabel } from "@/lib/cohortTime";
 
@@ -110,5 +110,51 @@ export async function deleteStudentPermits(studentId: string): Promise<DeleteSta
   await logAction(session.userId, `حذف ${student.permits.map((p) => KIND_LABELS[p.kind]).join(" و")} للطالب ${await studentRef(studentId)}`);
 
   revalidatePath("/permits");
+  return { ok: true };
+}
+
+/** إذن غياب «يوم» أو «فترة»: حضور الطالب فيها «إذن» لازم عند المدرّس */
+export async function saveAbsencePermit(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await getSession();
+  if (!session || !canManage(session)) return { error: "غير مصرَّح لك بهذا الإجراء." };
+  const studentId = String(formData.get("studentId") || "");
+  // تعديل إذن غياب قائم
+  const absenceId = String(formData.get("absenceId") || "") || null;
+  const mode = String(formData.get("mode") || "");
+  const from = String(formData.get("from") || "");
+  const to = mode === "day" ? from : String(formData.get("to") || "");
+  const note = String(formData.get("note") || "").trim().slice(0, 500) || null;
+  if (!studentId) return { error: "اختاروا الطالب أولًا." };
+  if (mode !== "day" && mode !== "range") return { error: "اختاروا نوع الإذن." };
+  if (!isValidDate(from) || !isValidDate(to)) return { error: mode === "day" ? "حدّدوا يوم الإذن." : "حدّدوا بداية الفترة ونهايتها." };
+  if (to < from) return { error: "نهاية الفترة قبل بدايتها." };
+  const student = await prisma.student.findUnique({ where: { id: studentId }, select: { id: true } });
+  if (!student) return { error: "الطالب غير موجود." };
+  if (absenceId) {
+    const cur = await prisma.absencePermit.findUnique({ where: { id: absenceId } });
+    if (!cur || cur.studentId !== studentId) return { error: "الإذن غير موجود." };
+  }
+  const overlap = await prisma.absencePermit.findFirst({ where: { studentId, from: { lte: to }, to: { gte: from }, ...(absenceId ? { NOT: { id: absenceId } } : {}) } });
+  if (overlap) return { error: `لدى الطالب إذن غياب يتداخل مع هذه الأيام (${formatDateAr(overlap.from)}${overlap.to !== overlap.from ? ` — ${formatDateAr(overlap.to)}` : ""}).` };
+  if (absenceId) await prisma.absencePermit.update({ where: { id: absenceId }, data: { from, to, note, setById: session.userId } });
+  else await prisma.absencePermit.create({ data: { studentId, from, to, note, setById: session.userId } });
+  await logAction(
+    session.userId,
+    `${absenceId ? "عدّل" : "أضاف"} إذن غياب للطالب ${await studentRef(studentId)}: ${from === to ? `يوم ${formatDateAr(from)}` : `من ${formatDateAr(from)} إلى ${formatDateAr(to)}`}`
+  );
+  revalidatePath("/permits");
+  revalidatePath("/attendance");
+  return { ok: true };
+}
+
+export async function deleteAbsencePermit(id: string): Promise<DeleteState> {
+  const session = await getSession();
+  if (!session || !canManage(session)) return { error: "غير مصرَّح لك بهذا الإجراء." };
+  const p = await prisma.absencePermit.findUnique({ where: { id } });
+  if (!p) return { error: "الإذن غير موجود." };
+  await prisma.absencePermit.delete({ where: { id } });
+  await logAction(session.userId, `حذف إذن غياب الطالب ${await studentRef(p.studentId)} (${p.from === p.to ? formatDateAr(p.from) : `${formatDateAr(p.from)} — ${formatDateAr(p.to)}`})`);
+  revalidatePath("/permits");
+  revalidatePath("/attendance");
   return { ok: true };
 }

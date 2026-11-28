@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { orphanMark } from "@/lib/orphan";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { entryState } from "@/lib/competition";
+import { entryState, soloRules } from "@/lib/competition";
 import PageHeader from "@/components/PageHeader";
 import CompetitionsClient from "./CompetitionsClient";
 
@@ -20,7 +20,7 @@ export default async function CompetitionsPage() {
           orderBy: { createdAt: "asc" },
           include: {
             student: { select: { name: true, studentNo: true, isOrphan: true, halqa: { select: { teacher: { select: { name: true } }, cohort: { select: { name: true } } } } } },
-            results: { orderBy: { createdAt: "asc" }, select: { won: true, opponentNo: true, opponents: true, createdAt: true } },
+            results: { orderBy: { createdAt: "asc" }, select: { won: true, opponentNo: true, opponents: true, points: true, createdAt: true } },
           },
         },
       },
@@ -45,6 +45,7 @@ export default async function CompetitionsPage() {
           cost: c.cost,
           levels: c.levels,
           matchSize: c.matchSize,
+          solo: soloRules(c) ? { matches: c.soloMatches!, qualify: c.soloQualify!, maxPoints: c.soloMaxPoints ?? 0 } : null,
           // التراجع متاح لآخر مباراة فقط، ومرة واحدة: آخر نتيجة أحدث من آخر تراجع
           canUndo: (() => {
             const lastAt = Math.max(0, ...c.entries.flatMap((e) => e.results.map((r) => r.createdAt.getTime())));
@@ -59,7 +60,7 @@ export default async function CompetitionsPage() {
             teacherName: e.student.halqa?.teacher.name ?? "—",
             attempt: e.attempt,
             removed: !!e.removedAt,
-            ...entryState(e.results, c.levels),
+            ...entryState(e.results, c.levels, soloRules(c)),
           })),
         }))}
         students={students.map((s) => ({ id: s.id, name: orphanMark(s.name, s.isOrphan), no: s.studentNo, stars: s.stars, halqaName: s.halqa?.name ?? null }))}

@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import { cardStyle, chipStyle, primaryButtonStyle, inputStyle } from "@/lib/ui";
 import { formatTime12, formatDateAr } from "@/lib/daily";
-import PermitForm, { type ExistingPermit } from "./PermitForm";
+import PermitForm, { type ExistingPermit, type ExistingAbsence } from "./PermitForm";
 import type { CohortTimes } from "@/lib/cohortTime";
-import { deleteStudentPermits } from "./actions";
+import { deleteStudentPermits, deleteAbsencePermit } from "./actions";
 import { textHas } from "@/lib/search";
 import Select from "@/components/Select";
 
@@ -24,6 +24,8 @@ type Permit = {
   days: string[];
   setByName: string;
 };
+/** إذن غياب: «يوم» (from = to) أو «فترة» */
+type Absence = { id: string; studentId: string; from: string; to: string; note: string | null; setByName: string };
 type Halqa = {
   id: string;
   name: string;
@@ -32,23 +34,58 @@ type Halqa = {
   cohortTimes: CohortTimes;
   students: { id: string; no: number; name: string }[];
   permits: Permit[];
+  absences: Absence[];
 };
+type PType = "all" | "time" | "day" | "range";
+type PStatus = "all" | "current" | "upcoming" | "ended";
+const PTYPE_OPTIONS = [
+  { value: "all", label: "كل أنواع الإذن" },
+  { value: "time", label: "إذن وقت" },
+  { value: "day", label: "إذن يوم" },
+  { value: "range", label: "إذن فترة" },
+];
+const PSTATUS_OPTIONS = [
+  { value: "all", label: "كل الحالات" },
+  { value: "current", label: "ساري اليوم" },
+  { value: "upcoming", label: "قادم" },
+  { value: "ended", label: "منتهٍ" },
+];
 
 export default function PermitsClient({
   scopeNote,
-  halaqat,
+  halaqat: allHalaqat,
   workDays,
   readOnly = false,
+  today,
 }: {
   scopeNote: string;
   halaqat: Halqa[];
   workDays: string[];
   readOnly?: boolean;
+  today: string;
 }) {
-  const [kindFilter, setKindFilter] = useState<"all" | "ENTRY" | "EXIT">("all");
+  const [ptype, setPtype] = useState<PType>("all");
+  const [pstatus, setPstatus] = useState<PStatus>("all");
+  const [cohort, setCohort] = useState("all");
+  const [teacher, setTeacher] = useState("all");
+  const uniq = (xs: string[]) => [...new Set(xs)].sort((a, b) => a.localeCompare(b, "ar"));
+  const cohortOptions = [{ value: "all", label: "كل الأفواج" }, ...uniq(allHalaqat.map((h) => h.cohortName)).map((n) => ({ value: n, label: `فوج ${n}` }))];
+  const teacherOptions = [
+    { value: "all", label: "كل المدرّسين" },
+    ...uniq(allHalaqat.filter((h) => cohort === "all" || h.cohortName === cohort).map((h) => h.teacherName)).map((n) => ({ value: n, label: n })),
+  ];
+  const halaqat = allHalaqat.filter((h) => (cohort === "all" || h.cohortName === cohort) && (teacher === "all" || h.teacherName === teacher));
+  // إذن الوقت دائم: ساري اليوم دائمًا
+  const showTime = (ptype === "all" || ptype === "time") && (pstatus === "all" || pstatus === "current");
+  const absenceOk = (a: Absence) =>
+    (ptype === "all" || (ptype === "day" ? a.from === a.to : ptype === "range" ? a.from !== a.to : false)) &&
+    (pstatus === "all" ||
+      (pstatus === "current" ? a.from <= today && a.to >= today : pstatus === "upcoming" ? a.from > today : a.to < today));
+  const [kindFilter, setKindFilterRaw] = useState<"all" | "ENTRY" | "EXIT">("all");
+  const setKindFilter = setKindFilterRaw;
   // «اختر وقتًا»: الطلاب الذين لهم إذن بهذا الوقت (من نوع الإذن المختار)
   const [timeFilter, setTimeFilter] = useState("all");
-  const kindOk = (p: Permit) => kindFilter === "all" || p.kind === kindFilter;
+  const kindOk = (p: Permit) => ptype !== "time" || kindFilter === "all" || p.kind === kindFilter;
   const timeOptions = [
     { value: "all", label: "اختر وقتًا" },
     ...[...new Set(halaqat.flatMap((h) => h.permits.filter(kindOk).map((p) => p.time)))].sort().map((x) => ({ value: x, label: formatTime12(x) })),
@@ -56,7 +93,7 @@ export default function PermitsClient({
   const activeTime = timeOptions.some((o) => o.value === timeFilter) ? timeFilter : "all";
 
   // initialStudentId: فُتح النموذج من نتيجة البحث «لا يوجد إذن» على طالب بعينه
-  const [formOpen, setFormOpen] = useState<{ existing: ExistingPermit | null; initialStudentId?: string } | null>(null);
+  const [formOpen, setFormOpen] = useState<{ existing: ExistingPermit | null; absence?: ExistingAbsence; initialStudentId?: string } | null>(null);
   const [notice, setNotice] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -102,10 +139,23 @@ export default function PermitsClient({
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [halaqat, kindFilter, activeTime]
+    [halaqat, kindFilter, activeTime, ptype]
   );
 
-  const totalPermits = halaqat.reduce((sum, h) => sum + h.permits.length, 0);
+  const absenceRows = halaqat.flatMap((h) =>
+    h.absences.filter(absenceOk).map((a) => ({ ...a, name: studentNameOf(h, a.studentId), halqaName: h.name, meta: `${h.teacherName} · ${h.cohortName}` }))
+  );
+  const [absDeleting, setAbsDeleting] = useState<string | null>(null);
+  async function deleteAbsence(id: string) {
+    setAbsDeleting(id);
+    const res = await deleteAbsencePermit(id);
+    setAbsDeleting(null);
+    setNotice(res.error ?? "حُذف إذن الغياب.");
+  }
+  const absenceState = (a: Absence) => (a.from <= today && a.to >= today ? "ساري اليوم" : a.from > today ? "قادم" : "منتهٍ");
+
+  const totalPermits = (showTime ? halaqat.reduce((sum, h) => sum + h.permits.length, 0) : 0) + absenceRows.length;
+  const timeCount = showTime ? blocks.reduce((n, b) => n + b.rows.length, 0) : 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -127,7 +177,7 @@ export default function PermitsClient({
       )}
 
       <StudentPermitSearch
-        halaqat={halaqat}
+        halaqat={allHalaqat}
         onAdd={readOnly ? undefined : (id) => setFormOpen({ existing: null, initialStudentId: id })}
         onEdit={readOnly ? undefined : (existing) => setFormOpen({ existing })}
         onDelete={readOnly ? undefined : handleRowDelete}
@@ -135,30 +185,91 @@ export default function PermitsClient({
       />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 9, padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          {(["all", "ENTRY", "EXIT"] as const).map((k) => (
-            <button key={k} onClick={() => setKindFilter(k)} style={chipStyle(kindFilter === k)}>
-              {k === "all" ? "النوعان" : KIND_LABELS[k]}
-            </button>
-          ))}
-          <div style={{ marginInlineStart: "auto" }}>
-            <Select value={activeTime} onChange={setTimeFilter} options={timeOptions} width={170} />
-          </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+          <Select value={ptype} onChange={(v) => setPtype(v as PType)} options={PTYPE_OPTIONS} />
+          <Select value={pstatus} onChange={(v) => setPstatus(v as PStatus)} options={PSTATUS_OPTIONS} />
+          <Select
+            value={cohort}
+            onChange={(v) => {
+              setCohort(v);
+              setTeacher("all");
+            }}
+            options={cohortOptions}
+          />
+          <Select value={teacher} onChange={setTeacher} options={teacherOptions} />
         </div>
+        {/* الدخول والخروج ووقتهما: لإذن الوقت وحده */}
+        {ptype === "time" && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {(["all", "ENTRY", "EXIT"] as const).map((k) => (
+              <button key={k} onClick={() => setKindFilter(k)} style={chipStyle(kindFilter === k)}>
+                {k === "all" ? "النوعان" : KIND_LABELS[k]}
+              </button>
+            ))}
+            <div style={{ marginInlineStart: "auto" }}>
+              <Select value={activeTime} onChange={setTimeFilter} options={timeOptions} width={170} />
+            </div>
+          </div>
+        )}
         <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{scopeNote}</div>
       </div>
 
-      {totalPermits > 0 && <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>عدد النتائج: {blocks.reduce((n, b) => n + b.rows.length, 0)} طالبًا</div>}
+      {totalPermits > 0 && (
+        <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600 }}>
+          عدد النتائج: {timeCount + absenceRows.length}
+          {showTime && absenceRows.length > 0 ? ` — إذن وقت ${timeCount}، إذن يوم/فترة ${absenceRows.length}` : ""}
+        </div>
+      )}
+      {absenceRows.length > 0 && (
+        <div style={{ ...cardStyle, overflow: "hidden" }}>
+          <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-2)", fontSize: 16, fontWeight: 700 }}>إذن يوم / فترة (غياب بإذن)</div>
+          {absenceRows.map((a) => (
+            <div key={a.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: "13px 16px", borderTop: "1px solid var(--line-2)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 14.5, fontWeight: 600 }}>{a.name}</span>
+                <span style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                  {a.halqaName} · {a.meta}
+                </span>
+                <span style={{ marginInlineStart: "auto", padding: "3px 10px", borderRadius: 999, fontSize: 11.5, border: "1px solid var(--line)", color: absenceState(a) === "ساري اليوم" ? "var(--ok)" : absenceState(a) === "قادم" ? "var(--gold)" : "var(--ink-3)" }}>
+                  {absenceState(a)}
+                </span>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>
+                {a.from === a.to ? `إذن يوم: ${formatDateAr(a.from)}` : `إذن فترة: من ${formatDateAr(a.from)} إلى ${formatDateAr(a.to)}`}
+              </div>
+              {a.note && <div style={{ fontSize: 12.5, color: "var(--ink-2)" }}>السبب: {a.note}</div>}
+              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>أضافه {a.setByName} — حضوره فيها «إذن» عند المدرّس</div>
+              {!readOnly && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => setFormOpen({ existing: null, absence: { id: a.id, studentId: a.studentId, studentName: a.name, from: a.from, to: a.to, note: a.note } })}
+                    style={{ minHeight: 40, padding: "9px 15px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--btn-soft)", color: "var(--ink)", fontSize: 12.5, cursor: "pointer" }}
+                  >
+                    تعديل
+                  </button>
+                  <button
+                    onClick={() => deleteAbsence(a.id)}
+                    disabled={absDeleting === a.id}
+                    style={{ minHeight: 40, padding: "9px 15px", borderRadius: 9, border: "1px solid rgba(224,138,138,0.45)", background: "linear-gradient(135deg, rgba(224,138,138,0.16), rgba(224,138,138,0.03))", color: "var(--bad-ink)", fontSize: 12.5, cursor: "pointer", opacity: absDeleting === a.id ? 0.6 : 1 }}
+                  >
+                    {absDeleting === a.id ? "جارٍ الحذف…" : "حذف الإذن"}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       {totalPermits === 0 ? (
         <div style={{ padding: "44px 22px", borderRadius: 16, border: "1px dashed var(--line)", background: "var(--card-grad)", textAlign: "center" }}>
-          <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>لا أذونات قائمة</div>
+          <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>لا أذونات مطابقة</div>
           <div style={{ fontSize: 13, color: "var(--ink-2)", maxWidth: 430, margin: "0 auto" }}>
             الطالب الذي يحتاج دخولًا متأخرًا أو خروجًا مبكرًا بشكل دائم يُضاف هنا مرة واحدة.
           </div>
         </div>
       ) : (
         blocks.map((b) =>
-          b.rows.length === 0 ? null : (
+          !showTime || b.rows.length === 0 ? null : (
             <div key={b.id} style={{ ...cardStyle, overflow: "hidden" }}>
               <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-2)" }}>
                 <div style={{ fontSize: 16, fontWeight: 700 }}>{b.name}</div>
@@ -224,15 +335,16 @@ export default function PermitsClient({
 
       {formOpen && (
         <PermitForm
-          halaqat={halaqat}
+          halaqat={allHalaqat}
           workDays={workDays}
           existing={formOpen.existing}
+          existingAbsence={formOpen.absence ?? null}
           initialStudentId={formOpen.initialStudentId}
           onClose={() => setFormOpen(null)}
           onSaved={(wasNew) =>
             setNotice(
               wasNew
-                ? "الإذن يلازم الطالب من اليوم فصاعدًا — لا يحتاج تكرارًا كل يوم، ويبقى حتى يُحذف."
+                ? "حُفظ الإذن."
                 : ""
             )
           }

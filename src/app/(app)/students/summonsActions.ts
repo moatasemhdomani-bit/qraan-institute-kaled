@@ -1,15 +1,21 @@
 "use server";
 
-import { prisma, nameWithNasab } from "@/lib/db";
+import { prisma, nameWithNasab, studentFullName } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { dateOnly, formatDateAr } from "@/lib/daily";
-import { invalidateNotifications } from "@/lib/notifications";
+import { invalidateNotifications, notifyStudentPeople } from "@/lib/notifications";
 import type { BehaviorLogEntry } from "./behaviorActions";
 
 export type SummonsEntry = { id: string; reason: string; by: string; date: string; attended: boolean; attendedDate: string };
 export type SummonsResult = { error?: string; ok?: boolean; summonses?: SummonsEntry[]; behavior?: string; logEntry?: BehaviorLogEntry };
+
+/** اسم الطالب الثلاثي — لنص الإشعار */
+async function fullNameOf(studentId: string): Promise<string> {
+  const s = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true, fatherName: true, familyName: true } });
+  return s ? studentFullName(s.name, s.fatherName, s.familyName) : "";
+}
 
 const BEHAVIOR = ["ممتاز", "جيد جدًا", "جيد", "ضعيف"];
 
@@ -58,14 +64,17 @@ export async function addSummons(studentId: string, rawReason: string, behavior:
   if (!student) return { error: "لم يُعثر على الطالب." };
 
   const previousValue = student.behavior;
+  let summonsId = "";
   const log = await prisma.$transaction(async (tx) => {
-    await tx.guardianSummons.create({ data: { studentId, reason, byId: session.userId } });
+    const created = await tx.guardianSummons.create({ data: { studentId, reason, byId: session.userId } });
+    summonsId = created.id;
     if (behavior === null) return null;
     await tx.student.update({ where: { id: studentId }, data: { behavior } });
     return tx.studentBehaviorLog.create({ data: { studentId, previousValue, newValue: behavior, note: reason, actorId: session.userId } });
   });
   const ref = await studentRef(studentId);
   await logAction(session.userId, `استدعى ولي أمر الطالب ${ref}: ${reason}`);
+  await notifyStudentPeople(studentId, `summons:${summonsId}`, `استدعت الإدارة ولي أمر الطالب ${await fullNameOf(studentId)}`);
   if (log) await logAction(session.userId, `غيّر سلوك الطالب ${ref} من «${previousValue}» إلى «${behavior}»: ${reason}`);
 
   return {
@@ -91,6 +100,8 @@ export async function setSummonsAttended(id: string, attended: boolean): Promise
     session.userId,
     attended ? `سجّل حضور ولي أمر الطالب ${await studentRef(s.studentId)} للاستدعاء: ${s.reason}` : `ألغى حضور ولي أمر الطالب ${await studentRef(s.studentId)} للاستدعاء: ${s.reason}`
   );
+  if (attended && !s.attendedAt)
+    await notifyStudentPeople(s.studentId, `summons-att:${id}:${Date.now()}`, `حضر ولي أمر الطالب ${await fullNameOf(s.studentId)}`);
   return { ok: true, summonses: await changed(s.studentId) };
 }
 
@@ -113,6 +124,13 @@ export async function setActivityBan(studentId: string, banned: boolean): Promis
   if (r.count === 0) return { error: "لم يُعثر على الطالب." };
   await logAction(session.userId, `${banned ? "منع" : "إلغاء منع"} الطالب ${await studentRef(studentId)} ${banned ? "من" : "من"} النشاط`);
   revalidatePath("/students");
+  const name = await fullNameOf(studentId);
+  await notifyStudentPeople(
+    studentId,
+    `activity:${studentId}:${Date.now()}`,
+    banned ? `منعت الإدارة الطالب ${name} من النشاط` : `سمحت الإدارة للطالب ${name} بالذهاب إلى النشاط`
+  );
+  invalidateNotifications();
   revalidatePath("/activity-stars");
   return { ok: true };
 }

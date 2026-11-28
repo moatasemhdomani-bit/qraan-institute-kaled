@@ -9,7 +9,8 @@ import { SUMMONS_LOCK_MESSAGE } from "@/lib/summonsText";
 const initialState: FormState = {};
 
 /** group: اسم حلقة الطالب — في «كل الحلقات» يظهر عنوانًا قبل طلاب كل حلقة */
-type Student = { id: string; no: number; name: string; group?: string; summoned?: boolean };
+/** excused: له إذن غياب من الإدارة يومها — «إذن» لازم */
+type Student = { id: string; no: number; name: string; group?: string; summoned?: boolean; excused?: boolean };
 
 export default function AttendanceClient({
   halqaId,
@@ -26,7 +27,10 @@ export default function AttendanceClient({
   alreadyUploaded: boolean;
 }) {
   const [state, formAction, pending] = useActionState(uploadAttendance, initialState);
-  const [marks, setMarks] = useState<Record<string, string>>(saved);
+  const [marks, setMarks] = useState<Record<string, string>>(() => ({
+    ...saved,
+    ...Object.fromEntries(students.filter((s) => s.excused).map((s) => [s.id, "EXCUSED"])),
+  }));
   const [onlyMissing, setOnlyMissing] = useState(false);
   // آخر ما رُفع: يُعرف به تعديل الحضور بعد رفعه — فيصير الزر «إعادة رفع الحضور»
   const [uploaded, setUploaded] = useState<Record<string, string> | null>(alreadyUploaded ? saved : null);
@@ -155,6 +159,7 @@ export default function AttendanceClient({
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 14.5, fontWeight: 600 }}>{s.name}</span>
                 <span style={{ fontSize: 11, color: "var(--ink-3)", direction: "ltr" }}>#{s.no}</span>
+                {s.excused && <span style={{ marginInlineStart: "auto", fontSize: 11, color: "var(--gold)", fontWeight: 600 }}>إذن من الإدارة</span>}
                 {!cur && (
                   <span
                     style={{
@@ -177,7 +182,8 @@ export default function AttendanceClient({
                     <button
                       key={a.id}
                       type="button"
-                      onClick={() => setMarks({ ...marks, [s.id]: a.id })}
+                      disabled={s.excused && a.id !== "EXCUSED"}
+                      onClick={() => !s.excused && setMarks({ ...marks, [s.id]: a.id })}
                       style={{
                         flex: 1,
                         minWidth: 0,
@@ -185,7 +191,8 @@ export default function AttendanceClient({
                         padding: "8px 4px",
                         borderRadius: 10,
                         fontSize: 13,
-                        cursor: "pointer",
+                        cursor: s.excused ? "default" : "pointer",
+                        opacity: s.excused && !on ? 0.45 : 1,
                         border: on ? `1px solid ${a.color}` : "1px solid var(--line)",
                         background: on ? a.color : "var(--btn-soft)",
                         color: on ? "var(--on-status)" : "var(--ink-2)",

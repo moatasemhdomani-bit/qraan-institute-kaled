@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "ReportKind" ADD VALUE 'TEACHER_COMMITMENT';

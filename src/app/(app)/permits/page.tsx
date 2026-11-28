@@ -5,6 +5,7 @@ import { cohortScope } from "@/lib/examinerTrack";
 import { prisma } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import PermitsClient from "./PermitsClient";
+import { today } from "@/lib/daily";
 
 export default async function PermitsPage() {
   const session = await getSession();
@@ -13,7 +14,7 @@ export default async function PermitsPage() {
 
   const staffWide = session.role === "ADMIN" || session.role === "DIRECTOR";
 
-  const [halaqatRaw, permitsRaw, workRow] = await Promise.all([
+  const [halaqatRaw, permitsRaw, workRow, absenceRaw] = await Promise.all([
     prisma.halqa.findMany({
       where: staffWide ? {} : { teacherId: session.userId, ...cohortScope(session) },
       include: {
@@ -28,6 +29,11 @@ export default async function PermitsPage() {
       include: { setBy: { select: { name: true } } },
     }),
     prisma.workingDays.findUnique({ where: { id: 1 } }),
+    prisma.absencePermit.findMany({
+      where: staffWide ? {} : { student: { halqa: { teacherId: session.userId, ...cohortScope(session) } } },
+      include: { setBy: { select: { name: true } } },
+      orderBy: { from: "desc" },
+    }),
   ]);
   // أيام الدوام الرسمية — يُختار منها «أيام الإذن»
   let workDays: string[] = [];
@@ -69,17 +75,21 @@ export default async function PermitsPage() {
     },
     students: h.students.map((s) => ({ id: s.id, no: s.studentNo, name: orphanMark(s.name, s.isOrphan) })),
     permits: h.students.flatMap((s) => permitsByStudent[s.id] ?? []),
+    absences: absenceRaw
+      .filter((a) => h.students.some((s) => s.id === a.studentId))
+      .map((a) => ({ id: a.id, studentId: a.studentId, from: a.from, to: a.to, note: a.note, setByName: a.setBy.name })),
   }));
 
   return (
     <>
-      <PageHeader title="إذن الطلاب" subtitle="أذونات دخول وخروج دائمة تلازم الطالب حتى تُحذف." />
+      <PageHeader title="إذن الطلاب" subtitle="إذن وقت: دخول أو خروج دائم يلازم الطالب حتى يُحذف — وإذن يوم أو فترة: غياب بإذن، حضوره فيها «إذن» عند المدرّس." />
       {/* المدرّس يشاهد أذونات طلابه فقط — الإضافة والتعديل والحذف للإدارة */}
       <PermitsClient
         scopeNote={staffWide ? "ترى كل الحلقات — يمكنك إضافة إذن لأي طالب في المعهد." : "ترى أذونات طلاب حلقاتك للاطلاع فقط — تضيفها الإدارة."}
         halaqat={halaqat}
         workDays={workDays}
         readOnly={!staffWide}
+        today={today()}
       />
     </>
   );

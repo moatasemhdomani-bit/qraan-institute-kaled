@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { logAction, studentRef } from "@/lib/audit";
 import { STAR_MAX } from "@/lib/stars";
-import { entryState, MAX_ATTEMPTS } from "@/lib/competition";
+import { entryState, soloRules, MAX_ATTEMPTS } from "@/lib/competition";
 
 export type CompResult = { error?: string; ok?: boolean };
 
@@ -33,23 +33,46 @@ async function loadEntries(competitionId: string) {
   return prisma.competitionEntry.findMany({
     where: { competitionId },
     orderBy: { createdAt: "asc" },
-    include: { results: { orderBy: { createdAt: "asc" }, select: { won: true, opponentNo: true, opponents: true } } },
+    include: { results: { orderBy: { createdAt: "asc" }, select: { won: true, opponentNo: true, opponents: true, points: true } } },
   });
 }
 
-export async function createCompetition(input: { name: string; cost: number; levels: number; matchSize: number }): Promise<CompResult> {
+export async function createCompetition(input: {
+  name: string;
+  cost: number;
+  levels: number;
+  matchSize: number;
+  /** مسابقة الطالب الواحد (matchSize = 1) */
+  soloMatches?: number;
+  soloQualify?: number;
+  soloMaxPoints?: number;
+}): Promise<CompResult> {
   const session = await officer();
   if (!session) return { error: "المسابقات من صلاحية مسؤول النشاط." };
   const name = input.name.trim();
   if (!name) return { error: "اكتبوا اسم المسابقة." };
   if (!Number.isInteger(input.cost) || input.cost < 0 || input.cost > STAR_MAX) return { error: "اكتبوا عدد النجوم للمشاركة (0 أو أكثر)." };
   if (!Number.isInteger(input.levels) || input.levels < 1 || input.levels > MAX_LEVELS) return { error: `عدد المستويات من 1 إلى ${MAX_LEVELS}.` };
-  if (!Number.isInteger(input.matchSize) || input.matchSize < 2 || input.matchSize > MAX_MATCH || input.matchSize % 2 !== 0) {
-    return { error: `عدد الطلاب في المباراة عدد زوجي من 2 إلى ${MAX_MATCH}.` };
+  const solo = input.matchSize === 1;
+  if (!Number.isInteger(input.matchSize) || input.matchSize < 1 || input.matchSize > MAX_MATCH || (!solo && input.matchSize % 2 !== 0)) {
+    return { error: `عدد الطلاب في المباراة 1، أو عدد زوجي من 2 إلى ${MAX_MATCH}.` };
+  }
+  let soloData = {};
+  if (solo) {
+    const { soloMatches: m, soloQualify: q, soloMaxPoints: p } = input;
+    if (!Number.isInteger(m) || m! < 1 || m! > 50) return { error: "عدد المباريات في المستوى من 1 إلى 50." };
+    if (!Number.isInteger(p) || p! < 1 || p! > 1000) return { error: "أقصى نقاط المباراة من 1 إلى 1000." };
+    if (!Number.isInteger(q) || q! < 1 || q! > m! * p!) return { error: `نقاط التأهل من 1 إلى ${m! * p!} (المباريات × أقصى النقاط).` };
+    soloData = { soloMatches: m, soloQualify: q, soloMaxPoints: p };
   }
 
-  await prisma.competition.create({ data: { name, cost: input.cost, levels: input.levels, matchSize: input.matchSize, createdById: session.userId } });
-  await logAction(session.userId, `أضاف المسابقة «${name}» (المشاركة ${input.cost} نجمة، ${input.levels} مستويات، ${input.matchSize} طلاب في المباراة)`);
+  await prisma.competition.create({ data: { name, cost: input.cost, levels: input.levels, matchSize: input.matchSize, ...soloData, createdById: session.userId } });
+  await logAction(
+    session.userId,
+    solo
+      ? `أضاف المسابقة «${name}» (المشاركة ${input.cost} نجمة، ${input.levels} مستويات، طالب واحد في المباراة: ${input.soloMatches} مباريات في المستوى، التأهل بـ ${input.soloQualify} نقطة، وأقصى نقاط المباراة ${input.soloMaxPoints})`
+      : `أضاف المسابقة «${name}» (المشاركة ${input.cost} نجمة، ${input.levels} مستويات، ${input.matchSize} طلاب في المباراة)`
+  );
   done();
   return { ok: true };
 }
@@ -71,7 +94,7 @@ export async function joinCompetition(competitionId: string, studentId: string):
   const all = (await loadEntries(competitionId)).filter((e) => e.studentId === studentId);
   // المشاركة المحذوفة لا تُحسب: لا تمنع عودته ولا تُعدّ من مرّتيه
   const mine = all.filter((e) => !e.removedAt);
-  const states = mine.map((e) => entryState(e.results, comp.levels).status);
+  const states = mine.map((e) => entryState(e.results, comp.levels, soloRules(comp)).status);
   if (states.includes("ACTIVE")) return { error: "الطالب مشارك في هذه المسابقة الآن." };
   if (states.includes("WON")) return { error: "الطالب فاز بهذه المسابقة." };
   if (mine.length >= MAX_ATTEMPTS) return { error: "شارك الطالب في هذه المسابقة مرتين — لا يعود إليها." };
@@ -114,6 +137,7 @@ export async function recordMatch(competitionId: string, winnerNos: number[], lo
 
   const comp = await prisma.competition.findUnique({ where: { id: competitionId } });
   if (!comp) return { error: "المسابقة غير موجودة." };
+  if (comp.matchSize === 1) return { error: "هذه مسابقة الطالب الواحد — تُسجَّل نقاط الطالب." };
   const half = comp.matchSize / 2;
   const all = [...winnerNos, ...loserNos];
   if (winnerNos.length !== half || loserNos.length !== half || all.some((n) => !Number.isInteger(n))) {
@@ -138,6 +162,27 @@ export async function recordMatch(competitionId: string, winnerNos: number[], lo
     ],
   });
   await logAction(session.userId, `مسابقة «${comp.name}»: فاز ${winnerNos.join("، ")} على ${loserNos.join("، ")}`);
+  done();
+  return { ok: true };
+}
+
+/** مسابقة الطالب الواحد: نقاط مشارك في مباراة (من 0 إلى أقصى نقاط المباراة) */
+export async function recordSoloMatch(competitionId: string, no: number, points: number): Promise<CompResult> {
+  const session = await officer();
+  if (!session) return { error: "المسابقات من صلاحية مسؤول النشاط." };
+  const comp = await prisma.competition.findUnique({ where: { id: competitionId } });
+  if (!comp) return { error: "المسابقة غير موجودة." };
+  const rules = soloRules(comp);
+  if (!rules) return { error: "هذه المسابقة ليست مسابقة الطالب الواحد." };
+  const max = comp.soloMaxPoints ?? 0;
+  if (!Number.isInteger(points) || points < 0 || points > max) return { error: `النقاط من 0 إلى ${max}.` };
+  const entries = await loadEntries(competitionId);
+  const entry = entries[no - 1];
+  if (!entry) return { error: `لا مشارك برقم ${no}.` };
+  if (entry.removedAt) return { error: `المشارك رقم ${no} محذوف من المسابقة.` };
+  if (entryState(entry.results, comp.levels, rules).status !== "ACTIVE") return { error: `المشارك رقم ${no} لم يعد في المسابقة.` };
+  await prisma.competitionResult.create({ data: { entryId: entry.id, won: true, points, matchId: randomUUID(), byId: session.userId } });
+  await logAction(session.userId, `مسابقة «${comp.name}»: المشارك ${no} — ${points} نقطة`);
   done();
   return { ok: true };
 }

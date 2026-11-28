@@ -23,6 +23,7 @@ const KIND_LABELS: Record<string, string> = {
   HADITH: "تقرير الحديث الشريف",
   FINANCE: "تقرير المالية",
   STAFF_ATTENDANCE: "حضور الموظفين",
+  TEACHER_COMMITMENT: "التزام المدرّسين بالموقع",
 };
 
 const BASE_STYLE = `
@@ -607,6 +608,43 @@ export function recitationLogReportHtml(input: {
     reportHeader(input.name, "RECITATION_LOG", input.from, input.to, input.issuedBy, input.issuedAt) +
     blocks +
     `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — سجل التسميع والحضور</div></body></html>`
+  );
+}
+
+// ==================== التزام المدرّسين بالموقع ====================
+
+export function teacherCommitmentReportHtml(input: {
+  name: string; from: string; to: string; issuedBy: string; issuedAt: string;
+  report: import("./teacherCommitment").CommitmentReport;
+}): string {
+  const REC: Record<string, { label: string; color: string }> = {
+    full: { label: "مرفوع", color: "#1e7a3d" },
+    partial: { label: "غير مكتمل", color: "#a8781c" },
+    none: { label: "لم يُرفع", color: "#b23b3b" },
+  };
+  const { days, rows } = input.report;
+  const table = rows.length === 0 || days.length === 0
+    ? "<p>لا أيام دوام أو لا حلقات في هذه الفترة.</p>"
+    : `<p style="font-size:10.5px;color:#555">أيام الدوام في الفترة: ${days.length} — في كل خانة: الحضور ثم التسميع.</p>
+    <table style="font-size:8.5px">
+      <thead><tr><th>المدرّس</th><th>الحلقة</th>${days.map((d) => `<th style="white-space:nowrap">${escapeHtml(d.label)}</th>`).join("")}
+        <th>رفع الحضور</th><th>لم يرفع الحضور</th><th>التسميع مرفوع</th><th>غير مكتمل</th><th>لم يرفع التسميع</th></tr></thead>
+      <tbody>${rows
+        .map(
+          (r) => `<tr><td class="name" style="white-space:nowrap">${escapeHtml(r.teacherName)}</td><td style="white-space:nowrap">${escapeHtml(r.halqaName)} · ${escapeHtml(r.cohortName)}</td>${days
+            .map((d) => {
+              const c = r.cells[d.date];
+              return `<td style="white-space:nowrap"><b style="color:${c.att ? "#1e7a3d" : "#b23b3b"}">${c.att ? "رفع" : "لم يرفع"}</b><br><span style="color:${REC[c.rec].color}">${REC[c.rec].label}</span></td>`;
+            })
+            .join("")}<td class="pass">${r.totals.attUp}</td><td class="fail">${r.totals.attNo}</td><td class="pass">${r.totals.recFull}</td><td style="color:#a8781c;font-weight:600">${r.totals.recPartial}</td><td class="fail">${r.totals.recNone}</td></tr>`
+        )
+        .join("")}</tbody>
+    </table>`;
+  return (
+    htmlHead(input.name) +
+    reportHeader(input.name, "TEACHER_COMMITMENT", input.from, input.to, input.issuedBy, input.issuedAt) +
+    table +
+    `<div class="footer">معهد الصحابي الجليل خالد بن الوليد — التزام المدرّسين بالموقع</div></body></html>`
   );
 }
 

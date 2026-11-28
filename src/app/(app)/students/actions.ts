@@ -7,6 +7,7 @@ import { getSession } from "@/lib/session";
 import { toWesternDigits, cleanPhone2 } from "@/lib/numbers";
 import { logAction, studentRef } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { depositStudentFee } from "./feeActions";
 import crypto from "crypto";
 import { normalizePhone, isValidMobile } from "@/lib/phone";
 import { createGuardianAccount, regenerateGuardianPassword } from "@/lib/guardian";
@@ -24,7 +25,6 @@ async function savePhoto(file: File): Promise<string> {
 }
 
 /** حدود مبلغ الرسوم بالعملة الجديدة. */
-const FEE_MIN = 50;
 const FEE_MAX = 2000;
 
 export async function saveStudent(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -45,19 +45,27 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
 
   if (!name) return { error: "اكتبوا اسم الطالب." };
 
-  // الرسوم: «تم الدفع» (المبلغ المدفوع اختياري)، «لم يدفع»، أو «متبقي» (المبلغ المتبقي إلزامي) — المبلغ رقم صحيح بالعملة الجديدة
+  // الرسوم: «تم الدفع» (بالمبلغ المدفوع) أو «لم يدفع» — ألغي «متبقي»
   const rawFee = String(formData.get("feeStatus") || "");
-  const feeStatus: FeeStatus | null = rawFee === "PAID" || rawFee === "UNPAID" || rawFee === "REMAINING" ? rawFee : null;
-  const rawAmount = String(formData.get("feeAmount") || "").trim();
+  const feeStatus: FeeStatus | null = rawFee === "PAID" || rawFee === "UNPAID" ? rawFee : null;
   let feeAmount: number | null = null;
-  if (feeStatus === "REMAINING" || (feeStatus === "PAID" && rawAmount)) {
-    if (!/^\d+$/.test(rawAmount)) {
-      return { error: feeStatus === "PAID" ? "المبلغ المدفوع أرقام فقط بالعملة الجديدة — أو اتركوه فارغًا." : "اكتبوا المبلغ المتبقي بالعملة الجديدة (أرقام فقط)." };
-    }
-    feeAmount = Number(rawAmount);
-    // مبلغ الرسوم بين 50 و2000 بالعملة الجديدة
-    if (feeAmount < FEE_MIN || feeAmount > FEE_MAX) return { error: `مبلغ الرسوم بين ${FEE_MIN} و${FEE_MAX} بالعملة الجديدة.` };
+
+  // المبلغ المدفوع الآن: يُودَع في الصندوق تلقائيًا باسم المستخدم (اختياري)
+  const rawPaidNow = toWesternDigits(String(formData.get("paidNow") || "").trim());
+  let paidNow = 0;
+  if (feeStatus === "PAID" && rawPaidNow) {
+    if (!/^\d+$/.test(rawPaidNow)) return { error: "المبلغ المدفوع أرقام فقط بالعملة الجديدة." };
+    paidNow = Number(rawPaidNow);
+    if (paidNow < 1 || paidNow > FEE_MAX) return { error: `المبلغ المدفوع من 1 إلى ${FEE_MAX} بالعملة الجديدة.` };
   }
+  // إلزامي عند اختيار «تم الدفع» (طالب جديد أو تغيّرت حالة رسومه) — عدا اليتيم
+  const prevFee = id ? (await prisma.student.findUnique({ where: { id }, select: { feeStatus: true, feeAmount: true } })) : null;
+  const feeChanged = !id || prevFee?.feeStatus !== feeStatus;
+  if (feeStatus === "PAID" && feeChanged && !isOrphan && paidNow === 0) {
+    return { error: "اكتبوا المبلغ المدفوع بالعملة الجديدة — يُودَع في صندوق المعهد." };
+  }
+  // «تم الدفع»: المبلغ المدفوع هو ما قُبض الآن (أو يبقى السابق)
+  if (feeStatus === "PAID") feeAmount = paidNow || (prevFee?.feeStatus === "PAID" ? (prevFee.feeAmount ?? null) : null);
 
   const guardianPhone = normalizePhone(String(formData.get("guardianPhone") || ""));
   // المنقطع: يُحفظ تغيير حالته دون إلزام ببقية البيانات
@@ -136,6 +144,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
     } else {
       await logAction(session.userId, `عدّل بيانات الطالب ${await studentRef(id)}`);
     }
+    // عاد بعد انقطاع: يُلغى شرط تسلسل السبر بما سبق — يبدأ من أي سبر
+    if (before && !before.active && active) await prisma.student.update({ where: { id }, data: { examSeqResetAt: new Date() } });
     if (before && before.active !== active) {
       // المنقطع يصبح رصيد نجومه صفرًا
       if (!active) await zeroStudentStars(id, session.userId, session.role);
@@ -156,6 +166,8 @@ export async function saveStudent(_prev: FormState, formData: FormData): Promise
       halqa ? `سجّل الطالب ${await studentRef(created.id)} في حلقة ${halqa.name}` : `سجّل الطالب ${await studentRef(created.id)}`
     );
   }
+
+  if (paidNow > 0 && studentId) await depositStudentFee(studentId, paidNow, session.userId);
 
   const photo = formData.get("photo");
   if (photo instanceof File && photo.size > 0 && studentId) {

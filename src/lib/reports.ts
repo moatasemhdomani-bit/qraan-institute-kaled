@@ -571,12 +571,14 @@ export type ReviewInputs = {
   status: OrphanStatus; // الأيتام: فلتر حالة الطالب المختار عند الإصدار
   /** سجل التسميع: الحلقات المختارة — «all» للكل */
   halqaIds: string[] | "all";
+  /** التزام المدرّسين: المدرّسون المختارون — «all» للكل */
+  teacherIds: string[] | "all";
 };
 
 /** معطيات تقرير صادر سابقًا من السجل — لإعادة إعداده بنفس المدخلات («مراجعة التقرير»). */
 export async function loadReviewInputs(
   id: string | undefined,
-  kind: "HALAQAT" | "TEACHERS" | "HALAQAT_AR" | "TEACHERS_AR" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS" | "RECITATION_LOG" | "HADITH" | "FINANCE"
+  kind: "HALAQAT" | "TEACHERS" | "HALAQAT_AR" | "TEACHERS_AR" | "STUDENT" | "AWQAF_MARKS" | "ORPHANS" | "RECITATION_LOG" | "HADITH" | "FINANCE" | "TEACHER_COMMITMENT"
 ): Promise<ReviewInputs | null> {
   if (!id) return null;
   const r = await prisma.issuedReport.findUnique({ where: { id } });
@@ -599,6 +601,7 @@ export async function loadReviewInputs(
     names: Array.isArray(p.names) ? (p.names as string[]) : null,
     status: p.status === "all" || p.status === "inactive" ? p.status : "active",
     halqaIds: Array.isArray(p.halqaIds) ? (p.halqaIds as string[]) : "all",
+    teacherIds: Array.isArray(p.teacherIds) ? (p.teacherIds as string[]) : "all",
   };
 }
 

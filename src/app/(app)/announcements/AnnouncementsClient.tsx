@@ -5,16 +5,32 @@ import { useRouter } from "next/navigation";
 import { cardStyle, chipStyle, inputStyle, primaryButtonStyle, ROLE_LABELS } from "@/lib/ui";
 import Select from "@/components/Select";
 import { sendAnnouncement, deleteAnnouncement } from "./actions";
+import { textHas } from "@/lib/search";
+import { toWesternDigits } from "@/lib/numbers";
+
+/** مستلم الإعلان الموجّه: موظف، أو ولي أمر طالب */
+type Person = { id: string; label: string; meta: string; guardian: boolean };
 
 type Sent = { id: string; title: string; body: string; audienceLabel: string; recipients: number; read: number; by: string; at: string };
 
 const ROLE_AUDIENCES = ["TEACHER", "GUARDIAN", "ADMIN", "EXAMINER", "EXAM_SUPERVISOR", "SUNNAH_EXAMINER", "ACTIVITY_OFFICER"];
 
-export default function AnnouncementsClient({ cohorts, sent }: { cohorts: { id: string; name: string }[]; sent: Sent[] }) {
+export default function AnnouncementsClient({ cohorts, people, sent }: { cohorts: { id: string; name: string }[]; people: Person[]; sent: Sent[] }) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const [q, setQ] = useState("");
+  const [who, setWho] = useState<"all" | "staff" | "guardian">("all");
+  const matches = (() => {
+    const t = toWesternDigits(q.trim());
+    if (!t) return [];
+    return people
+      .filter((p) => !picked.includes(p.id) && (who === "all" || (who === "guardian") === p.guardian) && (textHas(p.label, t) || p.meta.includes(t)))
+      .slice(0, 12);
+  })();
+  const personOf = (id: string) => people.find((p) => p.id === id);
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [kind, setKind] = useState<"all" | "role" | "cohort">("all");
+  const [kind, setKind] = useState<"all" | "role" | "cohort" | "user">("all");
   // دور أو أكثر
   const [roles, setRoles] = useState<string[]>(["TEACHER"]);
   const toggleRole = (r: string) => setRoles((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]));
@@ -23,7 +39,7 @@ export default function AnnouncementsClient({ cohorts, sent }: { cohorts: { id: 
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  const audience = kind === "all" ? "all" : kind === "role" ? `role:${roles.join(",")}` : `cohort:${cohortId}`;
+  const audience = kind === "all" ? "all" : kind === "role" ? `role:${roles.join(",")}` : kind === "user" ? `user:${picked.join(",")}` : `cohort:${cohortId}`;
   const label = { display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 } as const;
 
   const send = () =>
@@ -33,6 +49,7 @@ export default function AnnouncementsClient({ cohorts, sent }: { cohorts: { id: 
       setNotice({ ok: true, text: `أُرسل الإعلان — عدد المستلمين: ${res.recipients}.` });
       setTitle("");
       setBody("");
+      setPicked([]);
       router.refresh();
     });
 
@@ -56,6 +73,7 @@ export default function AnnouncementsClient({ cohorts, sent }: { cohorts: { id: 
                 ["all", "كل المعهد"],
                 ["role", "دور أو أكثر"],
                 ["cohort", "فوج"],
+                ["user", "إعلان موجّه"],
               ] as const
             ).map(([k, l]) => (
               <button key={k} type="button" onClick={() => setKind(k)} style={{ ...chipStyle(kind === k), padding: "8px 14px" }}>
@@ -88,6 +106,60 @@ export default function AnnouncementsClient({ cohorts, sent }: { cohorts: { id: 
             <Select value={cohortId} onChange={setCohortId} options={cohorts.map((c) => ({ value: c.id, label: `فوج ${c.name}` }))} width={260} />
           )}
           {kind === "cohort" && <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>موظفو الفوج ومدرّسو حلقاته وأولياء أمور طلابه.</div>}
+          {kind === "user" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {(
+                  [
+                    ["all", "الكل"],
+                    ["staff", "موظف"],
+                    ["guardian", "ولي أمر"],
+                  ] as const
+                ).map(([k, l]) => (
+                  <button key={k} type="button" onClick={() => setWho(k)} style={{ ...chipStyle(who === k), padding: "6px 12px" }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                style={inputStyle()}
+                placeholder={who === "guardian" ? "ابحثوا باسم الطالب أو رقمه" : who === "staff" ? "ابحثوا باسم الموظف" : "ابحثوا باسم الموظف أو اسم الطالب أو رقمه"}
+              />
+              {q.trim() && matches.length === 0 && <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>لا نتائج.</div>}
+              {matches.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflow: "auto" }}>
+                  {matches.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setPicked((cur) => [...cur, p.id]);
+                        setQ("");
+                      }}
+                      style={{ textAlign: "start", padding: "8px 11px", borderRadius: 9, border: "1px solid var(--line-2)", background: "var(--card-grad)", color: "var(--ink)", fontSize: 13, cursor: "pointer" }}
+                    >
+                      {p.label} <span style={{ color: "var(--ink-3)", fontSize: 11.5 }}>· {p.meta}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {picked.length > 0 && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {picked.map((id) => (
+                    <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, border: "1px solid var(--accent-line)", background: "var(--chip)", fontSize: 12.5 }}>
+                      {personOf(id)?.label}
+                      <button type="button" aria-label="إزالة" onClick={() => setPicked((cur) => cur.filter((x) => x !== id))} style={{ border: 0, background: "transparent", color: "var(--ink-2)", cursor: "pointer", fontSize: 14, padding: 0 }}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>يصل الإعلان إلى المختارين وحدهم — شخص واحد أو أكثر.</div>
+            </div>
+          )}
         </div>
         {notice && (
           <div

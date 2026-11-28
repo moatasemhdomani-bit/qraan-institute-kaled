@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { RETRY_DELAY_MESSAGE } from "@/lib/examSequence";
 import { getSession } from "@/lib/session";
 import { isHalfStep } from "@/lib/numbers";
 import { logAction, studentRef } from "@/lib/audit";
@@ -85,8 +86,10 @@ export async function saveSunnahExam(input: SunnahExamInput): Promise<SunnahSave
       type: { in: ["SUNNAH", "SUNNAH_NOMINATION", "SUNNAH_STAGE", "SUNNAH_PART"] },
       ...(input.id ? { NOT: { id: input.id } } : {}),
     },
-    select: { type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true, createdAt: true },
+    select: { type: true, sunnahSection: true, stage: true, resultMark: true, repeat: true, grade: true, sunnahStage: true, createdAt: true, date: true },
   });
+  // مهلة «إعادة»: لا يُعاد السبر نفسه في يوم رسوبه
+  if (!input.id && prior.some((e) => e.type === input.type && e.repeat && e.date === input.date)) return { error: RETRY_DELAY_MESSAGE };
   const blocked = levelExamBlock(
     input.type,
     input.section,
@@ -284,6 +287,15 @@ export async function saveSunnahStageExam(input: {
     }
   }
   if (!isValidDate(input.date)) return { error: "التاريخ غير صحيح." };
+  // مهلة «إعادة»: لا يُعاد سبر المرحلة أو القسم في يوم رسوبه
+  if (
+    !input.id &&
+    (await prisma.exam.findFirst({
+      where: { studentId: input.studentId, type: examType, sunnahSection: input.section, stage: input.level, sunnahStage: input.stage, grade: "إعادة", date: input.date },
+      select: { id: true },
+    }))
+  )
+    return { error: RETRY_DELAY_MESSAGE };
   const student = await prisma.student.findUnique({ where: { id: input.studentId }, select: { name: true } });
   if (!student) return { error: "الطالب غير موجود." };
   if (input.id) {

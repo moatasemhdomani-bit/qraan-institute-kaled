@@ -5,7 +5,8 @@ import { dateOnly } from "@/lib/daily";
 import { buildHalaqatBlocks, buildTeachersRows, buildArabicHalaqatBlocks, buildArabicTeachersRows, buildStudentPreview, buildAwqafMarks, buildOrphans, buildHadithTeachersRows, buildFinanceReport, ORPHAN_STATUS_LABELS, type OrphanStatus } from "@/lib/reports";
 import { renderPdf } from "@/lib/pdf";
 import { buildRecitationLog } from "@/lib/recitationLog";
-import { halaqatReportHtml, teachersReportHtml, arabicHalaqatReportHtml, arabicTeachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml, recitationLogReportHtml, hadithReportHtml, financeReportHtml, staffAttendanceReportHtml } from "@/lib/reportHtml";
+import { buildTeacherCommitment } from "@/lib/teacherCommitment";
+import { halaqatReportHtml, teachersReportHtml, arabicHalaqatReportHtml, arabicTeachersReportHtml, studentReportHtml, awqafMarksReportHtml, orphansReportHtml, recitationLogReportHtml, hadithReportHtml, financeReportHtml, staffAttendanceReportHtml, teacherCommitmentReportHtml } from "@/lib/reportHtml";
 
 /** يُعيد توليد PDF تقرير سابق من معطياته المحفوظة عند الطلب — لا يُخزَّن أي ملف. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -71,6 +72,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   } else if (report.kind === "RECITATION_LOG") {
     const ids = Array.isArray(params_.halqaIds) ? (params_.halqaIds as string[]) : "all";
     html = recitationLogReportHtml({ ...common, blocks: await buildRecitationLog(ids, report.fromDate, report.toDate) });
+    landscape = true;
+  } else if (report.kind === "TEACHER_COMMITMENT") {
+    const ids = Array.isArray(params_.teacherIds) ? (params_.teacherIds as string[]) : "all";
+    html = teacherCommitmentReportHtml({ ...common, report: await buildTeacherCommitment(ids, report.fromDate, report.toDate) });
     landscape = true;
   } else if (report.kind === "AWQAF_MARKS") {
     const marks = typeof params_.batchId === "string" ? await buildAwqafMarks(params_.batchId) : null;

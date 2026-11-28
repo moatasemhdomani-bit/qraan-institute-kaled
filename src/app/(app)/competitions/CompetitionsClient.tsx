@@ -9,7 +9,7 @@ import { STATUS_LABELS, WINS_TO_ADVANCE, LOSSES_TO_EXIT, type EntryState } from 
 import Drawer from "@/components/Drawer";
 import NumberField from "@/components/NumberField";
 import StarBadge from "../stars/StarBadge";
-import { createCompetition, joinCompetition, recordMatch, undoLastMatch, deleteCompetitions, deleteEntries, type CompResult } from "./actions";
+import { createCompetition, joinCompetition, recordMatch, recordSoloMatch, undoLastMatch, deleteCompetitions, deleteEntries, type CompResult } from "./actions";
 
 type Entry = EntryState & {
   no: number;
@@ -22,7 +22,10 @@ type Entry = EntryState & {
   /** محذوف بعد أن جرت مباريات: يبقى سطره ورقمه */
   removed: boolean;
 };
-type Competition = { id: string; name: string; cost: number; levels: number; matchSize: number; canUndo: boolean; entries: Entry[] };
+/** مسابقة الطالب الواحد: مباريات المستوى ونقاط التأهل وأقصى نقاط المباراة */
+type Solo = { matches: number; qualify: number; maxPoints: number };
+type Competition = { id: string; name: string; cost: number; levels: number; matchSize: number; solo: Solo | null; canUndo: boolean; entries: Entry[] };
+type NewComp = { name: string; cost: number; levels: number; matchSize: number; soloMatches?: number; soloQualify?: number; soloMaxPoints?: number };
 type StudentRow = { id: string; name: string; no: number; stars: number; halqaName: string | null };
 
 const STATUS_COLORS = { ACTIVE: "var(--ink-2)", OUT: "var(--bad)", WON: "var(--ok)" } as const;
@@ -83,7 +86,13 @@ export default function CompetitionsClient({ competitions, students }: { competi
                 المشاركة: <StarBadge n={open.cost} />
               </span>
               <span>{open.levels} مستويات</span>
-              <span>{open.matchSize} طلاب في المباراة</span>
+              {open.solo ? (
+                <span>
+                  طالب واحد · {open.solo.matches} مباريات في المستوى · التأهل {open.solo.qualify} نقطة · أقصى المباراة {open.solo.maxPoints}
+                </span>
+              ) : (
+                <span>{open.matchSize} طلاب في المباراة</span>
+              )}
               <span>{open.entries.filter((e) => e.status === "ACTIVE" && !e.removed).length} مستمر من {open.entries.length}</span>
             </div>
           </div>
@@ -95,7 +104,16 @@ export default function CompetitionsClient({ competitions, students }: { competi
           </button>
         </div>
         {noticeBox}
+        {open.solo ? (
+          <SoloForm
+            comp={open}
+            pending={pending}
+            onRecord={(no, pts) => run(() => recordSoloMatch(open.id, no, pts), `سُجّلت للمشارك ${no}: ${pts} نقطة.`)}
+            onUndo={() => run(() => undoLastMatch(open.id), "أُلغيت آخر مباراة.")}
+          />
+        ) : (
         <MatchForm comp={open} pending={pending} onRecord={(w, l) => run(() => recordMatch(open.id, w, l), `سُجّلت المباراة: فاز ${w.join("، ")} على ${l.join("، ")}.`)} onUndo={() => run(() => undoLastMatch(open.id), "أُلغيت آخر مباراة.")} />
+        )}
         <EntriesTable comp={open} />
         {adding && (
           <AddStudentDrawer
@@ -162,7 +180,7 @@ export default function CompetitionsClient({ competitions, students }: { competi
                   المشاركة: <StarBadge n={c.cost} />
                 </span>
                 <span>{c.levels} مستويات</span>
-                <span>{c.matchSize} في المباراة</span>
+                <span>{c.solo ? "طالب واحد" : `${c.matchSize} في المباراة`}</span>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
                 {c.entries.filter((e) => !e.removed).length} مشاركة · {c.entries.filter((e) => e.status === "ACTIVE" && !e.removed).length} مستمر
@@ -257,12 +275,16 @@ function DeleteDrawer({
   );
 }
 
-function NewCompetitionDrawer({ pending, onSubmit, onClose }: { pending: boolean; onSubmit: (v: { name: string; cost: number; levels: number; matchSize: number }) => void; onClose: () => void }) {
+function NewCompetitionDrawer({ pending, onSubmit, onClose }: { pending: boolean; onSubmit: (v: NewComp) => void; onClose: () => void }) {
+  const [soloMatches, setSoloMatches] = useState("");
+  const [soloQualify, setSoloQualify] = useState("");
+  const [soloMaxPoints, setSoloMaxPoints] = useState("");
   const [name, setName] = useState("");
   const [cost, setCost] = useState("");
   const [levels, setLevels] = useState("");
   const [matchSize, setMatchSize] = useState("2");
-  const odd = matchSize !== "" && Number(matchSize) % 2 !== 0;
+  const solo = matchSize === "1";
+  const odd = matchSize !== "" && !solo && Number(matchSize) % 2 !== 0;
   const label = { display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 } as const;
   return (
     <Drawer
@@ -274,7 +296,15 @@ function NewCompetitionDrawer({ pending, onSubmit, onClose }: { pending: boolean
         <button
           type="button"
           disabled={pending}
-          onClick={() => onSubmit({ name, cost: Number(cost), levels: Number(levels), matchSize: Number(matchSize) })}
+          onClick={() =>
+            onSubmit({
+              name,
+              cost: Number(cost),
+              levels: Number(levels),
+              matchSize: Number(matchSize),
+              ...(solo ? { soloMatches: Number(soloMatches), soloQualify: Number(soloQualify), soloMaxPoints: Number(soloMaxPoints) } : {}),
+            })
+          }
           style={{ ...primaryButtonStyle, width: "100%", opacity: pending ? 0.7 : 1 }}
         >
           {pending ? "جارٍ الحفظ…" : "حفظ المسابقة"}
@@ -298,9 +328,32 @@ function NewCompetitionDrawer({ pending, onSubmit, onClose }: { pending: boolean
           <label style={label}>عدد الطلاب في المباراة</label>
           <NumberField value={matchSize} onChange={(e) => setMatchSize(e.target.value)} />
           <div style={{ fontSize: 12, color: odd ? "var(--bad)" : "var(--ink-3)", marginTop: 5 }}>
-            {odd ? "يقبل الأعداد الزوجية فقط." : "عدد زوجي: نصفهم فائزون ونصفهم خاسرون — 4 = فائزان وخاسران."}
+            {odd
+              ? "يقبل 1 أو الأعداد الزوجية فقط."
+              : solo
+                ? "طالب واحد: تُسجَّل نقاطه في كل مباراة."
+                : "1 = طالب واحد بالنقاط، أو عدد زوجي: نصفهم فائزون ونصفهم خاسرون — 4 = فائزان وخاسران."}
           </div>
         </div>
+        {solo && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: 12, borderRadius: 11, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
+            <div>
+              <label style={label}>عدد المباريات في المستوى</label>
+              <NumberField value={soloMatches} onChange={(e) => setSoloMatches(e.target.value)} />
+            </div>
+            <div>
+              <label style={label}>أقصى نقاط المباراة الواحدة</label>
+              <NumberField value={soloMaxPoints} onChange={(e) => setSoloMaxPoints(e.target.value)} />
+            </div>
+            <div>
+              <label style={label}>عدد النقاط للتأهل للمستوى التالي</label>
+              <NumberField value={soloQualify} onChange={(e) => setSoloQualify(e.target.value)} />
+              <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 5 }}>
+                بعد مباريات المستوى كلها: إن بلغ مجموع نقاطه هذا العدد انتقل إلى المستوى التالي، وإلا خرج من المسابقة.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Drawer>
   );
@@ -425,6 +478,49 @@ function MatchForm({ comp, pending, onRecord, onUndo }: { comp: Competition; pen
   );
 }
 
+/** مسابقة الطالب الواحد: اختيار المشارك ونقاطه في المباراة */
+function SoloForm({ comp, pending, onRecord, onUndo }: { comp: Competition; pending: boolean; onRecord: (no: number, points: number) => void; onUndo: () => void }) {
+  const [no, setNo] = useState("");
+  const [points, setPoints] = useState("");
+  const max = comp.solo?.maxPoints ?? 0;
+  const n = Number(points);
+  const ready = no !== "" && points !== "" && Number.isInteger(n) && n >= 0 && n <= max;
+  return (
+    <div style={{ ...cardStyle, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontSize: 14, fontWeight: 700 }}>تسجيل مباراة</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6, fontWeight: 600 }}>الطالب</div>
+          <ParticipantPicker entries={comp.entries.filter((e) => e.status === "ACTIVE" && !e.removed)} value={no} onChange={setNo} />
+        </div>
+        <div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6, fontWeight: 600 }}>النقاط (من 0 إلى {max})</div>
+          <NumberField value={points} onChange={(e) => setPoints(e.target.value)} />
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          disabled={pending || !ready}
+          onClick={() => {
+            onRecord(Number(no), n);
+            setNo("");
+            setPoints("");
+          }}
+          style={{ ...primaryButtonStyle, opacity: pending || !ready ? 0.6 : 1 }}
+        >
+          تسجيل
+        </button>
+        {comp.canUndo && (
+          <button type="button" disabled={pending} onClick={onUndo} style={{ ...softButtonStyle, padding: "8px 12px", fontSize: 12.5 }}>
+            تراجع عن آخر مباراة
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** اختيار مشارك بكتابة اسمه أو رقمه: تظهر المطابقة من المستمرّين في المسابقة ويُختار واحد منهم */
 function ParticipantPicker({ entries, value, onChange }: { entries: Entry[]; value: string; onChange: (v: string) => void }) {
   const [q, setQ] = useState("");
@@ -520,6 +616,9 @@ function EntriesTable({ comp }: { comp: Competition }) {
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
                   {e.cells.map((c, i) => (
                     <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      {comp.solo ? (
+                        <span style={{ padding: "2px 7px", borderRadius: 7, fontSize: 12, fontWeight: 700, color: "var(--ink)", border: "1px solid var(--line)" }}>{c.points ?? 0}</span>
+                      ) : (
                       <span
                         style={{
                           padding: "2px 7px",
@@ -532,6 +631,7 @@ function EntriesTable({ comp }: { comp: Competition }) {
                       >
                         {c.won ? "ف" : "خ"} {c.opponents ?? c.opponentNo ?? ""}
                       </span>
+                      )}
                       {c.qualified && <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--gold)" }}>تأهل</span>}
                     </span>
                   ))}
@@ -539,7 +639,9 @@ function EntriesTable({ comp }: { comp: Competition }) {
                 </div>
                 {e.status === "ACTIVE" && !e.removed && (
                   <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
-                    في هذا المستوى: {e.wins}/{WINS_TO_ADVANCE} ربح · {e.losses}/{LOSSES_TO_EXIT} خسارة
+                    {comp.solo
+                      ? `في هذا المستوى: ${e.played ?? 0}/${comp.solo.matches} مباريات · ${e.points ?? 0}/${comp.solo.qualify} نقطة`
+                      : `في هذا المستوى: ${e.wins}/${WINS_TO_ADVANCE} ربح · ${e.losses}/${LOSSES_TO_EXIT} خسارة`}
                   </div>
                 )}
               </td>

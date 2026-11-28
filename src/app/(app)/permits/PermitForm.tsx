@@ -1,7 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
-import { savePermit, deleteStudentPermits, type FormState } from "./actions";
+import { savePermit, saveAbsencePermit, deleteStudentPermits, type FormState } from "./actions";
+import DateField from "@/components/DateField";
+import { today } from "@/lib/daily";
 import { chipStyle, inputStyle, primaryButtonStyle } from "@/lib/ui";
 import Drawer from "@/components/Drawer";
 import TimeField from "@/components/TimeField";
@@ -28,10 +30,14 @@ export type ExistingPermit = {
   days: string[];
 };
 
+/** إذن غياب قائم (يوم أو فترة) — للتعديل */
+export type ExistingAbsence = { id: string; studentId: string; studentName: string; from: string; to: string; note: string | null };
+
 export default function PermitForm({
   halaqat,
   workDays,
   existing,
+  existingAbsence,
   initialStudentId,
   onClose,
   onSaved,
@@ -41,18 +47,28 @@ export default function PermitForm({
   /** أيام الدوام الرسمية — يُختار منها «أيام الإذن» */
   workDays: string[];
   existing: ExistingPermit | null;
+  existingAbsence?: ExistingAbsence | null;
   /** فُتح من نتيجة البحث «لا يوجد إذن» على طالب بعينه */
   initialStudentId?: string;
   onClose: () => void;
   onSaved?: (wasNew: boolean) => void;
   onDeleted?: () => void;
 }) {
-  const [state, formAction, pending] = useActionState(savePermit, initialState);
+  const [timeState, timeAction, timePending] = useActionState(savePermit, initialState);
+  const [absState, absAction, absPending] = useActionState(saveAbsencePermit, initialState);
+  // نوع الإذن: «وقت» (الحالي — التلقائي)، أو «يوم» أو «فترة» (غياب بإذن)
+  const [mode, setMode] = useState<"time" | "day" | "range">(existingAbsence ? (existingAbsence.from === existingAbsence.to ? "day" : "range") : "time");
+  const [from, setFrom] = useState(existingAbsence?.from ?? today());
+  const [to, setTo] = useState(existingAbsence?.to ?? today());
+  const isTime = mode === "time";
+  const state = isTime ? timeState : absState;
+  const formAction = isTime ? timeAction : absAction;
+  const pending = isTime ? timePending : absPending;
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [studentId, setStudentId] = useState(existing?.studentId ?? initialStudentId ?? "");
+  const [studentId, setStudentId] = useState(existing?.studentId ?? existingAbsence?.studentId ?? initialStudentId ?? "");
   // الأذونات القديمة بلا أيام = كل أيام الدوام؛ والإذن الجديد يبدأ بكل أيام الدوام محدَّدة
   const [days, setDays] = useState<string[]>(existing?.days?.length ? existing.days : workDays);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -70,9 +86,9 @@ export default function PermitForm({
     (entryOn && outside(entryTime)) || (exitOn && outside(exitTime))
       ? `وقت الإذن خارج دوام فوج الطالب (${studentHalqa?.cohortName ?? ""}): ${cohortWindowsLabel(windows)}.`
       : "";
-  const [note, setNote] = useState(existing?.note ?? "");
+  const [note, setNote] = useState(existing?.note ?? existingAbsence?.note ?? "");
 
-  const wasNew = !existing;
+  const wasNew = !existing && !existingAbsence;
   useEffect(() => {
     if (state.ok) {
       onSaved?.(wasNew);
@@ -111,11 +127,11 @@ export default function PermitForm({
     <Drawer
       open
       onClose={onClose}
-      title={existing ? "تعديل إذن" : "إذن جديد"}
-      subtitle={existing ? `${existing.studentName} — الإذن قائم منذ ${existing.since}` : "اختاروا الطالب ثم النوع والوقت — يمكن اختيار الدخول والخروج معًا"}
+      title={existing || existingAbsence ? "تعديل إذن" : "إذن جديد"}
+      subtitle={existingAbsence ? existingAbsence.studentName : existing ? `${existing.studentName} — الإذن قائم منذ ${existing.since}` : "اختاروا الطالب ثم النوع والوقت — يمكن اختيار الدخول والخروج معًا"}
       footer={
         <>
-          <button form="permit-form" type="submit" disabled={pending || !!timeError} style={{ ...primaryButtonStyle, flex: 1, opacity: pending ? 0.7 : 1 }}>
+          <button form="permit-form" type="submit" disabled={pending || (isTime && !!timeError)} style={{ ...primaryButtonStyle, flex: 1, opacity: pending ? 0.7 : 1 }}>
             {pending ? "جارٍ الحفظ…" : "حفظ الإذن"}
           </button>
           {existing && (
@@ -143,11 +159,15 @@ export default function PermitForm({
         <input type="hidden" name="exitTime" value={exitOn ? exitTime : ""} />
         <input type="hidden" name="note" value={note} />
         <input type="hidden" name="daysJson" value={JSON.stringify(days)} />
+        <input type="hidden" name="mode" value={mode} />
+        <input type="hidden" name="absenceId" value={existingAbsence?.id ?? ""} />
+        <input type="hidden" name="from" value={from} />
+        <input type="hidden" name="to" value={to} />
 
-        {existing ? (
+        {existing || existingAbsence ? (
           <div style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-2-grad)" }}>
             <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 3 }}>الطالب</div>
-            <div style={{ fontSize: 15, fontWeight: 600 }}>{existing.studentName}</div>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>{existing?.studentName ?? existingAbsence?.studentName}</div>
           </div>
         ) : (
           <div>
@@ -193,6 +213,39 @@ export default function PermitForm({
           </div>
         )}
 
+        {!existing && (
+          <div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>الإذن</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {(
+                [
+                  ["time", "وقت"],
+                  ["day", "يوم"],
+                  ["range", "فترة"],
+                ] as const
+              ).filter(([id]) => !existingAbsence || id !== "time").map(([id, label]) => (
+                <button key={id} type="button" onClick={() => setMode(id)} style={{ ...chipStyle(mode === id), minHeight: 44, padding: "10px 22px" }}>
+                  {mode === id ? "✓ " : ""}
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 6 }}>
+              {isTime ? "وقت: دخول أو خروج بساعة محددة في أيام مختارة، دائم حتى يُحذف." : "غياب بإذن: حضور الطالب فيه «إذن» عند المدرّس ولا يُغيَّر."}
+            </div>
+          </div>
+        )}
+
+        {mode === "day" && <DateField label="يوم الإذن" value={from} onChange={(v) => { setFrom(v); setTo(v); }} />}
+        {mode === "range" && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
+            <DateField label="من تاريخ" value={from} onChange={setFrom} />
+            <DateField label="إلى تاريخ" value={to} onChange={setTo} />
+          </div>
+        )}
+
+        {isTime && (
+        <>
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginBottom: 8 }}>نوع الإذن — يمكن اختيار النوعين معًا</div>
           <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
@@ -244,6 +297,8 @@ export default function PermitForm({
           </div>
           <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 6 }}>من أيام الدوام الرسمية — يُطبَّق الإذن في الأيام المختارة وحدها.</div>
         </div>
+        </>
+        )}
 
         <div>
           <label style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)", marginBottom: 6 }}>سبب الإذن (اختياري)</label>
@@ -256,9 +311,9 @@ export default function PermitForm({
           />
         </div>
 
-        <div style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid rgba(212,175,55,0.4)", background: "linear-gradient(135deg, rgba(212,175,55,0.13), rgba(212,175,55,0.02))", fontSize: 12.5, color: "var(--ink)" }}>
+        {isTime && <div style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid rgba(212,175,55,0.4)", background: "linear-gradient(135deg, rgba(212,175,55,0.13), rgba(212,175,55,0.02))", fontSize: 12.5, color: "var(--ink)" }}>
           الإذن ليس ليوم واحد فقط، بل يلازم الطالب من تاريخ إضافته ويُطبَّق في أيامه المختارة حتى يُحذف من هذه الشاشة.
-        </div>
+        </div>}
 
         {/* رسالة الخطأ داخل النموذج نفسه قرب زر الحفظ — لا أعلى الصفحة */}
         {errorText && (
